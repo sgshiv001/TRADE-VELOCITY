@@ -1,54 +1,40 @@
 # High-Performance Stock Market Order Matching Engine
 
-An in-memory stock exchange simulation built around explicit data structures. It matches orders by **best price, then arrival time** and executes each trade at the resting order's price. This is an educational DSA project, not a production exchange.
+A complete, in-memory mini stock exchange for studying advanced data structures and algorithms. It accepts buy and sell orders, applies **price-time priority**, executes trades, and shows the market through a Streamlit dashboard. The matching core is independent of the UI, with reproducible scenarios, tests, and benchmarking tools.
+
+> Educational simulation. It does not connect to a live exchange or place real trades.
+
+## What it does
+
+- **Trading:** buy and sell limit orders, market orders, partial fills, cancellation, and modification.
+- **Order book:** multiple stocks, best bid and ask, FIFO at each price, and ordered market depth.
+- **Analytics:** trade history, OHLC prices, VWAP, executed volume, volume-range queries, and most traded stocks.
+- **Experiments:** deterministic generated orders, concurrent submission simulation, and throughput and memory benchmarks.
+- **Reproducibility:** export a session to JSON, import it later, and download trades as CSV.
 
 ## Quick start
 
-Requires Python 3.10 or newer.
+Requires Python 3.10 or newer. From the project folder:
 
 ```powershell
-python -m pip install -e ".[test,dashboard]"
-python -m stock_engine.cli demo
-python -m pytest
+python -m pip install -e ".[dashboard,test]"
+python -m pytest -q
 python -m streamlit run dashboard.py
 ```
 
-For a terminal throughput run:
+In the dashboard, click **Load example market** to see a ready-made two-stock scenario. Place orders in the **Trade** tab, inspect depth in **Order book**, view statistics in **Analytics**, generate data in **Experiments**, and export the session in **Session & export**.
+
+## Terminal commands
 
 ```powershell
+python -m stock_engine.cli demo
+python -m stock_engine.cli run scenarios/demo.json
 python -m stock_engine.cli benchmark --orders 100000 --seed 42
 python -m stock_engine.cli simulate --orders 10000 --workers 4 --seed 42
+python scripts/benchmark.py --sizes 1000,10000,100000 --repeats 3 --trace-memory
 ```
 
-The benchmark uses a fixed random seed. Report the machine, Python version, order count, and measured orders per second when comparing results. The concurrent simulation submits orders from several threads; the engine lock gives each order a valid sequence, though thread scheduling can change the particular matches between runs.
-
-## Trading rules
-
-- A buy limit order trades with the lowest ask at or below its limit; a sell limit order trades with the highest bid at or above its limit.
-- Orders at one price execute in arrival order. A partially filled resting order keeps its place.
-- A market order takes available liquidity and any unfilled remainder expires.
-- Limit order remainders rest on the book. Cancel removes an active order. Modify replaces its **open** quantity and limit price, and loses its old time priority.
-- Order IDs are unique for the life of the engine, except that modifying an active order preserves its ID.
-- Symbols are independent; the engine serializes operations with a lock so a concurrent simulation has a valid total order.
-- All quantities are positive integers, and prices are positive rupee amounts with at most two decimal places.
-
-## Data structures and complexity
-
-Let `P` be active price levels, `O` active orders, and `T` trades for a symbol.
-
-| Operation | Structure | Typical cost |
-| --- | --- | --- |
-| Best bid / ask | Custom max / min binary heap | `O(1)` peek; stale entries may take extra pops |
-| Price-time priority | Doubly linked FIFO queue per price | `O(1)` append / head / remove |
-| Cancel by ID | Hash map to order and queue node | `O(1)` lookup and unlink, plus `O(log P)` if the price level empties |
-| Ordered market depth | Custom AVL tree | `O(log P + k)` for first `k` levels |
-| Add or remove a price level | AVL tree and binary heap | `O(log P)`; occasional heap rebuild |
-| Trade history / ID lookup | Dynamic array and binary search | `O(1)` append, `O(log T)` search |
-| Volume over a trade range | Appendable Fenwick tree | `O(log T)` query; append amortized `O(log T)` |
-| Top traded stocks | Binary heap over per-symbol totals | `O(S log S + n log S)` for `S` symbols and top `n` |
-| Current price statistics | Incremental per-symbol totals | `O(1)` read |
-
-Matching an order also costs work proportional to the price levels and resting orders it consumes. The heap discards invalidated entries lazily and periodically compacts them when cancellations leave too many stale entries.
+The last command writes a CSV to `benchmarks/results.csv`. See the [measured baseline](docs/results.md) and [performance evaluation](docs/evaluation.md) for results, methodology, and interpretation.
 
 ## Python API
 
@@ -58,13 +44,57 @@ from stock_engine import MatchingEngine
 engine = MatchingEngine()
 engine.place_order("S1", "ACME", "SELL", 150, "105.00")
 result = engine.place_order("B1", "ACME", "BUY", 100, "106.00")
-print(result.trades[0])  # 100 shares at ₹105.00
+
+assert result.trades[0].quantity == 100
+assert str(result.trades[0].price) == "105.00"  # resting order's price
 print(engine.order_book("ACME"))
 print(engine.symbol_stats("ACME"))
 ```
 
-Pass `price=None` for a market order. Use `cancel_order(id)`, `modify_order(id, new_open_quantity, new_price)`, `trades(symbol)`, `trade_by_id(id)`, `traded_volume(symbol, start, end)`, and `top_traded_stocks()` for the other features.
+Use `price=None` for a market order. Other methods include `cancel_order`, `modify_order`, `active_orders`, `trades`, `trade_by_id`, `traded_volume`, and `top_traded_stocks`. `modify_order(id, quantity, price)` replaces the order's **open** quantity and loses its previous time priority.
 
-## Scope
+To record and replay a session:
 
-The project is a single-process simulation. It does not connect to a broker, persist orders, handle auction sessions, apply fees, or implement risk checks. Its purpose is to make matching and DSA complexity observable and testable.
+```python
+from stock_engine import ExchangeSession
+
+session = ExchangeSession()
+session.place_order("S1", "ACME", "SELL", 20, "100.00")
+session.save("my-scenario.json")
+restored = ExchangeSession.from_file("my-scenario.json")
+```
+
+## Data structures
+
+| Purpose | Implementation |
+| --- | --- |
+| Best bid and ask | Custom max and min binary heaps |
+| Orders at the same price | Doubly linked FIFO queues |
+| Find or cancel an order | Order-ID hash map |
+| Sorted price levels and market depth | Custom AVL trees |
+| Volume over a trade range | Appendable Fenwick trees |
+| Trade history and search | Dynamic array and binary search |
+| Most traded stocks | Binary heap over symbol totals |
+
+The core structures are implemented in [`src/stock_engine/structures.py`](src/stock_engine/structures.py). See [architecture and complexity](docs/architecture.md) for the matching algorithm, invariants, and operation costs.
+
+## Project layout
+
+```text
+dashboard.py                 Streamlit interface
+src/stock_engine/engine.py   Matching and order books
+src/stock_engine/structures.py  Heaps, linked queues, AVL, Fenwick
+src/stock_engine/session.py  JSON scenario recording and replay
+src/stock_engine/cli.py      Demo, replay, benchmark, concurrency
+scenarios/demo.json          Example two-stock market
+scripts/benchmark.py         Repeatable CSV performance experiment
+tests/                       Correctness and replay tests
+docs/                        Design and evaluation notes
+.github/workflows/tests.yml  Cross-platform CI
+```
+
+## Trading rules and scope
+
+Each trade executes at the resting order's price. An unfilled limit-order remainder rests on the book; an unfilled market-order remainder expires. Partially filled resting orders keep their position. Order IDs are unique for one engine session, except that modification preserves the ID. Prices are positive rupee amounts with at most two decimal places; quantities are positive integers.
+
+The engine protects each command with a lock. A concurrent run has a valid total order, although its exact matching sequence can vary with thread scheduling. Session JSON records successful commands for replay; trade timestamps are generated again during replay. The application does not provide durable live storage, broker connectivity, or financial risk controls.

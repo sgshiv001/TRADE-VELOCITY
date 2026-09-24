@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "events": [
+    {"type": "place", "order_id": "S1", "symbol": "ACME", "side": "SELL", "quantity": 150, "price": "105.00"},
+    {"type": "place", "order_id": "S2", "symbol": "ACME", "side": "SELL", "quantity": 100, "price": "106.00"},
+    {"type": "place", "order_id": "B1", "symbol": "ACME", "side": "BUY", "quantity": 100, "price": "106.00"},
+    {"type": "place", "order_id": "B2", "symbol": "ACME", "side": "BUY", "quantity": 20, "price": null},
+    {"type": "place", "order_id": "B3", "symbol": "ACME", "side": "BUY", "quantity": 70, "price": "104.00"},
+    {"type": "place", "order_id": "S3", "symbol": "ACME", "side": "SELL", "quantity": 80, "price": "103.00"},
+    {"type": "cancel", "order_id": "S2"},
+    {"type": "place", "order_id": "T1", "symbol": "TECH", "side": "SELL", "quantity": 50, "price": "200.00"},
+    {"type": "place", "order_id": "T2", "symbol": "TECH", "side": "BUY", "quantity": 40, "price": "200.00"}
+  ]
+}

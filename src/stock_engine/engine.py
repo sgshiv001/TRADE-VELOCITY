@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from threading import RLock
@@ -38,8 +39,9 @@ class SymbolTotals:
             self.high = price
             self.low = price
         else:
-            self.high = max(self.high, price)  # type: ignore[type-var]
-            self.low = min(self.low, price)  # type: ignore[type-var]
+            assert self.high is not None and self.low is not None
+            self.high = max(self.high, price)
+            self.low = min(self.low, price)
         self.last = price
 
 
@@ -108,14 +110,14 @@ class MatchingEngine:
     """One locked engine instance; orders execute at the resting order's price."""
 
     def __init__(self):
-        self._books: dict[str, tuple[BookSide, BookSide]] = {}
+        self._books: defaultdict[str, tuple[BookSide, BookSide]] = defaultdict(lambda: (BookSide(True), BookSide(False)))
         self._active: dict[str, tuple[Order, QueueNode[Order]]] = {}
         self._used_ids: set[str] = set()
         self._sequence = 0
         self._trades: list[Trade] = []
-        self._symbol_trades: dict[str, list[Trade]] = {}
-        self._volume: dict[str, FenwickTree] = {}
-        self._stats: dict[str, SymbolTotals] = {}
+        self._symbol_trades: defaultdict[str, list[Trade]] = defaultdict(list)
+        self._volume: defaultdict[str, FenwickTree] = defaultdict(FenwickTree)
+        self._stats: defaultdict[str, SymbolTotals] = defaultdict(SymbolTotals)
         self._lock = RLock()
 
     @staticmethod
@@ -160,7 +162,7 @@ class MatchingEngine:
     def _place_validated(self, order_id: str, symbol: str, side: Side, quantity: int, price: Decimal | None) -> OrderResult:
         self._sequence += 1
         incoming = Order(order_id, symbol, side, quantity, quantity, price, self._sequence)
-        buy_book, sell_book = self._books.setdefault(symbol, (BookSide(True), BookSide(False)))
+        buy_book, sell_book = self._books[symbol]
         opposite = sell_book if side == Side.BUY else buy_book
         trades: list[Trade] = []
 
@@ -184,9 +186,9 @@ class MatchingEngine:
                 maker.order_id if side == Side.BUY else incoming.order_id,
             )
             self._trades.append(trade)
-            self._symbol_trades.setdefault(symbol, []).append(trade)
-            self._volume.setdefault(symbol, FenwickTree()).append(executed)
-            self._stats.setdefault(symbol, SymbolTotals()).record(level.price, executed)
+            self._symbol_trades[symbol].append(trade)
+            self._volume[symbol].append(executed)
+            self._stats[symbol].record(level.price, executed)
             trades.append(trade)
             if maker.remaining == 0:
                 _, node = self._active.pop(maker.order_id)
@@ -237,6 +239,31 @@ class MatchingEngine:
                 "remaining": order.remaining,
                 "sequence": order.sequence,
             }
+
+    def active_orders(self, symbol: str | None = None) -> list[dict]:
+        """Return copies of open orders in arrival order."""
+        with self._lock:
+            selected = symbol.upper() if symbol is not None else None
+            orders = sorted(
+                (order for order, _ in self._active.values() if selected is None or order.symbol == selected),
+                key=lambda order: order.sequence,
+            )
+            return [
+                {
+                    "order_id": order.order_id,
+                    "symbol": order.symbol,
+                    "side": order.side.value,
+                    "price": str(order.price),
+                    "quantity": order.quantity,
+                    "remaining": order.remaining,
+                    "sequence": order.sequence,
+                }
+                for order in orders
+            ]
+
+    def symbols(self) -> list[str]:
+        with self._lock:
+            return sorted(self._books)
 
     def order_book(self, symbol: str, depth: int = 10) -> dict:
         if depth < 0:

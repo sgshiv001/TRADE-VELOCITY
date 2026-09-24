@@ -4,8 +4,10 @@ import argparse
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from .engine import MatchingEngine
+from .session import ExchangeSession
 
 
 def demo() -> None:
@@ -51,6 +53,16 @@ def simulate(count: int, workers: int, seed: int) -> None:
     print(f"workers={workers} orders={count} trades={len(engine.trades())} open_levels={len(book['bids']) + len(book['asks'])} seconds={elapsed:.4f}")
 
 
+def run_scenario(path: Path) -> None:
+    session = ExchangeSession.from_file(path)
+    print(f"scenario={path} events={len(session.events)} trades={len(session.engine.trades())}")
+    for symbol in session.engine.symbols():
+        print(f"{symbol}: {session.engine.symbol_stats(symbol)}")
+        print(f"book: {session.engine.order_book(symbol)}")
+    for trade in session.engine.trades():
+        print(f"trade #{trade.trade_id}: {trade.symbol} {trade.quantity} @ INR {trade.price} ({trade.buy_order_id} / {trade.sell_order_id})")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Stock order matching engine")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -62,13 +74,17 @@ def main() -> None:
     simulation.add_argument("--orders", type=int, default=10_000)
     simulation.add_argument("--workers", type=int, default=4)
     simulation.add_argument("--seed", type=int, default=42)
+    scenario = subcommands.add_parser("run", help="replay a JSON scenario")
+    scenario.add_argument("path", type=Path)
     args = parser.parse_args()
     if args.command == "demo":
         demo()
     elif args.command == "benchmark":
         benchmark(args.orders, args.seed)
-    else:
+    elif args.command == "simulate":
         simulate(args.orders, args.workers, args.seed)
+    else:
+        run_scenario(args.path)
 
 
 if __name__ == "__main__":
