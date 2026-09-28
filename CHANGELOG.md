@@ -6,7 +6,7 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
-## 2026-09-29 — Complete launcher and GitHub publication preparation
+## 2026-09-29 — Complete launcher and GitHub publication
 
 ### Added
 
@@ -59,6 +59,11 @@ and `git log --all --stat` for the full available record.
 - Publication validation: **85 tests passed in 13.16 seconds**, production
   frontend build succeeded, dependency check passed, and the demo scenario
   replayed with nine events/four trades. See the detailed development log.
+- Published 83 project files to the existing public repository's `main` branch.
+  Implementation commit: `c331e27`; history-integration merge: `4e159b8`.
+  GitHub's remote SHA and file tree were verified after the successful push.
+  GitHub Actions started for that push; local results above are separate from
+  its eventual hosted CI result.
 
 ## 2026-09-28 to 2026-09-29 — Historical AI and runtime fixes
 

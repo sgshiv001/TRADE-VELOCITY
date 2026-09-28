@@ -150,7 +150,24 @@ Completed on 29 September 2026 in the existing Windows project environment:
   check, not a guarantee that all possible sensitive formats are detectable.
 - The existing GitHub API identified `sgshiv001/TRADE-VELOCITY` as public with
   default branch `main`. Its initial commit was fetched before integrating the
-  histories. Remote publication is verified separately after the push.
+  histories.
+
+### Verified GitHub publication
+
+Implementation commit `c331e27` records 75 changed files, 7,518 insertions,
+and 68 deletions relative to the preceding local engine commit. Merge
+`4e159b8bb09fb5213c13e7c88f4dc3c67d8a3093` integrates the existing remote's initial
+history. The push fast-forwarded `sgshiv001/TRADE-VELOCITY` `main` from
+`1814dfc` to `4e159b8` without force.
+
+GitHub's remote branch SHA matched the merge commit. Its recursive file tree
+contained 83 project files, including the README, change log, this development
+log, launcher, API, npm lockfile, launcher tests, and workflow. GitHub Actions
+started for that push; its hosted outcome was still pending when this record
+was written. The 85-test result above is the completed local validation.
+
+A documentation-only follow-up records this verified publication; its exact
+commit ID and any later updates are available from Git history.
 
 ## Upload scope
 
