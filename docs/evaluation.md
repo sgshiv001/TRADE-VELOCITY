@@ -54,15 +54,15 @@ For one stock, the staged workloads reach `floor(commands / 2)` distinct levels 
 
 Before timing each workload and size, the harness compares complete final trades, open orders, depth, statistics, and total volume, excluding regenerated timestamps. It alternates which engine runs first on successive repetitions, collects garbage outside each timed run, disables GC during processing, and restores the previous setting afterward. Each timed run's trade and open-order counts must match the verified counts. Every timing completes before the optional separate memory passes begin. CSV rows retain every repetition, parameters, Python version, platform, elapsed time, throughput, and peak traced allocations during matching. Engine construction, workload generation, verification, and output formatting are outside the timed section.
 
-Compare medians within the same workload and size. An indexed/list throughput ratio above one favors the indexed engine. Include the small-price result and memory costs when discussing the benefit of advanced structures. The **Experiments** dashboard tab charts these measurements and runs a fresh one-stock, seed-42 comparison in separate engines.
+Compare medians within the same workload and size. An indexed/list throughput ratio above one favors the indexed engine. Include the small-price result and memory costs when discussing the benefit of advanced structures. Use the script above for a fresh comparison; `benchmarks/comparison.csv` is the authoritative measurement record. The old Streamlit Experiments tab has been removed.
 
 ## Suggested report figures
 
 1. Plot orders per second against order count from `benchmarks/results.csv`.
 2. Plot peak traced memory against order count.
 3. Run `simulate` for one and four workers; explain that the engine lock preserves correctness, while Python thread scheduling and lock contention can change throughput. Keep the workload identical and do not compare it directly with the multi-symbol CSV experiment.
-4. Use the dashboard's market-depth and execution-price charts to explain one replayed scenario.
+4. Use the application's Order Book and History pages to explain one replayed scenario.
 
 ## Limitations and extensions
 
-The current engine has no durable live log, broker connectivity, account balances, risk limits, exchange auctions, order routing, or transaction fees. Scenario JSON is for reproducible demonstrations and experiments. Future extensions can add time-in-force rules, persistence, a service API, and external market-data feeds while keeping the matching core isolated.
+The matching core has no broker connectivity, auctions, routing, or transaction fees. The surrounding API adds a virtual account and local JSON session persistence, but does not provide production authentication or transactional database storage. Historical data and AI analysis are separate from matching. Future extensions can add time-in-force rules and stronger persistence while keeping the core isolated.

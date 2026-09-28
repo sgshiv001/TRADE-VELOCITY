@@ -1,6 +1,6 @@
-"""Build and run the complete Trade Velocity app with browser selection.
+"""Build and run the complete TradeVelocity app with browser selection.
 
-Run ``python app.py`` or double-click app.bat. Ctrl+C stops the server.
+Run ``python app.py``. Ctrl+C stops the server. Use demoapp.py for verified examples.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def browser_path(name: str) -> str | None:
 
 
 def select_browser() -> str:
-    print("\nSelect a browser for Trade Velocity:")
+    print("\nSelect a browser for TradeVelocity:")
     print("  1. Microsoft Edge")
     print("  2. Google Chrome")
     print("  3. System default browser")
@@ -144,7 +144,7 @@ def build_frontend(skip_build: bool) -> None:
 def serve(port: int, browser: str | None, skip_build: bool) -> int:
     url = f"http://{HOST}:{port}/"
     if app_is_running(port):
-        print(f"Trade Velocity is already running at {url}")
+        print(f"TradeVelocity is already running at {url}")
         if browser:
             open_browser(browser, url)
         print("Stop the existing server from the terminal that started it.")
@@ -176,7 +176,7 @@ def serve(port: int, browser: str | None, skip_build: bool) -> int:
         def announce_when_ready() -> None:
             while not finished.wait(0.1):
                 if server.started:
-                    print(f"\nTrade Velocity is ready: {url}", flush=True)
+                    print(f"\nTradeVelocity is ready: {url}", flush=True)
                     print("Press Ctrl+C to stop. Paper sessions are saved in .marketlab/sessions.", flush=True)
                     if browser:
                         open_browser(browser, url)
@@ -195,7 +195,7 @@ def serve(port: int, browser: str | None, skip_build: bool) -> int:
 
 def main(arguments: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if arguments is None else arguments)
-    parser = argparse.ArgumentParser(description="Launch the complete Trade Velocity app")
+    parser = argparse.ArgumentParser(description="Launch the complete TradeVelocity app")
     parser.add_argument("--port", type=int, default=8000, help="local port (default: 8000)")
     parser.add_argument("--browser", choices=("edge", "chrome", "firefox", "default"),
                         help="choose a browser without the interactive prompt")
@@ -211,11 +211,11 @@ def main(arguments: list[str] | None = None) -> int:
         delegated_exit = use_project_python(arguments)
         if delegated_exit is not None:
             return delegated_exit
-        print("TRADE VELOCITY / COMPLETE APP LAUNCHER", flush=True)
+        print("TRADEVELOCITY / COMPLETE APP LAUNCHER", flush=True)
         browser = None if args.no_browser else args.browser or select_browser()
         return serve(args.port, browser, args.skip_build)
     except KeyboardInterrupt:
-        print("\nTrade Velocity stopped.")
+        print("\nTradeVelocity stopped.")
         return 0
     except subprocess.CalledProcessError as exc:
         print(f"\nFrontend build/install failed (exit {exc.returncode}). See the error above.", file=sys.stderr)

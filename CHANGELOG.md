@@ -6,6 +6,33 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-09-29 — Simplify launch files and project presentation
+
+- Use the name **TradeVelocity** with the full title **High-Performance Stock
+  Market Order Matching Engine with Advanced Data Structures, Market Simulation
+  and AI Analytics**.
+- Keep `app.py` as the full-app launcher; rename the presentation entry to
+  `demoapp.py` and add verified price/FIFO/partial-fill/cancellation/VWAP examples.
+- Update VS Code run/demo configurations and launcher regression paths.
+- Remove batch/compatibility launchers, the phase-1 setup entry/configuration,
+  duplicate requirements list, legacy Streamlit dashboard and its tests, and
+  obsolete guides/problem-statement file.
+- Remove empty output placeholders, an outdated screenshot, unused chart code,
+  unused AI page, and unused Recharts/Streamlit dependencies. Python dependencies
+  now have one source of truth in `pyproject.toml`.
+- Shorten README with the meaning of the project name, the problem being solved,
+  two run commands, a compact structure, and clear feature limitations.
+- Keep the matching engine, API, historical data, benchmark evidence, current
+  tests, and complete Git history. Removed files remain recoverable from Git;
+  no new backup folder is created.
+- Update the existing public GitHub repository's description and topics without
+  creating or renaming a repository.
+- Validation: **83 tests passed**, TypeScript/Vite production build succeeded,
+  both entry files served the built UI and released their ports, and the
+  terminal demo passed all matching checks. See the development log for details.
+- Automatic approval review blocked removal of leftover local cache/empty
+  directories. These directories are not part of the GitHub upload.
+
 ## 2026-09-29 — Consolidate the single project folder
 
 - Clarified that the original `ADSA PROJECT` working folder and Trade Velocity

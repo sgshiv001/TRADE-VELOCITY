@@ -1,14 +1,18 @@
-# Contributing to Trade Velocity
+# Contributing to TradeVelocity
 
-Trade Velocity is an educational matching-engine project. Changes should keep
+TradeVelocity is an educational matching-engine project. Changes should keep
 matching deterministic and performance claims reproducible.
 
 ## Set up
 
-Follow the [README](README.md). Install `.[app,dashboard,test]` for the full
+Follow the [README](README.md). Install `.[app,test]` for the full
 test suite and use `npm ci` in `frontend/` for locked frontend dependencies.
 
 ## Make a change
+
+Keep `app.py` and `demoapp.py` as the two application entry files. Put supporting
+logic in `src/stock_engine/` and experiment tools in `scripts/` rather than
+adding another launcher or dashboard.
 
 1. Create a branch from current `main`, for example
    `git switch -c feature/describe-your-change`.
@@ -39,7 +43,7 @@ build caches, local paper sessions, credentials, or `.env` files. Preserve the
 npm lockfile, source, tests, measured benchmark evidence, and relevant guides.
 
 Use one working folder for this application. An existing folder named
-`ADSA PROJECT` is the Trade Velocity project itself; a nested copy is unnecessary.
+`ADSA PROJECT` is the TradeVelocity project itself; a nested copy is unnecessary.
 Unrelated `Lab_Assignments/` coursework remains local.
 
 ## Benchmarks and data

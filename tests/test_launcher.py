@@ -72,7 +72,8 @@ def test_missing_browser_falls_back_to_system_default(monkeypatch):
     assert opened == ["http://127.0.0.1:8000/"]
 
 
-def test_stopping_launcher_releases_server_port():
+@pytest.mark.parametrize("entry_file", ["app.py", "demoapp.py"])
+def test_stopping_launcher_releases_server_port(entry_file):
     pytest.importorskip("uvicorn")
     if not (ROOT / "frontend/dist/index.html").exists():
         pytest.skip("build the frontend before running launcher integration checks")
@@ -80,7 +81,7 @@ def test_stopping_launcher_releases_server_port():
         candidate.bind(("127.0.0.1", 0))
         port = candidate.getsockname()[1]
     process = subprocess.Popen(
-        [sys.executable, str(ROOT / "app.py"), "--no-browser", "--skip-build", "--port", str(port)],
+        [sys.executable, str(ROOT / entry_file), "--no-browser", "--skip-build", "--port", str(port)],
         cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
     try:
@@ -93,11 +94,13 @@ def test_stopping_launcher_releases_server_port():
             time.sleep(0.1)
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/") as response:
             assert response.status == 200
-            assert 'id="root"' in response.read().decode()
+            html = response.read().decode()
+            assert 'id="root"' in html
+            assert "<title>TradeVelocity | Order Matching Engine</title>" in html
         base_python = Path(sys.base_prefix) / ("python.exe" if os.name == "nt" else "bin/python3")
         second = subprocess.run(
             [str(base_python if base_python.exists() else sys.executable),
-             str(ROOT / "scripts/run_app.py"), "--no-browser", "--skip-build", "--port", str(port)],
+             str(ROOT / "app.py"), "--no-browser", "--skip-build", "--port", str(port)],
             cwd=ROOT, capture_output=True, text=True, timeout=10,
         )
         assert second.returncode == 0, second.stdout + second.stderr

@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Trade Velocity: Run App",
+      "name": "TradeVelocity: Run App",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/app.py",
@@ -15,10 +15,10 @@
       }
     },
     {
-      "name": "Trade Velocity: Classroom Demo",
+      "name": "TradeVelocity: Demo App",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/class_demo.py",
+      "program": "${workspaceFolder}/demoapp.py",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "args": [],

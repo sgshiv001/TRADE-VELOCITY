@@ -9,7 +9,6 @@ flowchart LR
     API --> Lab[Independent matching lab]
     Paper --> Session[ExchangeSession]
     Lab --> Session
-    Legacy[Optional Streamlit dashboard] --> Session
     API --> History[Company history and indicators]
     API --> Saved[Local atomic session journals]
     CLI[CLI and JSON scenarios] --> Session
@@ -92,4 +91,4 @@ Building and draining `N/2` distinct levels for one symbol gives amortized expec
 
 `ExchangeSession` records successful `place`, `cancel`, and `modify` commands. JSON scenarios have `version: 1` and an ordered `events` array. Import replays the commands into a new engine, so the order book and trades can be reproduced. Trade timestamps are generated at replay time and therefore differ from the original run.
 
-The session recorder is intended for single-threaded dashboard or CLI use. For concurrent experiments, submit directly to `MatchingEngine`; its lock protects matching.
+The session recorder is intended for sequential API or CLI commands. For concurrent experiments, submit directly to `MatchingEngine`; its lock protects matching.

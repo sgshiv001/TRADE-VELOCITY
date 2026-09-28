@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Trade Velocity: Build Frontend",
+      "label": "TradeVelocity: Build Frontend",
       "type": "shell",
       "command": "npm run build",
       "options": {
@@ -11,13 +11,21 @@
       "problemMatcher": "$tsc"
     },
     {
-      "label": "Trade Velocity: Run App",
+      "label": "TradeVelocity: Run App",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
       "args": ["${workspaceFolder}/app.py"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
+      "problemMatcher": []
+    },
+    {
+      "label": "TradeVelocity: Demo App",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["${workspaceFolder}/demoapp.py"],
+      "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": []
     }
   ]

@@ -79,7 +79,10 @@ period rather than invented per-file timestamps.
     existing TRADE-VELOCITY remote, expand the README, record this log/change
     history, define contributions, review upload scope, and extend launcher CI.
 
-## Current file inventory and responsibilities
+## Historical file inventory before launch-file cleanup
+
+This table records the publication state. Some files below were later removed
+or renamed during cleanup; use the README for the current project structure.
 
 | Files / directory | Implemented responsibility or update |
 | --- | --- |
@@ -213,3 +216,57 @@ git diff <older-commit> <newer-commit>
 
 Do not add credentials, personal session exports, unmeasured performance
 claims, or reconstructed timestamps to the development log.
+
+## Launch-file and presentation cleanup — 29 September 2026
+
+The user requested one full-app launcher and one working demonstration. The
+current entry files are `app.py` and `demoapp.py`. The demonstration now checks
+multi-price execution, VWAP, FIFO priority, partial remainder, and cancellation
+using the actual matching engine before opening the same application.
+
+Removed the alternate batch/build launchers, old `main.py`/phase-1 configuration,
+supplemental requirements file, legacy Streamlit interface/tests, obsolete
+setup/demo/app guides and problem-statement copy, unused frontend chart/AI code,
+outdated screenshot, and empty output placeholders. Supporting engine modules,
+current API/UI, market snapshot, benchmark scripts/CSVs, scenario, tests, and
+design/evaluation reports remain. Deletions are recoverable from prior commits,
+with no additional backup directory.
+
+README now explains **TradeVelocity** as trade plus the speed/flow of orders,
+and describes the problem: efficiently find compatible prices while preserving
+FIFO fairness and accurate order/trade state. The full academic title is kept
+under the project name. The existing public `sgshiv001/TRADE-VELOCITY`
+repository's description was updated to the full project title and the
+Python/FastAPI/React stack. Topics now cover ADSA, data structures, order matching,
+market simulation, Isolation Forest, Python, FastAPI, and React. Repository name,
+visibility, default branch, and existing history were preserved.
+
+### Cleanup validation
+
+- Full local suite: **83 passed in 11.74 seconds**, with no skipped tests or
+  warning summary. This includes the three demonstration regression checks and
+  integration checks for both `app.py` and `demoapp.py`.
+- Both entry files started real Uvicorn servers, returned a healthy app identity
+  and the built frontend with the TradeVelocity title, reused an existing app
+  from another Python interpreter, and released their ports after shutdown.
+  The integration tests stopped their own temporary servers.
+- Terminal-only demonstration: all engine checks passed. The 250-share purchase
+  executed 50 at 105, 100 at 106, and 100 at 107; VWAP was 106.20. Separate checks
+  verified the 50-share partial remainder, same-price FIFO, and cancellation.
+- `npm run build`: TypeScript and Vite production build succeeded; Vite reported
+  1,743 transformed modules and 2.15 seconds for its build. Unused Recharts
+  dependencies were pruned and the npm lockfile was updated.
+- `python -m pip check`: no broken requirements found.
+- Verified the root has only the two Python application entry files; 60 project
+  files remain in the upload scope. Local Markdown links (18 checked) resolve,
+  and VS Code/frontend JSON configurations parse successfully.
+- `git diff --check` passed. No additional backup directory was created. Local
+  environments, installed dependencies, session journals, caches, and unrelated
+  coursework stay excluded from publication.
+- Automatic approval review rejected removal of two generated `config` bytecode
+  files and leftover empty placeholder directories. No alternate deletion method
+  was attempted; these local leftovers are excluded or have no tracked files,
+  so they do not appear in the uploaded repository.
+
+The cleanup commit and its verified remote state are available in Git history;
+the hosted CI outcome is separate from the completed local checks above.
