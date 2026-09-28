@@ -2,19 +2,108 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, MutableMapping
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Generic, Iterator, TypeVar
 
 T = TypeVar("T")
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+@dataclass(slots=True)
+class HashEntry(Generic[K, V]):
+    key: K
+    value: V
+    hash_value: int
+    next: HashEntry[K, V] | None = None
+
+
+class HashTable(MutableMapping[K, V]):
+    """Separate-chaining hash map with automatic growth and shrinkage.
+
+    Lookup is expected O(1), with O(n) worst-case collision chains. Resizing
+    makes insertion and deletion amortized expected O(1). Iteration order is
+    unspecified; keys must be hashable and keep a stable hash while stored.
+    """
+
+    def __init__(self):
+        self._buckets: list[HashEntry[K, V] | None] = [None] * 8
+        self._size = 0
+
+    def __len__(self) -> int:
+        return self._size
+
+    def __iter__(self) -> Iterator[K]:
+        for entry in self._buckets:
+            while entry is not None:
+                yield entry.key
+                entry = entry.next
+
+    def __getitem__(self, key: K) -> V:
+        hash_value = hash(key)
+        entry = self._buckets[hash_value & (len(self._buckets) - 1)]
+        while entry is not None:
+            if entry.hash_value == hash_value and (entry.key is key or entry.key == key):
+                return entry.value
+            entry = entry.next
+        raise KeyError(key)
+
+    def __setitem__(self, key: K, value: V) -> None:
+        hash_value = hash(key)
+        index = hash_value & (len(self._buckets) - 1)
+        entry = self._buckets[index]
+        while entry is not None:
+            if entry.hash_value == hash_value and (entry.key is key or entry.key == key):
+                entry.value = value
+                return
+            entry = entry.next
+        if (self._size + 1) * 4 > len(self._buckets) * 3:
+            self._resize(len(self._buckets) * 2)
+            index = hash_value & (len(self._buckets) - 1)
+        self._buckets[index] = HashEntry(key, value, hash_value, self._buckets[index])
+        self._size += 1
+
+    def __delitem__(self, key: K) -> None:
+        hash_value = hash(key)
+        index = hash_value & (len(self._buckets) - 1)
+        previous = None
+        entry = self._buckets[index]
+        while entry is not None:
+            if entry.hash_value == hash_value and (entry.key is key or entry.key == key):
+                if previous is None:
+                    self._buckets[index] = entry.next
+                else:
+                    previous.next = entry.next
+                self._size -= 1
+                if len(self._buckets) > 8 and self._size * 8 < len(self._buckets):
+                    self._resize(len(self._buckets) // 2)
+                return
+            previous, entry = entry, entry.next
+        raise KeyError(key)
+
+    def _resize(self, capacity: int) -> None:
+        buckets: list[HashEntry[K, V] | None] = [None] * capacity
+        for entry in self._buckets:
+            while entry is not None:
+                following = entry.next
+                index = entry.hash_value & (capacity - 1)
+                entry.next = buckets[index]
+                buckets[index] = entry
+                entry = following
+        self._buckets = buckets
 
 
 class BinaryHeap(Generic[T]):
     """Binary heap with a caller supplied higher-priority comparison."""
 
-    def __init__(self, higher_priority):
-        self._items: list[T] = []
+    def __init__(self, higher_priority, items: Iterable[T] = ()):
+        self._items: list[T] = list(items)
         self._higher_priority = higher_priority
+        # Bottom-up heap construction is O(n), unlike n individual pushes.
+        for index in range(len(self._items) // 2 - 1, -1, -1):
+            self._sift_down(index)
 
     def __len__(self) -> int:
         return len(self._items)
@@ -39,15 +128,18 @@ class BinaryHeap(Generic[T]):
         tail = data.pop()
         if data:
             data[0] = tail
-            index = 0
-            while (left := 2 * index + 1) < len(data):
-                right = left + 1
-                child = right if right < len(data) and self._higher_priority(data[right], data[left]) else left
-                if not self._higher_priority(data[child], data[index]):
-                    break
-                data[index], data[child] = data[child], data[index]
-                index = child
+            self._sift_down(0)
         return top
+
+    def _sift_down(self, index: int) -> None:
+        data = self._items
+        while (left := 2 * index + 1) < len(data):
+            right = left + 1
+            child = right if right < len(data) and self._higher_priority(data[right], data[left]) else left
+            if not self._higher_priority(data[child], data[index]):
+                break
+            data[index], data[child] = data[child], data[index]
+            index = child
 
 
 @dataclass(slots=True)
@@ -220,8 +312,13 @@ class FenwickTree:
         if len(self.values) > self.capacity:
             self.capacity *= 2
             self.tree = [0] * (self.capacity + 1)
+            # Build all Fenwick nodes in O(capacity), including future positions.
             for index, old_value in enumerate(self.values, 1):
-                self._add(index, old_value)
+                self.tree[index] = old_value
+            for index in range(1, self.capacity + 1):
+                parent = index + (index & -index)
+                if parent <= self.capacity:
+                    self.tree[parent] += self.tree[index]
         else:
             self._add(len(self.values), value)
 

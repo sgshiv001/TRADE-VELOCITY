@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from stock_engine import ExchangeSession, MatchingEngine
+from stock_engine.experiments import compare_workload
 
 
 st.set_page_config(page_title="Order Matching Engine", page_icon="📈", layout="wide")
@@ -39,6 +40,12 @@ def trade_table(trades) -> pd.DataFrame:
         }
         for trade in trades
     ], columns=columns)
+
+
+def comparison_summary(rows: pd.DataFrame) -> pd.DataFrame:
+    summary = rows.groupby(["commands", "engine"])["commands_per_second"].median().unstack()
+    summary["Indexed / list speed ratio"] = summary["indexed"] / summary["linear"]
+    return summary.rename(columns={"indexed": "Heap + AVL + hash", "linear": "Unsorted list"})
 
 
 with st.sidebar:
@@ -73,15 +80,17 @@ trade_tab, book_tab, analytics_tab, experiments_tab, session_tab = st.tabs(
 
 with trade_tab:
     st.subheader("Place an order")
+    # Form widgets only rerun on submission. Keep this selector outside the
+    # form so the price field updates immediately when the order type changes.
+    order_type = st.selectbox("Order type", ["LIMIT", "MARKET"])
     with st.form("place_order", clear_on_submit=False):
         top = st.columns(3)
         order_id = top[0].text_input("Order ID (optional)", placeholder="Auto-generated if blank")
         symbol = top[1].text_input("Stock symbol", value="ACME").strip().upper()
         side = top[2].selectbox("Side", ["BUY", "SELL"])
-        bottom = st.columns(3)
-        order_type = bottom[0].selectbox("Order type", ["LIMIT", "MARKET"])
-        quantity = bottom[1].number_input("Shares", min_value=1, max_value=10_000_000, value=100, step=1)
-        price = bottom[2].text_input("Limit price (₹)", value="105.00", disabled=order_type == "MARKET")
+        bottom = st.columns(2)
+        quantity = bottom[0].number_input("Shares", min_value=1, max_value=10_000_000, value=100, step=1)
+        price = bottom[1].text_input("Limit price (₹)", value="105.00", disabled=order_type == "MARKET")
         submitted = st.form_submit_button("Place order", width="stretch")
     if submitted:
         try:
@@ -192,9 +201,9 @@ with analytics_tab:
     st.dataframe(pd.DataFrame(engine.top_traded_stocks(10)), width="stretch", hide_index=True)
 
 with experiments_tab:
-    baseline_path = Path(__file__).parent / "benchmarks" / "baseline.csv"
+    baseline_path = Path(__file__).parent / "benchmarks" / "custom-structures.csv"
     if baseline_path.exists():
-        st.subheader("Recorded scaling baseline")
+        st.subheader("Recorded scaling measurements")
         baseline = pd.read_csv(baseline_path)
         summary = baseline.groupby("orders", as_index=False).agg(
             median_orders_per_second=("orders_per_second", "median"),
@@ -202,7 +211,39 @@ with experiments_tab:
         )
         st.line_chart(summary.set_index("orders")[["median_orders_per_second"]])
         st.dataframe(summary, width="stretch", hide_index=True)
-        st.caption("Median of three runs per size. See docs/results.md for the machine and method.")
+        st.caption("Custom data structures · Median of three runs per size. See docs/results.md for the method and all results.")
+
+    st.subheader("Compare price-level data structures")
+    st.write("Both engines use the same matching rules, FIFO queues, order-ID lookup, and statistics. "
+             "This experiment compares heap, AVL, and hash price indexes with an unsorted list of price levels.")
+    workload_labels = {
+        "mixed": "Mixed orders · eleven possible prices per stock",
+        "deep": "Deep order book · build levels, then execute market buys",
+        "cancel": "Cancellation · build levels, then remove orders",
+    }
+    comparison_path = Path(__file__).parent / "benchmarks" / "comparison.csv"
+    if comparison_path.exists():
+        recorded = pd.read_csv(comparison_path)
+        recorded_names = [name for name in workload_labels if name in set(recorded["workload"])]
+        recorded_workload = st.selectbox("Recorded comparison workload", recorded_names, format_func=workload_labels.get)
+        recorded_summary = comparison_summary(recorded[recorded["workload"] == recorded_workload])
+        st.line_chart(recorded_summary[["Heap + AVL + hash", "Unsorted list"]], y_label="Commands per second")
+        st.dataframe(recorded_summary, width="stretch")
+        st.caption("Median of three runs. A speed ratio above 1 means the indexed engine is faster. "
+                   "Every workload's trades, open orders, depth, statistics, and volume agree before timing begins.")
+
+    comparison_cols = st.columns(2)
+    comparison_workload = comparison_cols[0].selectbox("Comparison workload", list(workload_labels), format_func=workload_labels.get)
+    comparison_count = comparison_cols[1].number_input("Comparison commands", min_value=100, max_value=10_000, value=1000, step=100)
+    st.caption("This runs in separate engines and preserves your trading session. Seed 42 · one stock · three runs per engine.")
+    if st.button("Run comparison"):
+        with st.spinner("Checking matching results and measuring both engines…"):
+            st.session_state.comparison_results = compare_workload(comparison_workload, int(comparison_count))
+    if "comparison_results" in st.session_state:
+        live_results = pd.DataFrame(st.session_state.comparison_results)
+        st.write(f"Last comparison: {live_results.iloc[0]['workload']} · {int(live_results.iloc[0]['commands']):,} commands")
+        st.dataframe(comparison_summary(live_results), width="stretch")
+        st.download_button("Download comparison CSV", live_results.to_csv(index=False), file_name="engine-comparison.csv", mime="text/csv")
 
     st.subheader("Generate market activity")
     st.write("Add deterministic random orders to this session to explore matching and depth. The generated commands are included in the exported scenario.")
@@ -229,12 +270,14 @@ with experiments_tab:
     if st.button("Run benchmark"):
         rng = random.Random(42)
         bench_engine = MatchingEngine()
+        orders = [
+            (f"BENCH{index}", "TEST", "BUY" if rng.randrange(2) else "SELL",
+             rng.randrange(1, 101), f"{rng.randrange(95, 106)}.00")
+            for index in range(int(benchmark_count))
+        ]
         started = time.perf_counter()
-        for index in range(int(benchmark_count)):
-            bench_engine.place_order(
-                f"BENCH{index}", "TEST", "BUY" if rng.randrange(2) else "SELL",
-                rng.randrange(1, 101), f"{rng.randrange(95, 106)}.00",
-            )
+        for order in orders:
+            bench_engine.place_order(*order)
         elapsed = time.perf_counter() - started
         st.metric("Orders / second", f"{benchmark_count / elapsed:,.0f}")
         st.caption(f"{benchmark_count:,} orders · {len(bench_engine.trades()):,} trades · {elapsed:.3f} seconds")

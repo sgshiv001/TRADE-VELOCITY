@@ -26,11 +26,14 @@ def benchmark(count: int, seed: int) -> None:
         raise ValueError("count must be positive")
     rng = random.Random(seed)
     engine = MatchingEngine()
-    start = time.perf_counter()
+    orders = []
     for index in range(count):
         side = "BUY" if rng.randrange(2) else "SELL"
         price = f"{rng.randrange(95, 106)}.00"
-        engine.place_order(f"O{index}", "ACME", side, rng.randrange(1, 101), price)
+        orders.append((f"O{index}", "ACME", side, rng.randrange(1, 101), price))
+    start = time.perf_counter()
+    for order in orders:
+        engine.place_order(*order)
     elapsed = time.perf_counter() - start
     print(f"orders={count} trades={len(engine.trades())} seconds={elapsed:.4f} orders_per_second={count / elapsed:,.0f}")
 

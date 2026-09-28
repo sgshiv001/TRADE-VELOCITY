@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from threading import RLock
 
 from .models import Order, OrderResult, Side, Trade
-from .structures import AVLTree, BinaryHeap, FenwickTree, LinkedQueue, QueueNode
+from .structures import AVLTree, BinaryHeap, FenwickTree, HashTable, LinkedQueue, QueueNode
 
 
 @dataclass(slots=True)
@@ -52,28 +52,27 @@ class BookSide:
         self.heap: BinaryHeap[tuple[Decimal, int]] = BinaryHeap(
             lambda a, b: a[0] > b[0] if is_buy else a[0] < b[0]
         )
-        self.active_tokens: dict[Decimal, int] = {}
+        self.active_levels: HashTable[Decimal, PriceLevel] = HashTable()
         self.next_token = 0
 
     def best(self) -> PriceLevel | None:
         while self.heap:
             price, token = self.heap.peek()
-            if self.active_tokens.get(price) != token:
+            level = self.active_levels.get(price)
+            if level is None or level.token != token:
                 self.heap.pop()
                 continue
-            level = self.levels.get(price)
-            assert level is not None
             return level
         return None
 
     def add(self, order: Order) -> QueueNode[Order]:
         assert order.price is not None
-        level = self.levels.get(order.price)
+        level = self.active_levels.get(order.price)
         if level is None:
             self.next_token += 1
             level = PriceLevel(order.price, self.next_token, LinkedQueue())
             self.levels.insert(order.price, level)
-            self.active_tokens[order.price] = level.token
+            self.active_levels[order.price] = level
             self.heap.push((order.price, level.token))
         node = level.orders.append(order)
         level.quantity += order.remaining
@@ -81,21 +80,20 @@ class BookSide:
 
     def remove(self, order: Order, node: QueueNode[Order]) -> None:
         assert order.price is not None
-        level = self.levels.get(order.price)
+        level = self.active_levels.get(order.price)
         assert level is not None
         level.quantity -= order.remaining
         level.orders.remove(node)
         if level.orders.length == 0:
             self.levels.delete(level.price)
-            del self.active_tokens[level.price]
+            del self.active_levels[level.price]
             # Old heap entries are discarded lazily. Compact occasionally so
             # repeated cancellation at non-best prices cannot grow memory forever.
-            if len(self.heap) > 2 * len(self.active_tokens) + 64:
+            if len(self.heap) > 2 * len(self.active_levels) + 64:
                 self.heap = BinaryHeap(
-                    lambda a, b: a[0] > b[0] if self.is_buy else a[0] < b[0]
+                    lambda a, b: a[0] > b[0] if self.is_buy else a[0] < b[0],
+                    ((price, level.token) for price, level in self.active_levels.items()),
                 )
-                for active_price, token in self.active_tokens.items():
-                    self.heap.push((active_price, token))
 
     def depth(self, limit: int) -> list[dict]:
         rows = []
@@ -111,7 +109,7 @@ class MatchingEngine:
 
     def __init__(self):
         self._books: defaultdict[str, tuple[BookSide, BookSide]] = defaultdict(lambda: (BookSide(True), BookSide(False)))
-        self._active: dict[str, tuple[Order, QueueNode[Order]]] = {}
+        self._active: HashTable[str, tuple[Order, QueueNode[Order]]] = HashTable()
         self._used_ids: set[str] = set()
         self._sequence = 0
         self._trades: list[Trade] = []
@@ -328,7 +326,8 @@ class MatchingEngine:
         if limit < 0:
             raise ValueError("limit must be nonnegative")
         with self._lock:
-            heap: BinaryHeap[tuple[int, str]] = BinaryHeap(lambda a, b: a[0] > b[0] or (a[0] == b[0] and a[1] < b[1]))
-            for symbol, totals in self._stats.items():
-                heap.push((totals.volume, symbol))
+            heap: BinaryHeap[tuple[int, str]] = BinaryHeap(
+                lambda a, b: a[0] > b[0] or (a[0] == b[0] and a[1] < b[1]),
+                ((totals.volume, symbol) for symbol, totals in self._stats.items()),
+            )
             return [{"symbol": symbol, "volume": volume} for volume, symbol in (heap.pop() for _ in range(min(limit, len(heap))))]

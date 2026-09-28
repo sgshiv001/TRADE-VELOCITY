@@ -7,3 +7,14 @@ __pycache__/
 dist/
 build/
 benchmarks/results.csv
+node_modules/
+.marketlab/
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
+# Local clone of the same GitHub repository; do not publish an embedded repo.
+/TRADE VELOCITY/
+# Coursework documents outside the Trade Velocity application.
+/Lab_Assignments/

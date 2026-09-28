@@ -1,0 +1,17 @@
+# Core numerical and data-analysis libraries
+numpy>=1.26
+pandas>=2.1
+scikit-learn>=1.4
+
+# Visualisation and dashboard
+matplotlib>=3.8
+plotly>=5.20
+streamlit>=1.35
+
+# Application and persistence support already used by the repository
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+
+# Testing
+pytest>=8
+httpx2>=2,<3
