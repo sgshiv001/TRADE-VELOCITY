@@ -6,6 +6,11 @@ Trade Velocity is an educational MCA/ADSA project that explains how an electroni
 
 Repository: [sgshiv001/TRADE-VELOCITY](https://github.com/sgshiv001/TRADE-VELOCITY). Earlier backend and package names use **MarketLab** or **stock-matching-engine**; they are components of this same project.
 
+**One project, one working folder:** the existing local folder named
+`ADSA PROJECT` is this Trade Velocity project. Changing the project name does
+not require a second folder or a nested `TRADE VELOCITY` copy. Open the original
+folder in VS Code and run its root `app.py` or `app.bat`.
+
 > Educational simulation. It does not connect to a live exchange or place real trades.
 
 [Setup and demo](#quick-start) · [Architecture](#architecture) · [Data structures](#data-structures) · [AI analysis](#historical-anomaly-detection) · [Tests](#validation) · [Change log](CHANGELOG.md) · [Detailed development log](docs/development-log.md)

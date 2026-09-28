@@ -20,7 +20,8 @@ from a diagram, screenshot, or intended feature.
 | 2026-09-24 15:55:29 | `4c84a91` | Session replay, scenario, baseline experiment, reports, tests, CI |
 | 2026-09-28 23:55:05 | `1814dfc` | Existing TRADE-VELOCITY repository initialized with README and attributes |
 
-The engine and GitHub initialization originally belonged to separate histories.
+The same project's local engine and GitHub initialization originally had two
+Git histories; they were not separate applications.
 Publication brings them together using a merge, preserving their commits and
 the existing remote branch. The publication and merge IDs are visible in
 `git log --all`; this file does not embed its own future commit ID.
@@ -175,7 +176,27 @@ Publish source, lockfile, tests, guides, measured benchmark CSVs, scenario,
 bundled historical data, and shareable launch/CI configuration. Keep `.venv`,
 `node_modules`, builds/caches, local `.marketlab` sessions, logs, and secrets
 local. The nested clone and unrelated lab-assignment documents are excluded;
-their local files are preserved.
+their local files were preserved during publication.
+
+## Single-folder correction — 29 September 2026
+
+The user clarified that the existing `ADSA PROJECT` folder is the project named
+Trade Velocity. Updating the initially empty nested checkout during publication
+had duplicated its files; a second working project was not needed.
+
+Both checkouts had the same Git HEAD and no uncommitted nested changes. All 83
+tracked files matched after accounting for LF/CRLF endings. The original working
+root already contained every application file, so consolidation required removing
+the redundant copy, not overwriting or combining conflicting source versions.
+The nested checkout is no longer inside the working project. Its original
+environment, installed dependencies, local sessions, and GitHub connection remain
+in the original root.
+
+A temporary external backup was made before the user specified no backups.
+Automatic command policy rejected both the combined check/removal and the
+separately verified exact-path removal, so that redundant external copy still
+requires manual deletion. No further copies or backups were created. README and
+contribution guidance now describe one project and one working folder.
 
 ## How to maintain the complete committed history
 

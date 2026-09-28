@@ -14,7 +14,7 @@ node_modules/
 .env
 .env.*
 !.env.example
-# Local clone of the same GitHub repository; do not publish an embedded repo.
+# Prevent accidentally adding a nested duplicate of this same project.
 /TRADE VELOCITY/
 # Coursework documents outside the Trade Velocity application.
 /Lab_Assignments/

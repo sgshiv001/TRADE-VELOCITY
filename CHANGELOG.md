@@ -6,6 +6,21 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-09-29 — Consolidate the single project folder
+
+- Clarified that the original `ADSA PROJECT` working folder and Trade Velocity
+  are the same project, not separate applications.
+- Verified all 83 tracked files in the nested checkout matched the original
+  checkout, apart from Windows line endings; no unique edits required merging.
+- Removed the nested checkout from the working project. The original root
+  retains all source, Git history/remote, Python environment, frontend
+  dependencies, and local sessions.
+- Updated README/contribution guidance to use the original single working root.
+- A temporary duplicate backup was created before the user clarified that no
+  backup should remain. Its deletion was requested and attempted, but automatic
+  command policy rejected removal. It remains outside the project pending manual
+  deletion; the project itself has no nested duplicate.
+
 ## 2026-09-29 — Complete launcher and GitHub publication
 
 ### Added

@@ -38,8 +38,9 @@ Do not commit virtual environments, `node_modules`, frontend builds, TypeScript
 build caches, local paper sessions, credentials, or `.env` files. Preserve the
 npm lockfile, source, tests, measured benchmark evidence, and relevant guides.
 
-The local nested `TRADE VELOCITY/` clone and unrelated `Lab_Assignments/`
-coursework are excluded from the application's repository.
+Use one working folder for this application. An existing folder named
+`ADSA PROJECT` is the Trade Velocity project itself; a nested copy is unnecessary.
+Unrelated `Lab_Assignments/` coursework remains local.
 
 ## Benchmarks and data
 
