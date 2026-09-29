@@ -72,6 +72,51 @@ def test_missing_browser_falls_back_to_system_default(monkeypatch):
     assert opened == ["http://127.0.0.1:8000/"]
 
 
+def run_windows_shortcut(path, arguments, cwd):
+    """Use CMD's explicit outer quoting for batch files in paths with spaces."""
+    interpreter = os.environ.get("COMSPEC", "cmd.exe")
+    command = f'"{interpreter}" /d /s /c ""{path}" {subprocess.list2cmdline(arguments)}"'
+    return subprocess.run(command, cwd=cwd, input="\n", capture_output=True,
+                          text=True, timeout=30)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows batch shortcut")
+def test_windows_shortcut_reports_missing_environment(tmp_path):
+    project = tmp_path / "project folder with spaces"
+    project.mkdir()
+    shortcut = project / "Launch_TradeVelocity.bat"
+    shortcut.write_bytes((ROOT / shortcut.name).read_bytes())
+    (project / "app.py").write_bytes((ROOT / "app.py").read_bytes())
+    result = run_windows_shortcut(shortcut, ["--no-browser"], tmp_path)
+    assert result.returncode == 1
+    assert "Python environment was not found" in result.stdout
+    assert "pip install -e" in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows batch shortcut")
+def test_windows_shortcut_uses_its_folder_and_forwards_launch_options(tmp_path):
+    project = tmp_path / "project folder with spaces"
+    project.mkdir()
+    shortcut = project / "Launch_TradeVelocity.bat"
+    shortcut.write_bytes((ROOT / shortcut.name).read_bytes())
+    (project / "app.py").write_bytes((ROOT / "app.py").read_bytes())
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(project / ".venv")],
+                   check=True, capture_output=True, text=True, timeout=30)
+    # A verified running app is reused without third-party dependencies or a build.
+    with healthy_server({"status": "ok", "application": launcher.APP_ID}) as port:
+        result = run_windows_shortcut(shortcut,
+                                      ["--no-browser", "--skip-build", "--port", str(port)],
+                                      tmp_path)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert f"already running at http://127.0.0.1:{port}/" in result.stdout
+        assert "Select a browser" not in result.stdout
+        assert "Using project Python" not in result.stdout
+    rejected = run_windows_shortcut(shortcut, ["--port", "0", "--no-browser"], tmp_path)
+    assert rejected.returncode == 2
+    assert "port must be between 1 and 65535" in rejected.stderr
+    assert "Review the error above" in rejected.stdout
+
+
 @pytest.mark.parametrize("entry_file", ["app.py", "demoapp.py"])
 def test_stopping_launcher_releases_server_port(entry_file):
     pytest.importorskip("uvicorn")

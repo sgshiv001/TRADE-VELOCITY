@@ -38,6 +38,11 @@ This is a learning and experimentation project. It uses simulated orders and vir
 
 ## Run the app
 
+**Windows shortcut:** after the setup below, double-click `Launch_TradeVelocity.bat`
+inside this project folder. It runs `app.py` using the project's `.venv`, keeps
+browser selection, and leaves startup errors visible. Keep its window open while
+using the app; press **Ctrl+C** to stop.
+
 You need **Python 3.10+** and **Node.js 22 with npm**. In PowerShell, from the project folder:
 
 ```powershell
@@ -70,7 +75,7 @@ For a terminal-only demonstration:
 
 In the browser, select **ENTER ENGINE**, click **Load demo flow**, then inspect **Order Book** and **History**. Use **DSA Lab** to explain the structures and **AI Monitor** to discuss historical anomaly flags.
 
-There are only two application entry files: **app.py** to launch and **demoapp.py** to demonstrate. The folders below contain the code and evidence those files need.
+There are only two Python application entry files: **app.py** to launch and **demoapp.py** to demonstrate. **Launch_TradeVelocity.bat** is the Windows double-click shortcut to `app.py`. The folders below contain the code and evidence those files need.
 
 ## How the engine works
 
@@ -120,6 +125,7 @@ See [evaluation methods](docs/evaluation.md) and [recorded results](docs/results
 ```text
 app.py                  Launch the complete app
 demoapp.py              Verified examples + classroom launch
+Launch_TradeVelocity.bat Windows double-click shortcut to app.py
 frontend/               React and TypeScript interface
 src/stock_engine/       Matching, data structures, API, data, and AI
 scripts/                Benchmark and market-data tools

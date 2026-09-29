@@ -270,3 +270,24 @@ visibility, default branch, and existing history were preserved.
 
 The cleanup commit and its verified remote state are available in Git history;
 the hosted CI outcome is separate from the completed local checks above.
+
+## Windows folder shortcut — 29 September 2026
+
+At the user's request, added `Launch_TradeVelocity.bat` directly in the existing
+project root. Double-clicking opens a console, enters the launcher's own folder,
+and runs the existing `app.py` with `.venv\Scripts\python.exe`. Browser selection,
+frontend building, server reuse and port handling remain in the shared Python
+launcher. The batch file forwards options, preserves the Python exit status,
+and pauses on missing setup or startup failure so errors remain visible. It does
+not create another Python application or detach a background server.
+
+README explains the shortcut. `.gitattributes` specifies CRLF for batch files.
+Windows regression checks copy the wrapper and real `app.py` to a temporary path
+with spaces, launch from another directory, verify existing-server reuse and
+option forwarding, check missing-environment guidance, and preserve argparse's
+exit code for an invalid port. The tests do not open a user's browser or stop an
+unrelated process.
+
+Validation: **85 tests passed in 12.40 seconds** with no skipped tests or warning
+summary. `git diff --check` passed. Existing PDF outputs and saved app sessions
+were preserved; no new project or backup folder was created.

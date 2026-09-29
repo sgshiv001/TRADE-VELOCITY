@@ -6,6 +6,19 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-09-29 — Add a Windows double-click shortcut
+
+- Add `Launch_TradeVelocity.bat` in the existing project folder at the user's
+  request. It delegates to `app.py` rather than duplicating the application.
+- Use the project `.venv` and the launcher's own directory, including paths with
+  spaces. Keep browser selection, forward command-line options, and leave
+  startup/setup errors visible in the window.
+- Keep `app.py` and `demoapp.py` as the only Python entry files. Update README
+  with the double-click instructions.
+- Ensure batch files use CRLF line endings on checkout. Add Windows checks for
+  paths with spaces, another working directory, missing setup, option forwarding
+  and preservation of Python error codes. Full local suite: **85 passed**.
+
 ## 2026-09-29 — Simplify launch files and project presentation
 
 - Use the name **TradeVelocity** with the full title **High-Performance Stock
