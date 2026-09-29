@@ -1,5 +1,33 @@
 # Measured performance
 
+## Execution watchdog and desktop-era benchmarks — 29 September 2026
+
+The new execution watchdog uses a fixed baseline of 40 executed-order observations
+and scores 50 later observations without fitting on them. Ten test observations
+contain deliberately injected volume and price spikes; labels are used only for
+evaluation. Seed 42, Python 3.14.7, scikit-learn 1.9.1 on this Windows machine:
+
+| Test outcome | Count |
+| --- | ---: |
+| Detected injected spikes | 10 |
+| Missed injected spikes | 0 |
+| False alarms on normal observations | 7 |
+| Correct normal observations | 33 |
+
+Precision is **58.8%**, recall is **100%** on this synthetic holdout only. Normal
+transitions after spikes can also be flagged. This is not real-market fraud
+accuracy, causal attribution, or a price forecast. Reproduce using
+`python scripts/evaluate_watchdog.py --seed 42`; version and platform metadata are
+in [watchdog-evaluation.json](../benchmarks/watchdog-evaluation.json).
+
+Fresh matching, deep-book, and cancellation workloads at 100, 1,000, and 5,000
+commands, each repeated three times per engine, are preserved separately in
+[desktop-comparison.csv](../benchmarks/desktop-comparison.csv). Generation and full
+indexed/linear outcome verification precede timing. No memory tracing was run
+for this set. Earlier CSVs and their tables below are unchanged. Measurements
+are machine-specific and include whole staged workloads, not individual-operation
+latency guarantees.
+
 ## Indexed versus list price books — 28 September 2026
 
 Measured with Python 3.14.7 on Windows 11, seed 42, one stock, three timed runs per engine and workload, and separate memory passes. Both engines share the full matching loop and analytics; only price-level indexing differs. Complete final outcomes were checked before timing. All 54 timing rows are retained in [`benchmarks/comparison.csv`](../benchmarks/comparison.csv).

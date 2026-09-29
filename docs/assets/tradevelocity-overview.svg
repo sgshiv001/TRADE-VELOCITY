@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">TradeVelocity — from order to insight</title>
+  <desc id="desc">A clean illustration of buy and sell orders flowing through a price-time matching engine into a market simulation and a separate AI execution watchdog.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F5F9FF"/>
+      <stop offset="1" stop-color="#EFFAF7"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0F9F88"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#183153" flood-opacity=".08"/>
+    </filter>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M1 1L7 4.5 1 8" stroke="#91A5C2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="430" rx="28" fill="url(#bg)"/>
+  <circle cx="1084" cy="35" r="148" fill="#DDF2EC" opacity=".42"/>
+  <circle cx="118" cy="418" r="116" fill="#E0EAFE" opacity=".55"/>
+
+  <rect x="48" y="42" width="42" height="42" rx="13" fill="url(#brand)"/>
+  <path d="M58 70V56h5v5l5-5h6l-7 7 8 7h-7l-5-5v5h-5Z" fill="white"/>
+  <text x="104" y="66" fill="#142943" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">TradeVelocity</text>
+  <text x="104" y="88" fill="#69809A" font-family="Segoe UI, Arial, sans-serif" font-size="12" letter-spacing="1.5">A MARKET MICROSTRUCTURE LAB</text>
+  <text x="48" y="145" fill="#142943" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">From order to insight.</text>
+  <text x="48" y="174" fill="#526984" font-family="Segoe UI, Arial, sans-serif" font-size="16">See how data structures, matching rules and AI monitoring fit together.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="48" y="222" width="238" height="156" rx="18" fill="#FFFFFF"/>
+    <rect x="307" y="222" width="290" height="156" rx="18" fill="#FFFFFF"/>
+    <rect x="618" y="222" width="238" height="156" rx="18" fill="#FFFFFF"/>
+    <rect x="877" y="222" width="275" height="156" rx="18" fill="#FFFFFF"/>
+  </g>
+
+  <path d="M288 299h16m293 0h16m243 0h16" stroke="#91A5C2" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <circle cx="76" cy="253" r="14" fill="#EAF2FF"/>
+  <path d="M70 255h12m-8-5-5 5 5 5" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="99" y="258" fill="#142943" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">BUY + SELL ORDERS</text>
+  <rect x="68" y="278" width="198" height="33" rx="9" fill="#F0F6FF"/>
+  <circle cx="84" cy="294" r="4" fill="#3B82F6"/>
+  <text x="98" y="298" fill="#334B68" font-family="Segoe UI, Arial, sans-serif" font-size="13">Limit · market · quantity</text>
+  <rect x="68" y="320" width="198" height="33" rx="9" fill="#EFFAF6"/>
+  <circle cx="84" cy="336" r="4" fill="#16A37B"/>
+  <text x="98" y="340" fill="#334B68" font-family="Segoe UI, Arial, sans-serif" font-size="13">Price · symbol · arrival time</text>
+
+  <circle cx="336" cy="253" r="14" fill="#EAF2FF"/>
+  <path d="M329 253h14m-7-7v14" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="359" y="258" fill="#142943" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">PRICE–TIME ENGINE</text>
+  <rect x="328" y="278" width="116" height="74" rx="10" fill="#F5F8FC"/>
+  <text x="343" y="296" fill="#7890AA" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1">BIDS</text>
+  <text x="343" y="317" fill="#167B63" font-family="Consolas, monospace" font-size="13">₹101.20</text>
+  <text x="343" y="338" fill="#167B63" font-family="Consolas, monospace" font-size="13">₹101.00</text>
+  <rect x="455" y="278" width="124" height="74" rx="10" fill="#F5F8FC"/>
+  <text x="470" y="296" fill="#7890AA" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1">ASKS</text>
+  <text x="470" y="317" fill="#B94A54" font-family="Consolas, monospace" font-size="13">₹101.50</text>
+  <text x="470" y="338" fill="#B94A54" font-family="Consolas, monospace" font-size="13">₹101.80</text>
+  <text x="328" y="367" fill="#69809A" font-family="Segoe UI, Arial, sans-serif" font-size="11">Best price first · FIFO at each price</text>
+
+  <circle cx="646" cy="253" r="14" fill="#E9F8F2"/>
+  <path d="M640 258v-8m6 8v-13m6 13v-5" stroke="#119875" stroke-width="2" stroke-linecap="round"/>
+  <text x="669" y="258" fill="#142943" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">MARKET SIMULATION</text>
+  <path d="M643 339l31-21 25 8 33-32 31 13 47-30" stroke="#16A37B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M643 345h206M643 345v-63" stroke="#DDE7F1" stroke-width="1.2"/>
+  <circle cx="779" cy="294" r="4" fill="#16A37B" stroke="white" stroke-width="2"/>
+  <text x="643" y="367" fill="#69809A" font-family="Segoe UI, Arial, sans-serif" font-size="11">Trades · depth · throughput</text>
+
+  <circle cx="905" cy="253" r="14" fill="#F2EDFF"/>
+  <path d="M905 244 913 247v6c0 5-3 8-8 10-5-2-8-5-8-10v-6l8-3Z" stroke="#7952C5" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="m902 253 2 2 4-5" stroke="#7952C5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="928" y="258" fill="#142943" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">AI WATCHDOG</text>
+  <rect x="898" y="280" width="232" height="49" rx="10" fill="#F7F4FF"/>
+  <circle cx="916" cy="304" r="5" fill="#8B67D2"/>
+  <text x="931" y="301" fill="#334B68" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">Unusual execution flagged</text>
+  <text x="931" y="317" fill="#8293A8" font-family="Segoe UI, Arial, sans-serif" font-size="10">Human review · simulated data only</text>
+  <text x="898" y="354" fill="#69809A" font-family="Segoe UI, Arial, sans-serif" font-size="11">Observes executions — never picks trades</text>
+
+  <text x="48" y="407" fill="#8193A8" font-family="Segoe UI, Arial, sans-serif" font-size="11">EDUCATIONAL PROJECT</text>
+  <text x="1152" y="407" text-anchor="end" fill="#8193A8" font-family="Segoe UI, Arial, sans-serif" font-size="11">PYTHON · FASTAPI · REACT</text>
+</svg>

@@ -18,14 +18,38 @@ class ExchangeSession:
     def __init__(self):
         self.engine = MatchingEngine()
         self.events: list[dict[str, Any]] = []
+        # Derived from successful commands; replay reconstructs this telemetry.
+        self.observations: list[dict[str, Any]] = []
+
+    def _observe(self, result: OrderResult, symbol: str, quantity: int, book: dict) -> None:
+        if not result.trades:
+            return
+        symbol = symbol.upper()
+        previous = next((row for row in reversed(self.observations) if row["symbol"] == symbol), None)
+        volume = sum(trade.quantity for trade in result.trades)
+        price = float(sum(trade.price * trade.quantity for trade in result.trades) / volume)
+        bids = sum(level["quantity"] for level in book["bids"])
+        asks = sum(level["quantity"] for level in book["asks"])
+        self.observations.append({
+            "symbol": symbol, "event": len(self.events), "order_id": result.order_id,
+            "trade_ids": [trade.trade_id for trade in result.trades],
+            "timestamp": result.trades[-1].timestamp.isoformat(),
+            "price": price, "quantity": volume,
+            "price_change_pct": (price / previous["price"] - 1) * 100 if previous else 0.0,
+            "execution_count": len(result.trades), "submitted_quantity": quantity,
+            "bid_depth": bids, "ask_depth": asks,
+            "depth_imbalance": (bids - asks) / max(1, bids + asks),
+        })
 
     def place_order(self, order_id: str, symbol: str, side: Side | str, quantity: int, price: str | int | None = None) -> OrderResult:
+        book = self.engine.order_book(symbol, 30)
         result = self.engine.place_order(order_id, symbol, side, quantity, price)
         self.events.append({
             "type": "place", "order_id": order_id, "symbol": symbol.upper(),
             "side": Side(side.upper() if isinstance(side, str) else side).value,
             "quantity": quantity, "price": str(price) if price is not None else None,
         })
+        self._observe(result, symbol, quantity, book)
         return result
 
     def cancel_order(self, order_id: str) -> bool:
@@ -35,8 +59,12 @@ class ExchangeSession:
         return canceled
 
     def modify_order(self, order_id: str, quantity: int, price: str | int) -> OrderResult:
+        order = next((order for order in self.engine.active_orders() if order["order_id"] == order_id), None)
+        book = self.engine.order_book(order["symbol"], 30) if order else None
         result = self.engine.modify_order(order_id, quantity, price)
         self.events.append({"type": "modify", "order_id": order_id, "quantity": quantity, "price": str(price)})
+        if book:
+            self._observe(result, book["symbol"], quantity, book)
         return result
 
     def to_dict(self) -> dict[str, Any]:

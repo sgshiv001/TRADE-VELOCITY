@@ -12,6 +12,7 @@ requires-python = ">=3.10"
 [project.optional-dependencies]
 app = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "numpy>=1.26", "pandas>=2.1", "scikit-learn>=1.4", "yfinance>=0.2.66,<2"]
 test = ["pytest>=8", "httpx2>=2,<3"]
+desktop = ["pywebview>=6,<7", "pyinstaller>=6,<7"]
 
 [project.scripts]
 stock-engine = "stock_engine.cli:main"

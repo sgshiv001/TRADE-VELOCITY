@@ -32,12 +32,12 @@ export async function api<T>(
       ...options.headers,
     },
   });
-  if (response.status === 404 && retry && path.startsWith("/portfolio")) {
-    localStorage.removeItem("marketlab-session");
-    return api<T>(path, options, false);
-  }
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
+    if (retry && (error.detail === "local session was not found" || error.detail === "invalid local session")) {
+      localStorage.removeItem("marketlab-session");
+      return api<T>(path, options, false);
+    }
     throw new Error(
       typeof error.detail === "string"
         ? error.detail

@@ -29,6 +29,24 @@ def session(client):
     return {"X-Session-ID": response.json()["session_id"]}
 
 
+def test_watchdog_simulation_and_isolation(client):
+    assert client.get("/api/health").headers["cache-control"] == "no-store"
+    first, second = session(client), session(client)
+    assert client.get("/api/lab/watchdog", headers=first).json()["status"] == "warming_up"
+    demo = client.post("/api/lab/watchdog/demo", headers=first)
+    assert demo.status_code == 200
+    assert demo.json()["evaluation"]["heldout"] == 50
+    assert client.get("/api/lab", headers=first).json()["events"] == 180
+    assert client.get("/api/lab/watchdog", headers=second).json()["observations"] == 0
+    simulation = client.post("/api/lab/simulate", headers=first, json={"count": 100})
+    assert simulation.status_code == 200
+    assert simulation.json()["commands"] == 100
+    assert client.post("/api/lab/simulate", headers=first, json={"count": 2001}).status_code == 422
+    assert client.post("/api/lab/simulate", headers=first, json={"buy_probability": 101}).status_code == 422
+    client.post("/api/lab/reset", headers=first)
+    assert client.get("/api/lab/watchdog", headers=first).json()["observations"] == 0
+
+
 def test_real_company_universe_adjusted_history_and_provenance(client):
     response = client.get("/api/market")
     assert response.status_code == 200

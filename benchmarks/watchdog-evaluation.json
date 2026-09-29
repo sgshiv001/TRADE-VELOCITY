@@ -1,0 +1,23 @@
+{
+  "python": "3.14.7",
+  "scikit_learn": "1.9.1",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "evaluation": {
+    "seed": 42,
+    "training": 40,
+    "heldout": 50,
+    "true_positives": 10,
+    "false_positives": 7,
+    "false_negatives": 0,
+    "true_negatives": 33,
+    "precision": 0.5882352941176471,
+    "recall": 1.0,
+    "note": "Synthetic holdout only. Price transitions back to normal can also trigger alerts."
+  },
+  "steps": [
+    "40 normal executions establish the baseline",
+    "20 unseen normal executions",
+    "10 injected volume/price spikes",
+    "20 normal executions resume"
+  ]
+}

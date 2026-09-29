@@ -291,3 +291,68 @@ unrelated process.
 Validation: **85 tests passed in 12.40 seconds** with no skipped tests or warning
 summary. `git diff --check` passed. Existing PDF outputs and saved app sessions
 were preserved; no new project or backup folder was created.
+
+## Desktop, professional themes, and execution watchdog — 29 September 2026
+
+The requested next-stage upgrade stays in the existing project and reuses
+`app.py` as the Python entry point. Browser mode and `demoapp.py` remain intact.
+
+Implementation:
+
+- `ExchangeSession` derives execution telemetry from successful commands and
+  rebuilds it on replay. Imported telemetry cannot override engine outcomes.
+  Features describe actual executed-order quantities and prices, the number of
+  fills, submitted quantity, and pre-command top-30-level bid/ask depth.
+- `watchdog.py` fits a StandardScaler/Isolation Forest on the first 40 execution
+  observations for each supported lab symbol and scores subsequent observations
+  without fitting on them. Alerts remain advisory; matching rules are unchanged.
+- The classroom scenario generates 90 executions from 180 real commands: 40
+  training, 20 unseen normal, 10 injected spikes, 20 subsequent normal. Labels
+  are withheld from the model and used only for evaluation. The measured result
+  is 10 detected, 0 missed, 7 false alarms, 33 correct normal; precision 58.8%,
+  recall 100%. These numbers are synthetic, not a fraud-accuracy claim.
+- The Simulator submits a seeded workload to the real session instead of
+  incrementing animated estimates. Its timing includes telemetry. Benchmark
+  controls execute the existing indexed/linear comparison with three repeats.
+- Add buy/sell limit and market order entry, visible acknowledgements/errors,
+  cancellation, full command export, and an explicit reset confirmation. History
+  labels its newest-100-trade limit; engine totals use the full trade count.
+- Add a bright default theme, a saved slate dark mode, responsive forms, rounded
+  surfaces, readable hierarchy, keyboard focus states, and a code-native TV icon.
+  Remove external font fetching. Recover stale local sessions for all APIs.
+- Prevent stale desktop HTML after upgrades with a frontend-build fingerprint
+  on the window URL and `no-store` headers on entry HTML and API responses.
+- Add `app.py --desktop`, a pywebview/WebView2 window, `Launch_Desktop.vbs`, and a
+  PyInstaller spec/build script. The portable app contains Python and built UI;
+  target Windows PCs still require WebView2. It is not a signed installer.
+- Desktop storage is separate under `%LOCALAPPDATA%\TradeVelocity`. Startup
+  reserves loopback port 8765 or falls back to an OS-selected port; closing the
+  window stops only its own server. Build replacement is limited to the generated
+  `dist/TradeVelocity` folder; saved sessions are outside build output.
+
+Verification:
+
+- Production TypeScript/Vite build succeeded.
+- Final local suite: **96 passed in 16.86 seconds**, including warmup, holdout,
+  replay, API isolation, input validation, simulator scenarios, and desktop
+  server teardown. Desktop unit tests replace only the GUI; real API processing
+  runs in them. CI without optional desktop dependencies skips those GUI tests.
+- Actual native-window smoke test succeeded with real AI, simulation, benchmark,
+  and production frontend rendering. Its server was stopped after the test.
+- Packaged `TradeVelocity.exe --smoke-test` exited **0** and recorded `ok: true`,
+  50 heldout observations, 10 detected spikes, six benchmark rows, and 100
+  simulation commands. Smoke sessions/profile are separate from user sessions.
+- The root VBS shortcut starts the packaged EXE with a visible window (style 1),
+  rather than hiding the GUI. Its first hidden-style check was corrected before
+  handoff. The shortcut and real packaged window were both checked locally.
+- Computer-use screenshots verified the real desktop welcome, workspace, and
+  light/dark watchdog layouts. Later input verification was limited by the UI
+  helper reporting `failed to activate captured window`; no claim is made that
+  every frontend interaction was exercised through that helper.
+- Fresh 54-row comparison evidence is saved as `desktop-comparison.csv`; the
+  earlier comparison CSV and its documented tables were preserved unchanged.
+  AI evaluation includes Python/model/platform provenance in JSON.
+
+The build and dist directories are ignored generated artifacts, not another
+source project. These changes are local; no GitHub push was requested in this
+upgrade turn.

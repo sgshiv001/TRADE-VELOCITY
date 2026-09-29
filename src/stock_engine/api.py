@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 import csv
 import json
 import math
+import sys
 from pathlib import Path
 from threading import RLock
 from typing import Annotated, Literal
@@ -22,8 +23,9 @@ from .experiments import compare_workload
 from .market_data import MarketData, download_market_data, history_metrics, indicators, load_market_data, market_rows, period_history, save_snapshot
 from .portfolio import PaperBroker
 from .session import ExchangeSession
+from .watchdog import classroom_demo, report as watchdog_report, simulate
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
 
 
 class PaperOrder(BaseModel):
@@ -47,6 +49,15 @@ class Comparison(BaseModel):
     count: int = Field(default=1000, ge=100, le=10_000, strict=True)
 
 
+class Simulation(BaseModel):
+    count: int = Field(default=500, ge=10, le=2000, strict=True)
+    scenario: Literal["normal", "bull", "bear", "volatile", "low_liquidity", "high_liquidity"] = "normal"
+    symbol: Literal["ACME", "TECH"] = "ACME"
+    seed: int = Field(default=42, ge=0, le=1_000_000, strict=True)
+    buy_probability: int = Field(default=50, ge=0, le=100, strict=True)
+    market_percent: int = Field(default=10, ge=0, le=100, strict=True)
+
+
 @dataclass
 class Session:
     broker: PaperBroker
@@ -63,11 +74,18 @@ def seed_broker(data: MarketData) -> PaperBroker:
 
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True) -> FastAPI:
-    app = FastAPI(title="MarketLab", version="0.2.0")
+    app = FastAPI(title="TradeVelocity", version="0.3.0")
     app.state.market = market or load_market_data()
     app.state.sessions = {}
     app.state.registry_lock = RLock()
     app.state.data_dir = Path(data_dir) if data_dir is not None else PROJECT_ROOT / ".marketlab" / "sessions"
+
+    @app.middleware("http")
+    async def fresh_application_state(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/") or request.url.path in ("/", "/index.html"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.exception_handler(ValueError)
     async def input_error(request, exc):
@@ -241,7 +259,31 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         with session.lock:
             return {"symbols": session.lab.engine.symbols(), "orders": session.lab.engine.active_orders(),
                     "book": session.lab.engine.order_book(symbol, 30), "stats": session.lab.engine.symbol_stats(symbol),
-                    "trades": jsonable_encoder(session.lab.engine.trades(limit=100)), "events": len(session.lab.events)}
+                    "trades": jsonable_encoder(session.lab.engine.trades(limit=100)), "events": len(session.lab.events),
+                    "total_trades": len(session.lab.engine.trades())}
+
+    @app.get("/api/lab/watchdog")
+    def lab_watchdog(context: SessionDependency, symbol: Literal["ACME", "TECH"] = "ACME"):
+        _, session = context
+        with session.lock:
+            return watchdog_report(session.lab, symbol)
+
+    @app.post("/api/lab/watchdog/demo")
+    def watchdog_demo(context: SessionDependency):
+        session_id, session = context
+        replacement, result = classroom_demo()
+        with session.lock:
+            session.lab = replacement
+            persist(session_id, session)
+        return result
+
+    @app.post("/api/lab/simulate")
+    def lab_simulate(request: Simulation, context: SessionDependency):
+        session_id, session = context
+        with session.lock:
+            result = simulate(session.lab, **request.model_dump())
+            persist(session_id, session)
+            return result
 
     @app.post("/api/lab/orders")
     def lab_order(order: LabOrder, context: SessionDependency):

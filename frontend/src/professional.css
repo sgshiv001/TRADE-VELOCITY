@@ -1,0 +1,67 @@
+/* Shared tokens: bright by default, an optional comfortable slate dark mode. */
+:root { color-scheme: light; font-family: "Segoe UI", Inter, Arial, sans-serif; background: #f5f7fb; color: #17243b; --bg: #f5f7fb; --surface: #fff; --surface-2: #f0f4fa; --surface-3: #e6edf7; --text: #17243b; --muted: #53647b; --muted-2: #65758b; --accent: #315de8; --success: #087e60; --warning: #966006; --danger: #c9364b; --border: #dce4ef; }
+:root[data-theme="dark"] { color-scheme: dark; --bg: #172030; --surface: #202b3d; --surface-2: #27354a; --surface-3: #33445c; --text: #eff4fc; --muted: #becbdf; --muted-2: #a4b4cc; --accent: #91b3ff; --success: #63dfb5; --warning: #ffd184; --danger: #ff94a3; --border: #3a4860; background: var(--bg); color: var(--text); }
+body { font-size: 14px; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); }
+.topbar { background: var(--surface); height: 76px; }
+.panel, .metric-card { border-radius: 16px; box-shadow: 0 4px 20px #24365a05; }
+.panel { padding: 26px; }
+.panel h2 { font-size: 20px; letter-spacing: -.025em; }
+.section-title h1 { font-size: clamp(28px, 3vw, 40px); line-height: 1.15; letter-spacing: -.045em; }
+.section-title p { font-size: 14px; line-height: 1.6; }
+.sidebar nav button { border-radius: 10px; margin-bottom: 5px; font: 600 12px "Segoe UI", Arial, sans-serif; letter-spacing: .02em; }
+.sidebar nav button.selected { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.primary-button, .secondary-button, .theme-toggle { border-radius: 9px; padding: 11px 16px; font: 600 13px "Segoe UI", Arial, sans-serif; letter-spacing: 0; min-height: 42px; }
+.primary-button { background: #315de8; color: white; }
+.primary-button:hover { background: #244bc4; }
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); }
+button:disabled { cursor: wait; opacity: .55; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+input, select { border-radius: 8px; min-height: 40px; font-size: 13px; }
+.notice { color: var(--accent); border-radius: 10px; font-size: 13px; line-height: 1.6; }
+.notice.amber { color: var(--warning); }
+.notice.error, .inline-error { color: var(--danger); }
+.fine-print { font-size: 12px; }
+.eyebrow { font-size: 10px; letter-spacing: .09em; }
+.metric-head { font: 600 12px "Segoe UI", Arial, sans-serif; letter-spacing: 0; }
+.metric-card { padding: 21px; }
+.metric-card small { font-size: 12px; }
+.metric-value { font: 650 30px "Segoe UI", Arial, sans-serif; }
+.data-table td { font-size: 13px; padding: 16px 12px; }
+.data-table th { font-size: 10px; padding: 14px 12px; }
+.data-table tr:last-child td { border-bottom: 0; }
+.form-grid { border: 0; margin: 22px 0; padding: 0; gap: 20px; }
+.form-grid label { font: 600 12px "Segoe UI", Arial, sans-serif; letter-spacing: 0; text-transform: none; }
+.form-grid input[type="range"] { width: 100%; }
+.receipt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 26px 0; }
+.receipt-grid > div { padding: 18px; background: var(--surface-2); border-radius: 10px; display: grid; gap: 10px; }
+.receipt-grid span { color: var(--muted); font-size: 12px; }
+.receipt-grid strong { font-size: 24px; font-weight: 650; }
+.demo-callout { display: flex; align-items: center; justify-content: space-between; gap: 24px; background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 8%, var(--surface)), var(--surface)); }
+.demo-callout p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.demo-callout button { flex-shrink: 0; }
+.confirmation { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; border-color: var(--warning); }
+.confirmation p { flex: 1; min-width: 220px; line-height: 1.6; }
+.review-tag { display: inline-block; color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, var(--surface)); border-radius: 6px; padding: 6px 10px; white-space: nowrap; }
+.benchmark-controls { display: flex; gap: 18px; align-items: end; flex-wrap: wrap; }
+.benchmark-controls label { display: grid; gap: 9px; color: var(--muted); font-size: 13px; }
+.ticket-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 16px; align-items: end; border: 0; padding: 0; margin: 18px 0; }
+.ticket-grid label { display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
+.ticket-grid input, .ticket-grid select { width: 100%; min-width: 0; }
+summary { color: var(--accent); cursor: pointer; font-size: 13px; padding: 12px 0; }
+.welcome-copy h1 { font-size: clamp(38px, 4.2vw, 60px); }
+.welcome-screen { background: radial-gradient(ellipse at 75% 40%, color-mix(in srgb, var(--accent) 12%, var(--bg)), transparent 55%), var(--bg); }
+.welcome-machine { background: var(--surface); border-radius: 24px; box-shadow: 0 30px 80px #315de814; }
+.welcome-theme { position: absolute; right: 28px; top: 24px; z-index: 5; }
+.flow-node, .match-card, .match-step, .trade-result { background: var(--surface-2); border-radius: 10px; }
+.brand-box, .brand-mark span { border-radius: 12px; background: #315de8; }
+.heap-node { color: var(--accent); }
+.heap-node:first-child { color: var(--text); }
+.structure-chips span { color: var(--accent); border-radius: 5px; }
+.note-grid p, .concept-panel p, .insight-list, .detail-list { font-size: 13px; }
+.empty strong { font: 600 15px "Segoe UI", Arial, sans-serif; letter-spacing: 0; }
+.empty p { font-size: 13px; }
+.feature-grid span { border-radius: 10px; display: grid; gap: 12px; }
+.theme-toggle, .panel, .metric-card { transition: background-color .15s, border-color .15s; }
+@media (max-width: 900px) { .receipt-grid, .ticket-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .demo-callout { align-items: start; flex-direction: column; } }
+@media (max-width: 760px) { .panel { padding: 18px; } .theme-toggle span { display: none; } .theme-toggle { padding: 9px; min-height: 36px; } .topbar-actions { gap: 8px; } .receipt-grid strong { font-size: 21px; } .metric-value { font-size: 25px; } .section-title p { font-size: 13px; } }

@@ -153,6 +153,7 @@ export interface Trade {
   timestamp: string;
 }
 export interface Lab {
+  total_trades: number;
   symbols: string[];
   orders: Order[];
   book: { symbol: string; bids: Depth[]; asks: Depth[] };

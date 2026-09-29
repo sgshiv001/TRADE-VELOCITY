@@ -28,6 +28,8 @@ APP_ID = "trade-velocity"
 def use_project_python(arguments: list[str]) -> int | None:
     """Prefer this project's environment even when launched with system Python."""
     environment = ROOT / ".venv"
+    if getattr(sys, "frozen", False):
+        return None
     executable = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     if executable.exists() and Path(sys.prefix).resolve() != environment.resolve():
         print(f"Using project Python: {executable}", flush=True)
@@ -195,12 +197,16 @@ def serve(port: int, browser: str | None, skip_build: bool) -> int:
 
 def main(arguments: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if arguments is None else arguments)
+    if getattr(sys, "frozen", False) and "--desktop" not in arguments:
+        arguments.append("--desktop")
     parser = argparse.ArgumentParser(description="Launch the complete TradeVelocity app")
     parser.add_argument("--port", type=int, default=8000, help="local port (default: 8000)")
     parser.add_argument("--browser", choices=("edge", "chrome", "firefox", "default"),
                         help="choose a browser without the interactive prompt")
     parser.add_argument("--no-browser", action="store_true", help="run without opening a browser")
     parser.add_argument("--skip-build", action="store_true", help="reuse frontend/dist")
+    parser.add_argument("--desktop", action="store_true", help="open a native desktop window")
+    parser.add_argument("--smoke-test", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(arguments)
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
@@ -211,6 +217,12 @@ def main(arguments: list[str] | None = None) -> int:
         delegated_exit = use_project_python(arguments)
         if delegated_exit is not None:
             return delegated_exit
+        if args.desktop:
+            check_dependencies()
+            build_frontend(args.skip_build or getattr(sys, "frozen", False))
+            sys.path.insert(0, str(ROOT / "src"))
+            from stock_engine.desktop import run_desktop
+            return run_desktop(args.smoke_test)
         print("TRADEVELOCITY / COMPLETE APP LAUNCHER", flush=True)
         browser = None if args.no_browser else args.browser or select_browser()
         return serve(args.port, browser, args.skip_build)
@@ -221,9 +233,19 @@ def main(arguments: list[str] | None = None) -> int:
         print(f"\nFrontend build/install failed (exit {exc.returncode}). See the error above.", file=sys.stderr)
         return exc.returncode
     except (RuntimeError, OSError, ImportError) as exc:
-        print(f"\nLaunch failed: {exc}", file=sys.stderr)
+        if args.desktop and not args.smoke_test:
+            from tkinter import Tk, messagebox
+            root = Tk()
+            root.withdraw()
+            messagebox.showerror("TradeVelocity could not start", f"{exc}\n\nFor desktop setup, run:\n.venv\\Scripts\\python.exe -m pip install -e \".[app,desktop]\"\n\nThen run npm.cmd run build inside frontend.")
+            root.destroy()
+        else:
+            if sys.stderr is not None:
+                print(f"\nLaunch failed: {exc}", file=sys.stderr)
         return 1
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     raise SystemExit(main())

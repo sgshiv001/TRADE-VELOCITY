@@ -6,6 +6,43 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-09-29 — Repository presentation
+
+- Refresh the README with a concise project overview, clear safety boundary,
+  technology badges, faster setup instructions, and direct links to the demo,
+  architecture, measured results, and development history.
+- Add an accessible, repository-native SVG illustrating order entry, matching,
+  simulation, and the separate AI execution watchdog.
+- Explain the TradeVelocity name and the order-matching problem in plain language;
+  clarify that AI flags unusual simulated executions for human review and does not
+  make trading or matching decisions.
+
+## 2026-09-29 — Desktop app, professional themes, and execution watchdog
+
+- Add an optional native Windows desktop window through `app.py --desktop`,
+  folder launch via `Launch_Desktop.vbs`, a portable PyInstaller build, and a
+  generated TV icon. Bundle Python and the built UI; retain browser mode.
+- Persist desktop sessions under `%LOCALAPPDATA%\TradeVelocity`; bind only to
+  loopback, fall back from occupied ports, and stop the owned server on close.
+- Default to a clean light interface, add a saved slate dark theme, rounded
+  cards, improved typography, keyboard focus indicators, responsive forms,
+  and local font fallbacks without external font downloads.
+- Fingerprint desktop entry URLs and avoid cached entry HTML/API state after
+  rebuilding, while preserving saved accounts and theme preferences.
+- Replace animated simulator estimates with backend order execution controlled
+  by scenario, seed, quantity, buy probability and market-order percentage.
+- Add a manual buy/sell order ticket, cancellation controls, complete session
+  export, and a confirmed lab reset. Clearly label the newest-100-trade view.
+- Monitor actual execution features with a fixed 40-observation baseline;
+  never fit on the later scored observations. Keep historical AI separate.
+- Add a repeatable classroom demo: 40 training and 50 held-out observations,
+  including 10 injected spikes. On this machine: 10 detected, 0 missed, 7 false
+  alarms, 33 correct normal observations; synthetic precision 58.8%, recall 100%.
+- Add real in-app indexed/linear benchmark execution and export. Retain earlier
+  benchmark evidence; save this run separately as `desktop-comparison.csv`.
+- Verify 96 local tests, including actual API calls with desktop lifecycle
+  checks. Native and packaged-window verification is recorded in the log.
+
 ## 2026-09-29 — Add a Windows double-click shortcut
 
 - Add `Launch_TradeVelocity.bat` in the existing project folder at the user's
