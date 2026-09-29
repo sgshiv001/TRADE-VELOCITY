@@ -14,6 +14,7 @@
   <img alt="React and TypeScript" src="https://img.shields.io/badge/UI-React%20%2B%20TypeScript-3178C6?logo=typescript&logoColor=white">
   <img alt="Windows desktop app" src="https://img.shields.io/badge/Desktop-Windows-0078D4?logo=windows&logoColor=white">
   <img alt="Educational simulation" src="https://img.shields.io/badge/Project-Educational%20Simulation-7C3AED">
+  <a href="https://github.com/sgshiv001/TRADE-VELOCITY/actions/workflows/tests.yml"><img alt="Build and test status" src="https://github.com/sgshiv001/TRADE-VELOCITY/actions/workflows/tests.yml/badge.svg"></a>
 </p>
 
 <p align="center">
@@ -192,6 +193,8 @@ The simulator now submits real workloads (10–2,000 commands per request), cont
 The bundled market snapshot is dated, not a live feed. Its metadata records the source/date, and failed refreshes preserve the existing data. Local account sessions are saved under `.marketlab/` and excluded from Git. Source-code licensing does not replace the market provider's data terms.
 
 ## Tests and experiments
+
+GitHub Actions [builds the production UI and runs the Python suite](.github/workflows/tests.yml) on every push and pull request. The Python checks cover Ubuntu and Windows with Python 3.11 and 3.13. The built UI is used for launcher tests, and Windows installs the desktop runtime for its lifecycle tests. A failed frontend build or test marks the workflow as failed.
 
 Build the frontend before running the full suite:
 

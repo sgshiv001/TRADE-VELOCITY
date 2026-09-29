@@ -6,6 +6,14 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-09-29 — Complete automated build checks
+
+- Build the production React interface once on GitHub Actions and pass that
+  build to every Python test job, so launcher integration checks can run.
+- Run the full Python suite on Ubuntu and Windows with Python 3.11 and 3.13;
+  install the desktop runtime on Windows so desktop lifecycle tests run there.
+- Show the current workflow status in the README.
+
 ## 2026-09-29 — Repository presentation
 
 - Refresh the README with a concise project overview, clear safety boundary,
