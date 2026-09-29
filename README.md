@@ -46,6 +46,19 @@ Markets must pair compatible buyers and sellers, give better prices priority, pr
 
 AI results are educational and synthetic—not proof of fraud, a prediction, or a claim of real-market accuracy. [See measured results and limitations](docs/results.md).
 
+## Project team
+
+TradeVelocity is a group project created collaboratively by **Shivanshu Gupta, Aditya Verma, Sourabh Gupta, and Harshit Mishra**. The team worked together on the project idea, integration, and final application. For a clear presentation of the work, the project areas can be divided like this:
+
+| Team member | Main project area |
+| --- | --- |
+| **Shivanshu Gupta** | Order-matching rules and core engine: price-time priority, fills, cancellations, and correctness |
+| **Aditya Verma** | Frontend and user experience: React interface, themes, order entry, and market views |
+| **Sourabh Gupta** | Market simulation and backend integration: API flows, repeatable scenarios, and performance comparisons |
+| **Harshit Mishra** | AI monitoring and project validation: execution-watchdog analysis, tests, demo flow, and documentation |
+
+These are presentation-friendly focus areas across the shared codebase, not a claim that each feature was built in isolation. All four members contributed to creating the project; adjust the focus areas to match your team's actual division before presenting if needed.
+
 ## Get started
 
 On Windows, double-click **Launch_Desktop.vbs** to open the packaged app if its build is present. To run from source, install Python 3.10+ and Node.js/npm, then:
