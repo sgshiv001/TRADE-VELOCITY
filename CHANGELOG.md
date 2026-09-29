@@ -6,6 +6,12 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-09-29 — Readable dropdowns in dark mode
+
+- Apply the dark color scheme to native select menus and set option text and
+  background colors explicitly, including the company picker and other lists.
+- Rebuild and visually check the Windows desktop app with the company menu open.
+
 ## 2026-09-29 — Complete automated build checks
 
 - Build the production React interface once on GitHub Actions and pass that

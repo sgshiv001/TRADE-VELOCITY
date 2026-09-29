@@ -18,6 +18,8 @@ body { font-size: 14px; }
 button:disabled { cursor: wait; opacity: .55; }
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 input, select { border-radius: 8px; min-height: 40px; font-size: 13px; }
+select option, select optgroup { background-color: var(--surface); color: var(--text); font-size: 13px; }
+:root[data-theme="dark"] select { color-scheme: dark; }
 .notice { color: var(--accent); border-radius: 10px; font-size: 13px; line-height: 1.6; }
 .notice.amber { color: var(--warning); }
 .notice.error, .inline-error { color: var(--danger); }
