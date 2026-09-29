@@ -289,8 +289,8 @@ exit code for an invalid port. The tests do not open a user's browser or stop an
 unrelated process.
 
 Validation: **85 tests passed in 12.40 seconds** with no skipped tests or warning
-summary. `git diff --check` passed. Existing PDF outputs and saved app sessions
-were preserved; no new project or backup folder was created.
+summary. `git diff --check` passed. Saved app sessions were preserved; no new
+project or backup folder was created.
 
 ## Desktop, professional themes, and execution watchdog — 29 September 2026
 

@@ -3,7 +3,10 @@ Dim shell, files, root, executable, command
 Set shell = CreateObject("WScript.Shell")
 Set files = CreateObject("Scripting.FileSystemObject")
 root = files.GetParentFolderName(WScript.ScriptFullName)
-executable = files.BuildPath(root, "dist\TradeVelocity\TradeVelocity.exe")
+executable = files.BuildPath(root, "TradeVelocity\TradeVelocity.exe")
+If Not files.FileExists(executable) Then
+    executable = files.BuildPath(root, "dist\TradeVelocity\TradeVelocity.exe")
+End If
 If files.FileExists(executable) Then
     command = Chr(34) & executable & Chr(34)
 Else

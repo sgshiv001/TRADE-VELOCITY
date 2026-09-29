@@ -17,7 +17,8 @@
 </p>
 
 <p align="center">
-  <a href="#run-the-app">🚀 Run the app</a> ·
+  <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/latest">🪟 Download Windows app</a> ·
+  <a href="#run-the-app">🚀 Run from source</a> ·
   <a href="#show-how-it-works">🎓 Classroom demo</a> ·
   <a href="docs/architecture.md">🧩 Architecture</a> ·
   <a href="docs/results.md">📊 Results</a> ·
@@ -92,6 +93,8 @@ This is a learning and experimentation project. It uses simulated orders and vir
 ## Run the app
 
 ### Windows desktop app — no browser or console needed
+
+Download the latest **TradeVelocity-Windows-x64.zip** from [GitHub Releases](https://github.com/sgshiv001/TRADE-VELOCITY/releases/latest), extract it, then double-click the included **Launch_Desktop.vbs**. Keep the extracted `TradeVelocity` folder intact; the app needs its `_internal` support files. Windows may show a security warning because this educational build is unsigned.
 
 If the desktop build is already present, double-click **Launch_Desktop.vbs** in this folder, or open **dist/TradeVelocity/TradeVelocity.exe**. It opens a normal resizable Windows window. Closing that window stops its own local server. Light mode is the default; the theme button switches to dark mode and saves your choice.
 
