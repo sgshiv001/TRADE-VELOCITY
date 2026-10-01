@@ -5,12 +5,11 @@
 ```mermaid
 flowchart LR
     UI[React / TypeScript app] --> API[FastAPI]
-    API --> Paper[PaperBroker: cash and P/L]
-    API --> Lab[Independent matching lab]
-    Paper --> Session[ExchangeSession]
-    Lab --> Session
+    API --> Workspace[User order workspace]
+    Workspace --> Session[ExchangeSession]
+    Session --> Watchdog[Advisory execution watchdog]
     API --> History[Company history and indicators]
-    API --> Saved[Local atomic session journals]
+    API --> Saved[Transactional local SQLite storage]
     CLI[CLI and JSON scenarios] --> Session
     Session --> Engine[MatchingEngine]
     Engine --> Books[Per-symbol order books]
@@ -89,7 +88,12 @@ Building and draining `N/2` distinct levels for one symbol gives amortized expec
 
 ## Scenario format
 
-`ExchangeSession` records successful `place`, `cancel`, and `modify` commands. JSON scenarios have `version: 1` and an ordered `events` array. Import replays the commands into a new engine, so the order book and trades can be reproduced. Trade timestamps are generated at replay time and therefore differ from the original run.
+`ExchangeSession` records successful `place`, `cancel`, and `modify` commands.
+Current exports have `version: 2`, an ordered `events` array, and immutable
+command/execution timestamps that survive replay. Version-1 scenarios remain
+readable; their original execution times are unknown and displayed as such.
+Import validates commands by rebuilding the book, trades, and execution features
+in a new engine rather than trusting supplied telemetry.
 
 The session recorder is intended for sequential API or CLI commands. For concurrent experiments, submit directly to `MatchingEngine`; its lock protects matching.
 ## Desktop and execution-observer extension
@@ -98,7 +102,7 @@ The optional desktop host (`stock_engine.desktop`) embeds the same production
 React frontend in a native pywebview/WebView2 window and starts one owned Uvicorn
 server on loopback. Browser launch remains available. The desktop uses a reserved
 port, an occupied-port fallback, separate writable per-user storage, and server
-shutdown when its window closes. PyInstaller includes the frontend, scenario,
+shutdown when its window closes. PyInstaller includes the frontend,
 package snapshot, Python runtime, and dependencies. WebView2 is a target-machine
 prerequisite. No remote broker connection or real-money execution is introduced.
 
@@ -108,11 +112,37 @@ of that command using a volume-weighted executed price. It includes event/order
 references, matched quantity, submitted quantity, fill count, price change from
 the previous observation, and pre-command bid/ask volume/imbalance in the top 30
 levels. Telemetry is outside deterministic matching and reconstructed on replay.
-Replay timestamps are replay-time timestamps, not a durable historical audit clock.
+Version-2 timestamps survive replay; legacy records without timestamps remain
+explicitly unknown. A local clock is not a trusted exchange audit clock.
 
-The new watchdog groups observations by symbol, trains on the first 40, and
-scores only subsequent observations against that fixed baseline. Its baseline
-is assumed normal, not verified normal. Feature-deviation labels are descriptive
-and not explanations of the forest's causal reasoning. The classroom test
-injects known spikes only into heldout observations; evaluation labels never
-enter the model. Historical OHLCV anomaly analysis remains a separate pipeline.
+The watchdog groups observations by symbol. Of the first 40 executions, the
+first 24 fit an Isolation Forest and robust median/MAD statistics; the next 16
+set fixed cutoffs without fitting the forest or robust statistics. Positive
+count/depth features are log-transformed. Later executions trigger a review if
+either the calibrated forest cutoff or an explicit robust-deviation guard is
+exceeded. Forest alerts require corroborating robust deviation; raw count/depth
+envelopes supplement the logged guards when baseline variability is large.
+Offline parameter selection uses development workloads, not held-out
+evaluation labels; [the calibration report](ai-calibration-report.md) records
+the protocol, misses, false alerts, and detector contributions.
+
+Baseline normality is assumed, not verified. Severity is not a probability;
+feature-deviation labels are descriptive, not causal forest explanations.
+Models and unchanged reports are cached outside the matching lock. Monitoring uses only
+the user's executed orders. Generated classroom sessions and evaluation controls
+were removed on 30 September 2026. Historical OHLCV anomaly analysis remains
+a separate pipeline. No liquidity is automatically added to a new session.
+
+## Local boundary and optional private access
+
+Local launches remain loopback-only. Host/client/origin checks cover HTTP and
+WebSockets; responses carry CSP and other security headers. Optional private
+mode requires an HTTPS origin plus a non-placeholder 32+ character access key.
+It uses an eight-hour, Secure/HTTP-only/SameSite=Strict cookie with server-side
+revocation, or explicit bearer credentials for trusted API clients. The UI does
+not store the key. Rate/body/concurrency limits bound requests; docs endpoints
+are disabled. Login state is in-memory and reset on restart. This is one trusted
+operator/workspace boundary, not individual multi-user ownership isolation.
+
+The prepared container/proxy templates are unexecuted on this host; normal app
+launch does not deploy them. See [private deployment](private-deployment.md).

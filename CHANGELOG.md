@@ -1,10 +1,103 @@
 # Change log
 
-This log records the project implemented through 29 September 2026. Original
+This log records the project implemented through 2 October 2026. Original
 commit dates are taken from Git. Later milestones summarize the development
 session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
+
+## 2026-10-02 — Publish the tested local application and repository presentation
+
+- Update the README with verified Windows/web status, exact local test counts,
+  launch/build instructions, actual light/dark screenshots, team credits, and
+  clear boundaries rather than an unsupported zero-defect claim.
+- Prepare publication to the existing public `sgshiv001/TRADE-VELOCITY` main
+  branch, including current app source, tests, measured results and guides.
+- Refresh the repository About description/topics to match Windows desktop,
+  local web matching, persistent sessions and advisory AI analytics.
+- Keep generated builds, dependencies, saved sessions, credentials and unrelated
+  coursework out of Git. Generalize the machine-specific temporary path in
+  published evidence and remove links to ignored local build outputs.
+- Local app verification is unchanged: 159 Python tests, 10 browser tests and
+  frozen Windows smoke passed. Remote CI status is separate and is available
+  on GitHub Actions; source publication does not deploy the application.
+
+## 2026-10-02 — Local release hardening and watchdog v3, application 0.3.3
+
+Implementation and verification ran on 1 October; the completion report and
+final documentation were finished on 2 October (India time).
+
+- Repair the previous high-volume AI miss with a fixed raw-count envelope and
+  require robust corroboration for forest alerts. Select five settings using
+  54 candidates on development data; retain the old evaluation as regression
+  evidence and reserve new seeds 3000–3031 only after selection.
+- Controlled fresh result: 1,536/1,536 extreme deviations detected, zero false
+  alerts among 15,360 normal controls. Explicit guards account for most alerts;
+  these finite synthetic results do not establish real-market fraud accuracy.
+- Use a supported Selector event loop and SansIO WebSocket transport on Windows;
+  repeated reconnect/disconnect checks no longer reproduce WinError 10054.
+- Add local Host/origin/client restrictions, bounded requests and payloads,
+  security headers, and optional single-operator access-key/cookie protection.
+  Prepare non-root Docker/Caddy HTTPS templates without deploying them.
+- Add read-only Windows/WebView2/.NET diagnostics, fail clearly on missing
+  prerequisites, and prepare certificate-store signing with verification and
+  dry-run support. The current portable executable remains unsigned.
+- Build a verified portable ZIP with CRC and SHA-256 manifest. Run the frozen
+  application from a fresh folder with spaces and isolated writable data,
+  excluding Python/Node from PATH. Native matching, UI rendering, both AI
+  regressions, clean shutdown, and occupied-port recovery pass.
+- Final checks: **159 Python tests in 29.84 seconds**, **10 browser tests in
+  19.7 seconds**, production UI build, healthy Python requirements, and zero
+  known npm vulnerabilities. The browser gate test uses a UI fixture; real
+  API/cookie/WebSocket controls have separate in-process tests, not live TLS QA.
+- Publish the local [completion/test report](docs/completion-report.md), current
+  [AI report](docs/ai-calibration-report.md), and Windows/private-hosting guides.
+  Preserve the v2 report and measurements. No signing, deployment, purchase,
+  GitHub push, or user-session clearing occurred. Automated cleanup of the
+  generated temporary extraction was blocked; its location is in the report.
+
+## 2026-10-01 — Calibrated execution watchdog, application 0.3.2
+
+- Split the fixed 40-execution baseline into 24 fitting and 16 cutoff
+  observations. Combine Isolation Forest with explicit robust-deviation guards,
+  log-transformed count/depth features, fixed-cutoff severity, and detector labels.
+- Select forest margin 0.08, robust floor 6.0, and padding 1.0 on development
+  workloads only. Package the selected settings for Windows and browser modes.
+- Add an isolated reproducible evaluator with 16 candidates, separate held-out
+  seeds, comparison to the old method, detector attribution, and all error cases.
+- Held-out controlled result: 767/768 deviations detected, 6/7,680 normal
+  controls falsely flagged; precision 99.22%, recall 99.87%. Explicit guards
+  account for most detections. One high-volume miss is retained and documented;
+  these are not real-market fraud accuracy figures.
+- Cover the original repetitive-baseline miss in Python, browser, and packaged
+  Windows checks; verify AI reporting does not change matching records.
+- Repair WebSocket disconnect cleanup exposed by the complete suite and add
+  repeated-disconnection coverage. Preserve request cancellation semantics.
+- Verification: 124 Python tests, 5 browser tests, production UI build, dependency
+  checks, and native Windows smoke passed. See the
+  [archived v2 calibration report](docs/ai-calibration-v2-report.md) for warnings and limits.
+- Update README, architecture, evaluation references, and local Windows build.
+  No user session was seeded/cleared; no GitHub push was performed.
+
+## 2026-09-30 — Windows and web matching workspace without presets
+
+- Replace the presentation interface with operational overview, order entry,
+  depth, market history, execution monitoring, full trade history, and measured
+  performance tools. Both modes use the same engine and application source.
+- Remove demoapp.py, classroom generators and APIs, injected trading sessions,
+  generated-price fallback, and illustrative data-structure/analytics screens.
+  New sessions are empty; saved records are preserved rather than erased.
+- Add order amendments, custom symbols, full-history search/pagination and CSV
+  export, plus session import with confirmation and engine replay validation.
+- Refresh actual provider history into writable application storage. Missing
+  history stays unavailable; failed refreshes preserve orders and cached data.
+- Remove virtual-account operations from the app; preserve legacy account data
+  on disk. Execution remains local, without a broker or real-money transfers.
+- Update Windows packaging, VS Code configurations, README, and architecture.
+- Verification: production frontend build; 93 tests passed; packaged smoke exit
+  0 with 7 matched shares and 1 trade; real Windows window opened and shut down;
+  browser matching/amendment/history, provider refresh, analysis, and themes
+  checked. The provider returned history dated 30 September 2026.
 
 ## 2026-09-29 — Readable dropdowns in dark mode
 

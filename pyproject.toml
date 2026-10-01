@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stock-matching-engine"
-version = "0.1.1"
+version = "0.3.3"
 description = "TradeVelocity: stock order matching with advanced data structures, market simulation and AI analytics"
 readme = "README.md"
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-app = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "numpy>=1.26", "pandas>=2.1", "scikit-learn>=1.4", "yfinance>=0.2.66,<2"]
+app = ["fastapi>=0.115,<1", "uvicorn>=0.36,<1", "websockets>=14,<17", "numpy>=1.26", "pandas>=2.1", "scikit-learn>=1.4", "yfinance>=0.2.66,<2"]
 test = ["pytest>=8", "httpx2>=2,<3"]
 desktop = ["pywebview>=6,<7", "pyinstaller>=6,<7"]
 

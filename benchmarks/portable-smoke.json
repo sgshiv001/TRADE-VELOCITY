@@ -1,0 +1,125 @@
+{
+  "verified_at": "2026-10-01T23:54:52.070916+05:30",
+  "app_version": "0.3.3",
+  "archive_sha256": "eb58948bd0351dc93acfe7282dabc74e37f59b6bf0addcf1a5804d4a1afac0b9",
+  "exe_sha256": "d445810c2baef3e4b439d902e78d29f50533d6351c4380d6cc39c6d896a25341",
+  "folder_with_spaces": true,
+  "separate_writable_profile": true,
+  "source_environment_absent": true,
+  "path_excludes_python_node": true,
+  "check_system_exit_code": 0,
+  "smoke_exit_code": 0,
+  "port_released": true,
+  "prerequisites": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "architecture": "AMD64",
+    "python_bits": 64,
+    "webview2_version": "154.0.4258.37",
+    "dotnet_framework_release": 533509,
+    "problems": [],
+    "setup_links": {
+      "webview2": "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+      "dotnet_framework": "https://dotnet.microsoft.com/en-us/download/dotnet-framework"
+    },
+    "ready": true
+  },
+  "smoke": {
+    "ok": true,
+    "matched_shares": 7,
+    "recorded_trades": 1,
+    "observations": 1,
+    "benchmark_rows": 6,
+    "calibrated_alert": true,
+    "model_version": "execution-watchdog-v3",
+    "calibrated_observations": 46,
+    "calibration": {
+      "fit_observations": 24,
+      "cutoff_observations": 16,
+      "forest_margin": 0.08,
+      "guard_floor": 8.0,
+      "guard_padding": 1.0,
+      "forest_confirmation": 4.0,
+      "size_multiplier": 20.0,
+      "evidence": "Controlled matching-engine workloads; not labelled real-market fraud",
+      "forest_threshold": 0.698223,
+      "robust_threshold": 8.0,
+      "varying_features": 4,
+      "baseline_warning": "Baseline normality is assumed, not verified."
+    },
+    "detectors": [
+      "robust_guard",
+      "size_envelope"
+    ],
+    "matching_unchanged_by_monitor": true,
+    "high_volume_regression": true,
+    "prerequisites": {
+      "platform": "Windows-11-10.0.26300-SP0",
+      "architecture": "AMD64",
+      "python_bits": 64,
+      "webview2_version": "154.0.4258.37",
+      "dotnet_framework_release": 533509,
+      "problems": [],
+      "setup_links": {
+        "webview2": "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+        "dotnet_framework": "https://dotnet.microsoft.com/en-us/download/dotnet-framework"
+      },
+      "ready": true
+    },
+    "port": 8765,
+    "title": "TradeVelocity — Matching Workspace"
+  },
+  "extraction_path": "%LOCALAPPDATA%\\Temp\\TradeVelocity Release Check 94f61b09-1577-4961-a9a2-03b135307482",
+  "cleanup": "Not removed: automated deletion was blocked by command policy. This is a generated test extraction, not user application data.",
+  "occupied_port_recovery": {
+    "occupied_port": 8765,
+    "selected_port": 57794,
+    "smoke_exit_code": 0,
+    "ok": true,
+    "alternative_port_released": true,
+    "smoke": {
+      "ok": true,
+      "matched_shares": 7,
+      "recorded_trades": 1,
+      "observations": 1,
+      "benchmark_rows": 6,
+      "calibrated_alert": true,
+      "model_version": "execution-watchdog-v3",
+      "calibrated_observations": 46,
+      "calibration": {
+        "fit_observations": 24,
+        "cutoff_observations": 16,
+        "forest_margin": 0.08,
+        "guard_floor": 8.0,
+        "guard_padding": 1.0,
+        "forest_confirmation": 4.0,
+        "size_multiplier": 20.0,
+        "evidence": "Controlled matching-engine workloads; not labelled real-market fraud",
+        "forest_threshold": 0.698223,
+        "robust_threshold": 8.0,
+        "varying_features": 4,
+        "baseline_warning": "Baseline normality is assumed, not verified."
+      },
+      "detectors": [
+        "robust_guard",
+        "size_envelope"
+      ],
+      "matching_unchanged_by_monitor": true,
+      "high_volume_regression": true,
+      "prerequisites": {
+        "platform": "Windows-11-10.0.26300-SP0",
+        "architecture": "AMD64",
+        "python_bits": 64,
+        "webview2_version": "154.0.4258.37",
+        "dotnet_framework_release": 533509,
+        "problems": [],
+        "setup_links": {
+          "webview2": "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+          "dotnet_framework": "https://dotnet.microsoft.com/en-us/download/dotnet-framework"
+        },
+        "ready": true
+      },
+      "port": 57794,
+      "title": "TradeVelocity — Matching Workspace"
+    }
+  }
+}

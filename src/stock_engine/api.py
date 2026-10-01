@@ -1,16 +1,21 @@
 """Local React application's API. Run with one worker on the loopback interface."""
 
 from dataclasses import asdict, dataclass, field
+import asyncio
 import csv
+import hashlib
 import json
 import math
+import os
 import sys
+import sqlite3
 from pathlib import Path
 from threading import RLock
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from anyio import CancelScope
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,21 +25,22 @@ from .companies import COMPANIES
 from .analysis import analyze_history
 from .anomaly import detect_anomalies
 from .experiments import compare_workload
-from .market_data import MarketData, download_market_data, history_metrics, indicators, load_market_data, market_rows, period_history, save_snapshot
-from .portfolio import PaperBroker
+from .market_data import SNAPSHOT_PATH, MarketData, download_market_data, history_metrics, indicators, load_market_data, market_rows, period_history, save_snapshot
 from .session import ExchangeSession
-from .watchdog import classroom_demo, report as watchdog_report, simulate
+from .storage import SessionStore
+from .watchdog import ExecutionMonitor
+from .security import COOKIE, SecurityGuard, SecuritySettings
 
 PROJECT_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
 
 
-class PaperOrder(BaseModel):
-    symbol: str
+class OrderRequest(BaseModel):
+    symbol: str = Field(min_length=1, max_length=16, pattern=r"^[A-Za-z][A-Za-z0-9.]*$")
     side: Literal["BUY", "SELL"]
     quantity: int = Field(gt=0, le=1_000_000, strict=True)
 
 
-class LabOrder(PaperOrder):
+class LabOrder(OrderRequest):
     order_id: str = Field(min_length=1, max_length=100)
     price: str | None = None
 
@@ -49,36 +55,42 @@ class Comparison(BaseModel):
     count: int = Field(default=1000, ge=100, le=10_000, strict=True)
 
 
-class Simulation(BaseModel):
-    count: int = Field(default=500, ge=10, le=2000, strict=True)
-    scenario: Literal["normal", "bull", "bear", "volatile", "low_liquidity", "high_liquidity"] = "normal"
-    symbol: Literal["ACME", "TECH"] = "ACME"
-    seed: int = Field(default=42, ge=0, le=1_000_000, strict=True)
-    buy_probability: int = Field(default=50, ge=0, le=100, strict=True)
-    market_percent: int = Field(default=10, ge=0, le=100, strict=True)
+class Review(BaseModel):
+    status: Literal["open", "reviewed", "dismissed"]
+    note: str = Field(default="", max_length=2000)
+
+
+class Login(BaseModel):
+    access_key: str = Field(min_length=1, max_length=1024)
+
+
+RequestKey = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=100, pattern=r"^[A-Za-z0-9.:_-]+$")]
 
 
 @dataclass
 class Session:
-    broker: PaperBroker
     lab: ExchangeSession = field(default_factory=ExchangeSession)
     lock: RLock = field(default_factory=RLock)
+    # Preserve old virtual-account records on disk, without operating that account.
+    legacy_account: dict | None = None
+    reviews: dict = field(default_factory=dict)
+    revision: int = 0
+    monitor: ExecutionMonitor = field(default_factory=ExecutionMonitor)
+    listeners: list = field(default_factory=list)
 
 
-def seed_broker(data: MarketData) -> PaperBroker:
-    broker = PaperBroker()
-    for symbol, mark in data.marks().items():
-        broker.seed_liquidity(symbol, mark)
-    broker.record_equity(data.marks())
-    return broker
-
-
-def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="0.3.0")
-    app.state.market = market or load_market_data()
+def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
+               security: SecuritySettings | None = None) -> FastAPI:
+    app = FastAPI(title="TradeVelocity", version="0.3.3", docs_url=None, redoc_url=None, openapi_url=None)
+    app.state.security = guard = SecurityGuard(security or SecuritySettings.from_environment())
+    app.middleware("http")(guard.protect)
+    app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
+    cached_market = app.state.data_dir.parent / "market-history.json"
+    app.state.market = market if market is not None else load_market_data(cached_market if cached_market.exists() else SNAPSHOT_PATH)
     app.state.sessions = {}
     app.state.registry_lock = RLock()
-    app.state.data_dir = Path(data_dir) if data_dir is not None else PROJECT_ROOT / ".marketlab" / "sessions"
+    app.state.store = SessionStore(app.state.data_dir)
+    app.state.market_lock = RLock()
 
     @app.middleware("http")
     async def fresh_application_state(request, call_next):
@@ -91,13 +103,54 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     async def input_error(request, exc):
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
-    def persist(session_id: str, session: Session):
-        directory = app.state.data_dir
-        directory.mkdir(parents=True, exist_ok=True)
-        target = directory / f"{session_id}.json"
-        temporary = target.with_suffix(".tmp")
-        temporary.write_text(json.dumps({"broker": session.broker.to_dict(), "lab": session.lab.to_dict()}), encoding="utf-8")
-        temporary.replace(target)
+    def metadata(session: Session):
+        payload = {"reviews": session.reviews}
+        if session.legacy_account is not None:
+            payload["broker"] = session.legacy_account
+        return payload
+
+    @app.exception_handler(sqlite3.Error)
+    async def storage_error(request, exc):
+        return JSONResponse(status_code=503, content={"detail": "Local storage is unavailable. Check disk space and folder permissions."})
+
+    def notify(session: Session):
+        def latest(queue, update):
+            if queue.full():
+                queue.get_nowait()
+            queue.put_nowait(update)
+        for loop, queue in session.listeners:
+            if not loop.is_closed():
+                loop.call_soon_threadsafe(latest, queue, {"type": "changed", "revision": session.revision})
+
+    def commit(context, operation, fingerprint: str, key: str | None = None, *, replace_events=False):
+        session_id, session = context
+        with session.lock:
+            if key:
+                prior = app.state.store.receipt(session_id, key)
+                if prior:
+                    if prior[0] != fingerprint:
+                        raise HTTPException(409, "This request key was already used for different inputs.")
+                    return prior[1]
+            before, count = session.lab, len(session.lab.events)
+            reviews, monitor = session.reviews.copy(), session.monitor
+            try:
+                response = jsonable_encoder(operation())
+                app.state.store.save(session_id, session.lab.events, metadata(session), session.revision + 1,
+                                     replace_events=replace_events,
+                                     receipt=(key, fingerprint, response) if key else None)
+            except Exception as exc:
+                # No reader sees uncommitted work: all session reads use this lock.
+                session.lab = ExchangeSession.from_dict({"version": 2, "events": before.events[:count]}) if session.lab is before else before
+                session.reviews, session.monitor = reviews, monitor
+                if isinstance(exc, (sqlite3.Error, OSError)):
+                    raise HTTPException(503, "Could not save this change. Nothing was committed; check disk space and folder permissions, then retry.") from exc
+                raise
+            session.revision += 1
+            notify(session)
+            return response
+
+    def fingerprint(action: str, payload=None):
+        return hashlib.sha256(json.dumps([action, payload], sort_keys=True).encode()).hexdigest()
 
     def get_session(x_session_id: Annotated[str, Header()]) -> tuple[str, Session]:
         try:
@@ -106,33 +159,102 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             raise HTTPException(401, "invalid local session") from exc
         with app.state.registry_lock:
             if session_id not in app.state.sessions:
-                path = app.state.data_dir / f"{session_id}.json"
-                if not path.exists():
+                payload = app.state.store.load(session_id)
+                if payload is None:
                     raise HTTPException(404, "local session was not found")
-                payload = json.loads(path.read_text(encoding="utf-8"))
-                app.state.sessions[session_id] = Session(PaperBroker.from_dict(payload["broker"]), ExchangeSession.from_dict(payload["lab"]))
+                try:
+                    lab = ExchangeSession.from_dict(payload["lab"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise HTTPException(503, "Saved session is unreadable. Its records have been preserved; restore a valid export.") from exc
+                app.state.sessions[session_id] = Session(lab=lab, legacy_account=payload.get("broker"), reviews=payload.get("reviews", {}), revision=payload.get("revision", 0))
             return session_id, app.state.sessions[session_id]
 
     SessionDependency = Annotated[tuple[str, Session], Depends(get_session)]
 
-    def portfolio_payload(broker: PaperBroker) -> dict:
-        return jsonable_encoder({**broker.valuation(app.state.market.marks()), "initial_cash": broker.initial_cash,
-                                 "fills": broker.fills, "history": broker.equity_history,
-                                 "source": app.state.market.source, "as_of": app.state.market.as_of,
-                                 "is_demo": app.state.market.is_demo})
-
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "application": "trade-velocity"}
+        return {"status": "ok", "application": "trade-velocity", "version": app.version, "execution": "local_matching_engine", "real_money": False, "storage": "sqlite", "live_updates": True}
+
+    @app.get("/api/auth/status")
+    def auth_status(request: Request):
+        return {"required":guard.settings.mode == "private", "authenticated":guard.authorized(request.headers,request.cookies)}
+
+    @app.post("/api/auth/login")
+    def login(payload: Login, request: Request):
+        if guard.settings.mode == "local":
+            raise HTTPException(404,"Sign-in is not enabled for the local app")
+        if guard.limited(request.client.host if request.client else "unknown", "login", 5):
+            raise HTTPException(429,"Too many sign-in attempts; retry after one minute",headers={"Retry-After":"60"})
+        token = guard.issue(payload.access_key)
+        if not token:
+            raise HTTPException(401,"Access key is invalid")
+        response = JSONResponse({"authenticated":True})
+        response.set_cookie(COOKIE,token,max_age=8*60*60,secure=True,httponly=True,samesite="strict",path="/")
+        return response
+
+    @app.post("/api/auth/logout")
+    def logout(request: Request):
+        guard.revoke(request.cookies)
+        response = JSONResponse({"authenticated":False})
+        response.delete_cookie(COOKIE,secure=True,httponly=True,samesite="strict",path="/")
+        return response
 
     @app.post("/api/session")
     def new_session():
         session_id = str(uuid4())
-        session = Session(seed_broker(app.state.market))
+        session = Session()
         with app.state.registry_lock:
+            app.state.store.save(session_id, [], metadata(session), 0)
             app.state.sessions[session_id] = session
-            persist(session_id, session)
         return {"session_id": session_id}
+
+    @app.websocket("/api/live")
+    async def live(websocket: WebSocket, session_id: str):
+        if (not guard.valid_host(websocket.headers) or not guard.valid_origin(websocket.headers)
+                or not guard.local_client(websocket.client)
+                or not guard.authorized(websocket.headers,websocket.cookies)
+                or guard.limited(websocket.client.host if websocket.client else "unknown", "websocket", 60)):
+            await websocket.close(code=1008)
+            return
+        try:
+            _, session = get_session(session_id)
+        except (HTTPException, ValueError, sqlite3.Error, OSError):
+            await websocket.close(code=1008)
+            return
+        await websocket.accept()
+        queue = asyncio.Queue(maxsize=1)
+        listener = (asyncio.get_running_loop(), queue)
+        with session.lock:
+            session.listeners.append(listener)
+            revision = session.revision
+        incoming = asyncio.create_task(websocket.receive_text())
+        outgoing = asyncio.create_task(queue.get())
+        try:
+            await websocket.send_json({"type": "connected", "revision": revision})
+            while True:
+                done, _ = await asyncio.wait([incoming, outgoing], timeout=25, return_when=asyncio.FIRST_COMPLETED)
+                if not guard.authorized(websocket.headers,websocket.cookies):
+                    await websocket.close(code=1008)
+                    break
+                if incoming in done:
+                    incoming.result()  # Detect disconnects even when the session is idle.
+                    incoming = asyncio.create_task(websocket.receive_text())
+                if outgoing in done:
+                    await websocket.send_json(outgoing.result())
+                    outgoing = asyncio.create_task(queue.get())
+                if not done:
+                    await websocket.send_json({"type": "heartbeat"})
+        except WebSocketDisconnect:
+            pass
+        finally:
+            with session.lock:
+                session.listeners.remove(listener)
+            for task in (incoming, outgoing):
+                task.cancel()
+            # Disconnect teardown can cancel the request while it drains its
+            # child tasks. Finish cleanup without suppressing request cancellation.
+            with CancelScope(shield=True):
+                await asyncio.gather(incoming, outgoing, return_exceptions=True)
 
     @app.get("/api/market")
     def market_overview():
@@ -146,21 +268,23 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                               "price": row["Price (₹)"], "day_change": row["Day %"], "year_growth": row["1Y growth %"],
                               "volume": row["Volume"], "as_of": row["As of"],
                               "sparkline": [float(value) for value in frame["Adj Close"].tail(30)]})
-        return {"source": data.source, "as_of": data.as_of, "fetched_at": data.fetched_at, "is_demo": data.is_demo,
+        changes = [company["day_change"] for company in companies if company["day_change"] is not None]
+        return {"source": data.source, "as_of": data.as_of, "fetched_at": data.fetched_at,
                 "message": data.message, "companies": companies,
-                "gainers": sum(company["day_change"] > 0 for company in companies),
-                "losers": sum(company["day_change"] < 0 for company in companies),
-                "basket_change": sum(company["day_change"] for company in companies) / len(companies)}
+                "gainers": sum(value > 0 for value in changes),
+                "losers": sum(value < 0 for value in changes),
+                "available": bool(companies),
+                "basket_change": sum(changes) / len(changes) if changes else None}
 
     @app.post("/api/market/refresh")
     def refresh_market():
-        try:
-            data = download_market_data()
-            save_snapshot(data)
-        except Exception as exc:
-            raise HTTPException(503, "Market provider is unavailable. Your existing dated snapshot and portfolio were preserved.") from exc
-        # Swap only after every company is complete; keep existing portfolios.
-        app.state.market = data
+        with app.state.market_lock:
+            try:
+                data = download_market_data()
+                save_snapshot(data, app.state.data_dir.parent / "market-history.json")
+            except Exception as exc:
+                raise HTTPException(503, "Market provider is unavailable. Existing market history and matching orders were preserved.") from exc
+            app.state.market = data
         return market_overview()
 
     @app.get("/api/companies/{symbol}")
@@ -168,6 +292,8 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         symbol = symbol.upper()
         if symbol not in COMPANIES:
             raise HTTPException(404, "company was not found")
+        if symbol not in app.state.market.histories:
+            raise HTTPException(503, "Market history is unavailable. Refresh the provider data.")
         full = indicators(app.state.market.histories[symbol])
         frame = period_history(full, period)
         history = []
@@ -180,13 +306,15 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                             "volume": int(row["Volume"]), "ma20": finite(row["MA20"]), "ma50": finite(row["MA50"]),
                             "rsi": finite(row["RSI14"]), "drawdown": finite(row["Drawdown %"])})
         return {"company": asdict(COMPANIES[symbol]), "period": period, "history": history,
-                "metrics": history_metrics(frame), "source": app.state.market.source, "is_demo": app.state.market.is_demo,
+                "metrics": history_metrics(frame), "source": app.state.market.source,
                 "performance": [{"period": p, "return_pct": history_metrics(period_history(full, p))["growth_pct"]}
                                 for p in ["1M", "3M", "6M", "1Y", "5Y"]],
-                "basis": "Chart and growth use split/dividend-adjusted prices. Latest quote and portfolio marks use the raw daily bar."}
+                "basis": "Chart and growth use split/dividend-adjusted prices. The last daily close uses the raw provider bar; engine orders are separate."}
 
     @app.get("/api/analysis/{symbol}")
     def market_analysis(symbol: str, period: Literal["1M", "3M", "6M", "1Y", "5Y"] = "1Y"):
+        if symbol.upper() in COMPANIES and symbol.upper() not in app.state.market.histories:
+            raise HTTPException(503, "Market history is unavailable. Refresh the provider data.")
         try:
             return analyze_history(symbol, app.state.market.histories, period)
         except ValueError as exc:
@@ -194,140 +322,100 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
 
     @app.get("/api/ai/anomalies/{symbol}")
     def anomaly_report(symbol: str, period: Literal["1M", "3M", "6M", "1Y", "5Y"] = "1Y"):
-        """Return potentially anomalous activity for educational analysis."""
+        """Analyze dated observations; scores are not fraud probabilities."""
 
+        if symbol.upper() in COMPANIES and symbol.upper() not in app.state.market.histories:
+            raise HTTPException(503, "Market history is unavailable. Refresh the provider data.")
         try:
             return detect_anomalies(app.state.market.histories, symbol, period)
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
 
-    @app.get("/api/portfolio")
-    def portfolio(context: SessionDependency):
-        _, session = context
-        with session.lock:
-            return portfolio_payload(session.broker)
-
-    @app.post("/api/portfolio/orders")
-    def paper_order(order: PaperOrder, context: SessionDependency):
-        session_id, session = context
-        symbol = order.symbol.upper()
-        if symbol not in COMPANIES:
-            raise HTTPException(400, "choose a company from the supported market")
-        with session.lock:
-            # Replenish synthetic makers using the latest available dated mark.
-            session.broker.seed_liquidity(symbol, app.state.market.marks()[symbol])
-            result = session.broker.place_market_order(symbol, order.side, order.quantity)
-            session.broker.record_equity(app.state.market.marks())
-            persist(session_id, session)
-            return {"result": jsonable_encoder(result), "portfolio": portfolio_payload(session.broker)}
-
-    @app.post("/api/portfolio/demo")
-    def demo_portfolio(context: SessionDependency):
-        session_id, session = context
-        with session.lock:
-            broker = seed_broker(app.state.market)
-            for symbol, quantity in [("RELIANCE", 60), ("TCS", 30), ("INFY", 80), ("HDFCBANK", 100)]:
-                frame = app.state.market.histories[symbol]
-                row = frame.iloc[max(0, len(frame) - 91)]
-                day = frame.index[max(0, len(frame) - 91)].strftime("%Y-%m-%d")
-                broker.seed_liquidity(symbol, row["Close"])
-                broker.place_market_order(symbol, "BUY", quantity, f"Demo fill at historical reference price from {day}; simulated purchase")
-            for symbol, mark in app.state.market.marks().items():
-                broker.seed_liquidity(symbol, mark)
-            broker.record_equity(app.state.market.marks())
-            session.broker = broker
-            persist(session_id, session)
-            return portfolio_payload(broker)
-
-    @app.post("/api/portfolio/reset")
-    def reset_portfolio(context: SessionDependency):
-        session_id, session = context
-        with session.lock:
-            session.broker = seed_broker(app.state.market)
-            persist(session_id, session)
-            return portfolio_payload(session.broker)
-
-    @app.get("/api/portfolio/export")
-    def export_portfolio(context: SessionDependency):
-        _, session = context
-        with session.lock:
-            return {"account": session.broker.to_dict(), "valuation": portfolio_payload(session.broker)}
-
     @app.get("/api/lab")
-    def lab_state(context: SessionDependency, symbol: str = "ACME"):
+    def lab_state(context: SessionDependency, symbol: str = "RELIANCE"):
         _, session = context
         with session.lock:
             return {"symbols": session.lab.engine.symbols(), "orders": session.lab.engine.active_orders(),
                     "book": session.lab.engine.order_book(symbol, 30), "stats": session.lab.engine.symbol_stats(symbol),
                     "trades": jsonable_encoder(session.lab.engine.trades(limit=100)), "events": len(session.lab.events),
-                    "total_trades": len(session.lab.engine.trades())}
+                    "total_trades": len(session.lab.engine.trades()), "revision": session.revision}
 
     @app.get("/api/lab/watchdog")
-    def lab_watchdog(context: SessionDependency, symbol: Literal["ACME", "TECH"] = "ACME"):
+    def lab_watchdog(context: SessionDependency, symbol: str = Query(default="RELIANCE", min_length=1, max_length=16, pattern=r"^[A-Za-z][A-Za-z0-9.]*$")):
         _, session = context
         with session.lock:
-            return watchdog_report(session.lab, symbol)
-
-    @app.post("/api/lab/watchdog/demo")
-    def watchdog_demo(context: SessionDependency):
-        session_id, session = context
-        replacement, result = classroom_demo()
+            rows = [row.copy() for row in session.lab.observations if row["symbol"] == symbol.upper()]
+            monitor, revision = session.monitor, session.revision
+        result = monitor.report(rows, symbol)
         with session.lock:
-            session.lab = replacement
-            persist(session_id, session)
+            reviews = session.reviews.copy() if session.monitor is monitor else {}
+        result["as_of_revision"] = revision
+        result["alerts"] = [{**row, "review": reviews.get(str(row["event"]), {"status": "open", "note": ""})} for row in result["alerts"]]
+        result["open_alerts"] = sum(row["review"]["status"] == "open" for row in result["alerts"])
         return result
 
-    @app.post("/api/lab/simulate")
-    def lab_simulate(request: Simulation, context: SessionDependency):
-        session_id, session = context
-        with session.lock:
-            result = simulate(session.lab, **request.model_dump())
-            persist(session_id, session)
-            return result
+    @app.patch("/api/lab/watchdog/reviews/{event}")
+    def review_alert(event: int, request: Review, context: SessionDependency, symbol: str = "RELIANCE", key: RequestKey = None):
+        session = context[1]
+        report = lab_watchdog(context, symbol)
+        if not any(row["event"] == event for row in report["alerts"]):
+            raise HTTPException(404, "flagged execution was not found in the review queue")
+        def change():
+            if session.revision != report["as_of_revision"]:
+                raise HTTPException(409, "Session changed. Refresh the review queue and try again.")
+            review = request.model_dump()
+            session.reviews[str(event)] = review
+            return review
+        return commit(context, change, fingerprint(f"review:{event}", request.model_dump()), key)
 
     @app.post("/api/lab/orders")
-    def lab_order(order: LabOrder, context: SessionDependency):
-        session_id, session = context
-        with session.lock:
-            result = session.lab.place_order(order.order_id, order.symbol, order.side, order.quantity, order.price)
-            persist(session_id, session)
-            return jsonable_encoder(result)
+    def lab_order(order: LabOrder, context: SessionDependency, key: RequestKey = None):
+        return commit(context, lambda: context[1].lab.place_order(order.order_id, order.symbol, order.side, order.quantity, order.price), fingerprint("place", order.model_dump()), key)
 
     @app.delete("/api/lab/orders/{order_id}")
-    def cancel_lab_order(order_id: str, context: SessionDependency):
-        session_id, session = context
-        with session.lock:
+    def cancel_lab_order(order_id: str, context: SessionDependency, key: RequestKey = None):
+        session = context[1]
+        def cancel():
             if not session.lab.cancel_order(order_id):
                 raise HTTPException(404, "order is no longer active")
-            persist(session_id, session)
             return {"canceled": order_id}
+        return commit(context, cancel, fingerprint(f"cancel:{order_id}"), key)
 
     @app.patch("/api/lab/orders/{order_id}")
-    def modify_lab_order(order_id: str, request: Modification, context: SessionDependency):
-        session_id, session = context
-        with session.lock:
+    def modify_lab_order(order_id: str, request: Modification, context: SessionDependency, key: RequestKey = None):
+        def modify():
             try:
-                result = session.lab.modify_order(order_id, request.quantity, request.price)
+                return context[1].lab.modify_order(order_id, request.quantity, request.price)
             except KeyError as exc:
                 raise HTTPException(404, "order is no longer active") from exc
-            persist(session_id, session)
-            return jsonable_encoder(result)
+        return commit(context, modify, fingerprint(f"modify:{order_id}", request.model_dump()), key)
 
-    @app.post("/api/lab/demo")
-    def load_lab_demo(context: SessionDependency):
-        session_id, session = context
+    @app.get("/api/lab/trades")
+    def trade_history(context: SessionDependency, offset: int = Query(default=0, ge=0),
+                      limit: int = Query(default=50, ge=1, le=1000), query: str = Query(default="", max_length=100)):
+        _, session = context
         with session.lock:
-            session.lab = ExchangeSession.from_file(PROJECT_ROOT / "scenarios" / "demo.json")
-            persist(session_id, session)
-            return {"events": len(session.lab.events)}
+            trades = session.lab.engine.trades()
+            if query:
+                needle = query.casefold()
+                trades = [trade for trade in trades if needle in f"{trade.trade_id} {trade.symbol} {trade.buy_order_id} {trade.sell_order_id}".casefold()]
+            return {"total": len(trades), "trades": jsonable_encoder(list(reversed(trades))[offset:offset + limit])}
+
+    @app.get("/api/lab/trades/export")
+    def export_trades(context: SessionDependency):
+        _, session = context
+        with session.lock:
+            return jsonable_encoder(session.lab.engine.trades())
 
     @app.post("/api/lab/reset")
-    def reset_lab(context: SessionDependency):
-        session_id, session = context
-        with session.lock:
+    def reset_lab(context: SessionDependency, key: RequestKey = None):
+        session = context[1]
+        def reset():
             session.lab = ExchangeSession()
-            persist(session_id, session)
+            session.reviews = {}
+            session.monitor = ExecutionMonitor()
             return {"events": 0}
+        return commit(context, reset, fingerprint("reset"), key, replace_events=True)
 
     @app.get("/api/lab/export")
     def export_lab(context: SessionDependency):
@@ -336,13 +424,17 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             return session.lab.to_dict()
 
     @app.post("/api/lab/import")
-    def import_lab(payload: dict, context: SessionDependency):
-        session_id, session = context
+    def import_lab(payload: dict, context: SessionDependency, key: RequestKey = None):
+        session = context[1]
+        if isinstance(payload.get("events"), list) and len(payload["events"]) > 100_000:
+            raise HTTPException(400, "Session import is limited to 100,000 commands.")
         replacement = ExchangeSession.from_dict(payload)
-        with session.lock:
+        def restore():
             session.lab = replacement
-            persist(session_id, session)
+            session.reviews = {}
+            session.monitor = ExecutionMonitor()
             return {"events": len(replacement.events)}
+        return commit(context, restore, fingerprint("import", payload), key, replace_events=True)
 
     @app.get("/api/experiments")
     def recorded_experiments():

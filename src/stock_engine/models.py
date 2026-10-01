@@ -28,7 +28,7 @@ class Trade:
     quantity: int
     buy_order_id: str
     sell_order_id: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime | None = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,0 +1,45 @@
+# Prepared only: no deployment is performed by building or launching the local app.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      TRADEVELOCITY_MODE: private
+      TRADEVELOCITY_ORIGIN: https://${TRADEVELOCITY_DOMAIN:?Set your real domain}
+      TRADEVELOCITY_ACCESS_KEY: ${TRADEVELOCITY_ACCESS_KEY:?Generate a private random access key}
+      TRADEVELOCITY_DATA_DIR: /data/sessions
+    volumes:
+      - app-data:/data
+    expose:
+      - "8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,noexec,nosuid
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/api/health',headers={'Host':'${TRADEVELOCITY_DOMAIN}'}),timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  proxy:
+    image: caddy:2
+    environment:
+      TRADEVELOCITY_DOMAIN: ${TRADEVELOCITY_DOMAIN:?Set your real domain}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

@@ -11,7 +11,6 @@ class Company:
     description: str
     website: str
     color: str
-    demo_price: float
 
     @property
     def ticker(self) -> str:
@@ -24,13 +23,13 @@ class Company:
 
 COMPANIES = {
     company.symbol: company for company in (
-        Company("RELIANCE", "Reliance Industries", "Diversified", "An Indian group spanning energy, petrochemicals, retail, and digital services.", "https://www.ril.com/about", "#60a5fa", 1400),
-        Company("TCS", "Tata Consultancy Services", "Technology", "IT services, consulting, and business solutions for organizations worldwide.", "https://www.tcs.com/who-we-are", "#a78bfa", 3200),
-        Company("INFY", "Infosys", "Technology", "Digital services and consulting, including software development and enterprise transformation.", "https://www.infosys.com/about.html", "#38bdf8", 1500),
-        Company("HDFCBANK", "HDFC Bank", "Banking", "An Indian bank serving retail customers and businesses with banking and financial services.", "https://www.hdfc.bank.in/about-us", "#fb7185", 900),
-        Company("ICICIBANK", "ICICI Bank", "Banking", "Banking and financial services for individuals, businesses, and corporations.", "https://www.icici.bank.in/about-us", "#fb923c", 1350),
-        Company("BHARTIARTL", "Bharti Airtel", "Telecommunications", "Telecommunications services, including mobile connectivity, broadband, and enterprise networks.", "https://www.airtel.in/", "#f472b6", 1900),
-        Company("LT", "Larsen & Toubro", "Industrials", "Engineering, construction, manufacturing, and technology businesses.", "https://www.larsentoubro.com/corporate/about-lt-group", "#fbbf24", 3500),
-        Company("ITC", "ITC", "Consumer goods", "An Indian group with FMCG, paperboards and packaging, agriculture, and IT businesses.", "https://itcportal.com/about-itc/our-profile.html", "#34d399", 400),
+        Company("RELIANCE", "Reliance Industries", "Diversified", "An Indian group spanning energy, petrochemicals, retail, and digital services.", "https://www.ril.com/about", "#60a5fa"),
+        Company("TCS", "Tata Consultancy Services", "Technology", "IT services, consulting, and business solutions for organizations worldwide.", "https://www.tcs.com/who-we-are", "#a78bfa"),
+        Company("INFY", "Infosys", "Technology", "Digital services and consulting, including software development and enterprise transformation.", "https://www.infosys.com/about.html", "#38bdf8"),
+        Company("HDFCBANK", "HDFC Bank", "Banking", "An Indian bank serving retail customers and businesses with banking and financial services.", "https://www.hdfc.bank.in/about-us", "#fb7185"),
+        Company("ICICIBANK", "ICICI Bank", "Banking", "Banking and financial services for individuals, businesses, and corporations.", "https://www.icici.bank.in/about-us", "#fb923c"),
+        Company("BHARTIARTL", "Bharti Airtel", "Telecommunications", "Telecommunications services, including mobile connectivity, broadband, and enterprise networks.", "https://www.airtel.in/", "#f472b6"),
+        Company("LT", "Larsen & Toubro", "Industrials", "Engineering, construction, manufacturing, and technology businesses.", "https://www.larsentoubro.com/corporate/about-lt-group", "#fbbf24"),
+        Company("ITC", "ITC", "Consumer goods", "An Indian group with FMCG, paperboards and packaging, agriculture, and IT businesses.", "https://itcportal.com/about-itc/our-profile.html", "#34d399"),
     )
 }

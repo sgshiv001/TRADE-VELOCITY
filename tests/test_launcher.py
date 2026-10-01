@@ -117,8 +117,8 @@ def test_windows_shortcut_uses_its_folder_and_forwards_launch_options(tmp_path):
     assert "Review the error above" in rejected.stdout
 
 
-@pytest.mark.parametrize("entry_file", ["app.py", "demoapp.py"])
-def test_stopping_launcher_releases_server_port(entry_file):
+def test_stopping_launcher_releases_server_port():
+    entry_file = "app.py"
     pytest.importorskip("uvicorn")
     if not (ROOT / "frontend/dist/index.html").exists():
         pytest.skip("build the frontend before running launcher integration checks")

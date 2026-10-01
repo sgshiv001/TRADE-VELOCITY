@@ -1,5 +1,13 @@
 # Measured performance
 
+These are archived measurements from earlier versions. The current application
+does not provide generated trading sessions or classroom evaluation controls.
+
+For the current execution-monitor version, see the
+[1 October 2026 calibration report](ai-calibration-report.md) and
+[raw controlled-test results](../benchmarks/ai-calibration.json). Earlier AI
+figures below describe the old detector, not the calibrated hybrid.
+
 ## Execution watchdog and desktop-era benchmarks — 29 September 2026
 
 The new execution watchdog uses a fixed baseline of 40 executed-order observations
@@ -16,9 +24,10 @@ evaluation. Seed 42, Python 3.14.7, scikit-learn 1.9.1 on this Windows machine:
 
 Precision is **58.8%**, recall is **100%** on this synthetic holdout only. Normal
 transitions after spikes can also be flagged. This is not real-market fraud
-accuracy, causal attribution, or a price forecast. Reproduce using
-`python scripts/evaluate_watchdog.py --seed 42`; version and platform metadata are
-in [watchdog-evaluation.json](../benchmarks/watchdog-evaluation.json).
+accuracy, causal attribution, or a price forecast. The classroom generator and
+its script were removed on 30 September 2026. The prior result and environment
+metadata remain in [watchdog-evaluation.json](../benchmarks/watchdog-evaluation.json)
+as historical evidence, not a claim about the current user's orders.
 
 Fresh matching, deep-book, and cancellation workloads at 100, 1,000, and 5,000
 commands, each repeated three times per engine, are preserved separately in

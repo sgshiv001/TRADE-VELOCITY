@@ -11,6 +11,8 @@ node_modules/
 .marketlab/
 *.tsbuildinfo
 *.log
+/frontend/test-results/
+/frontend/playwright-report/
 .env
 .env.*
 !.env.example

@@ -15,13 +15,15 @@
       }
     },
     {
-      "name": "TradeVelocity: Demo App",
+      "name": "TradeVelocity: Windows App",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/demoapp.py",
+      "program": "${workspaceFolder}/app.py",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
-      "args": [],
+      "args": [
+        "--desktop"
+      ],
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src"

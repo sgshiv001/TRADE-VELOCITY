@@ -14,18 +14,25 @@
       "label": "TradeVelocity: Run App",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": ["${workspaceFolder}/app.py"],
+      "args": [
+        "${workspaceFolder}/app.py"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": []
     },
     {
-      "label": "TradeVelocity: Demo App",
+      "label": "TradeVelocity: Windows App",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": ["${workspaceFolder}/demoapp.py"],
-      "options": {"cwd": "${workspaceFolder}"},
+      "args": [
+        "${workspaceFolder}/app.py",
+        "--desktop"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": []
     }
   ]

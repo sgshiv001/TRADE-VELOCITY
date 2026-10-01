@@ -20,6 +20,13 @@ def run_desktop(smoke_test: bool = False) -> int:
     import uvicorn
     import webview
     from .api import create_app, PROJECT_ROOT
+    from .server_runtime import server_options
+    from .windows_checks import check_windows
+
+    prerequisites = check_windows()
+    if os.name == "nt" and not prerequisites["ready"]:
+        raise RuntimeError("Windows prerequisites are missing: " + "; ".join(prerequisites["problems"]) +
+                           ". See docs/windows-release.md for official setup links. Nothing was installed automatically.")
 
     directory = data_directory()
     directory.mkdir(parents=True, exist_ok=True)
@@ -39,7 +46,7 @@ def run_desktop(smoke_test: bool = False) -> int:
         port = listener.getsockname()[1]
         session_directory = directory / ("smoke-sessions" if smoke_test else "sessions")
         server = uvicorn.Server(uvicorn.Config(create_app(data_dir=session_directory),
-                                               host="127.0.0.1", port=port, workers=1, log_level="warning"))
+                                               host="127.0.0.1", port=port, log_level="warning", **server_options()))
         thread = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
         thread.start()
         deadline = time.monotonic() + 30
@@ -51,7 +58,7 @@ def run_desktop(smoke_test: bool = False) -> int:
             time.sleep(.05)
         webview.settings["ALLOW_DOWNLOADS"] = True
         build_id = hashlib.sha256((PROJECT_ROOT / "frontend" / "dist" / "index.html").read_bytes()).hexdigest()[:12]
-        window = webview.create_window("TradeVelocity — Market & Engine Lab", f"http://127.0.0.1:{port}/?build={build_id}",
+        window = webview.create_window("TradeVelocity — Matching Workspace", f"http://127.0.0.1:{port}/?build={build_id}",
                                        width=1380, height=900, min_size=(820, 600),
                                        background_color="#f5f7fb", hidden=smoke_test, text_select=True)
         outcome = {"ok": False}
@@ -68,12 +75,49 @@ def run_desktop(smoke_test: bool = False) -> int:
                     with client.open(req, timeout=20) as response:
                         return json.load(response)
                 sid = request("/session", {})["session_id"]
-                demo = request("/lab/watchdog/demo", {}, sid)
+                request("/lab/orders", {"order_id": "SMOKE-SELL", "symbol": "RELIANCE", "side": "SELL", "quantity": 7, "price": "100"}, sid)
+                matched = request("/lab/orders", {"order_id": "SMOKE-BUY", "symbol": "RELIANCE", "side": "BUY", "quantity": 7, "price": "100"}, sid)
+                state = request("/lab?symbol=RELIANCE", session_id=sid)
+                watchdog = request("/lab/watchdog?symbol=RELIANCE", session_id=sid)
                 benchmark = request("/experiments", {"count": 100, "workload": "deep"}, sid)
-                simulation = request("/lab/simulate", {"count": 100}, sid)
-                outcome.update(heldout=demo["evaluation"]["heldout"],
-                               detected=demo["evaluation"]["true_positives"],
-                               benchmark_rows=len(benchmark), simulation_commands=simulation["commands"])
+                if matched["filled"] != 7 or state["total_trades"] != 1 or state["orders"]:
+                    raise RuntimeError("Matching verification failed")
+                outcome.update(matched_shares=matched["filled"], recorded_trades=state["total_trades"],
+                               observations=watchdog["observations"], benchmark_rows=len(benchmark))
+                # Exercise the packaged model and calibration data, not just warm-up.
+                calibration_sid = request("/session", {})["session_id"]
+                for index in range(45):
+                    shares = 10 + index % 17
+                    price = f"{100 + (index % 5 - 2) / 10:.2f}"
+                    for side in ("SELL", "BUY"):
+                        request("/lab/orders", {"order_id": f"AI-{side}-{index}", "symbol": "RELIANCE",
+                                                "side": side, "quantity": shares, "price": price}, calibration_sid)
+                for side in ("SELL", "BUY"):
+                    request("/lab/orders", {"order_id": f"AI-LARGE-{side}", "symbol": "RELIANCE",
+                                            "side": side, "quantity": 5000, "price": "130"}, calibration_sid)
+                before_monitor = request("/lab/export", session_id=calibration_sid)
+                calibrated = request("/lab/watchdog?symbol=RELIANCE", session_id=calibration_sid)
+                alert = next((row for row in calibrated["alerts"] if row["order_id"] == "AI-LARGE-BUY"), None)
+                if (not alert or "robust_guard" not in alert["detectors"]
+                        or calibrated["model_version"] != "execution-watchdog-v3"
+                        or calibrated["calibration"]["fit_observations"] != 24
+                        or calibrated["calibration"]["cutoff_observations"] != 16
+                        or calibrated["calibration"]["forest_margin"] != .08
+                        or request("/lab/export", session_id=calibration_sid) != before_monitor):
+                    raise RuntimeError("Packaged AI calibration verification failed")
+                outcome.update(calibrated_alert=True, model_version=calibrated["model_version"],
+                               calibrated_observations=calibrated["observations"],
+                               calibration=calibrated["calibration"], detectors=alert["detectors"],
+                               matching_unchanged_by_monitor=True)
+                # Previous high-volume miss: size/price movement is not required
+                # when a count exceeds the calibrated raw-count envelope.
+                from .calibration import workload
+                rows, _ = workload("high_volume",2009)
+                from .watchdog import ExecutionMonitor
+                high_volume = ExecutionMonitor().report(rows,"RELIANCE")
+                if not high_volume["timeline"][-1]["needs_review"] or "size_envelope" not in high_volume["timeline"][-1]["detectors"]:
+                    raise RuntimeError("Packaged high-volume regression failed")
+                outcome.update(high_volume_regression=True, prerequisites=prerequisites)
                 deadline = time.monotonic() + 30
                 while time.monotonic() < deadline:
                     rendered = window.evaluate_js("Boolean(document.querySelector('#root')?.textContent.includes('VELOCITY'))")

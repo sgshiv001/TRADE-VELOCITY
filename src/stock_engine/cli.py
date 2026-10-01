@@ -1,4 +1,4 @@
-"""A small terminal demonstration and repeatable throughput benchmark."""
+"""Engine workload measurements and command replay."""
 
 import argparse
 import random
@@ -8,17 +8,6 @@ from pathlib import Path
 
 from .engine import MatchingEngine
 from .session import ExchangeSession
-
-
-def demo() -> None:
-    engine = MatchingEngine()
-    engine.place_order("S1", "ACME", "SELL", 150, "105.00")
-    engine.place_order("S2", "ACME", "SELL", 100, "106.00")
-    result = engine.place_order("B1", "ACME", "BUY", 100, "106.00")
-    for trade in result.trades:
-        print(f"Trade #{trade.trade_id}: {trade.quantity} {trade.symbol} @ INR {trade.price} ({trade.buy_order_id} / {trade.sell_order_id})")
-    print("Book:", engine.order_book("ACME"))
-    print("Stats:", engine.symbol_stats("ACME"))
 
 
 def benchmark(count: int, seed: int) -> None:
@@ -69,7 +58,6 @@ def run_scenario(path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Stock order matching engine")
     subcommands = parser.add_subparsers(dest="command", required=True)
-    subcommands.add_parser("demo", help="run a small matching example")
     bench = subcommands.add_parser("benchmark", help="measure order insertion and matching")
     bench.add_argument("--orders", type=int, default=100_000)
     bench.add_argument("--seed", type=int, default=42)
@@ -80,9 +68,7 @@ def main() -> None:
     scenario = subcommands.add_parser("run", help="replay a JSON scenario")
     scenario.add_argument("path", type=Path)
     args = parser.parse_args()
-    if args.command == "demo":
-        demo()
-    elif args.command == "benchmark":
+    if args.command == "benchmark":
         benchmark(args.orders, args.seed)
     elif args.command == "simulate":
         simulate(args.orders, args.workers, args.seed)

@@ -1,4 +1,4 @@
-"""Daily market history, explicit provenance, offline fallback, and analytics."""
+"""Provider market history, explicit provenance, persistent cache, and analytics."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
-import random
 
 import pandas as pd
 
@@ -22,20 +21,20 @@ class MarketData:
     histories: dict[str, pd.DataFrame]
     source: str
     fetched_at: str
-    is_demo: bool = False
+    is_synthetic: bool = False
     message: str = ""
 
     @property
     def as_of(self) -> str:
         # The oldest last observation makes uneven provider coverage visible.
-        return min(frame.index[-1] for frame in self.histories.values()).strftime("%d %b %Y")
+        return min(frame.index[-1] for frame in self.histories.values()).strftime("%d %b %Y") if self.histories else "Unavailable"
 
     def marks(self) -> dict[str, float]:
         return {symbol: float(frame["Close"].iloc[-1]) for symbol, frame in self.histories.items()}
 
     def to_dict(self) -> dict:
         return {
-            "version": 1, "source": self.source, "fetched_at": self.fetched_at, "is_demo": self.is_demo,
+            "version": 1, "source": self.source, "fetched_at": self.fetched_at, "is_synthetic": self.is_synthetic,
             "histories": {symbol: [dict(Date=date.strftime("%Y-%m-%d"), **{field: float(row[field]) for field in FIELDS})
                                     for date, row in frame.iterrows()]
                           for symbol, frame in self.histories.items()},
@@ -98,39 +97,20 @@ def save_snapshot(data: MarketData, path: Path = SNAPSHOT_PATH) -> None:
 def from_snapshot(payload: dict) -> MarketData:
     if payload.get("version") != 1 or not isinstance(payload.get("histories"), dict):
         raise ValueError("unsupported market snapshot")
+    if payload.get("is_synthetic", False) or payload.get("is_demo", False):
+        raise ValueError("synthetic market snapshots are not accepted")
     histories = {}
     for symbol in COMPANIES:
         frame = pd.DataFrame(payload["histories"][symbol]).set_index("Date")
         histories[symbol] = clean_history(frame)
-    return MarketData(histories, str(payload["source"]), str(payload["fetched_at"]), bool(payload.get("is_demo", False)))
-
-
-def demo_market_data() -> MarketData:
-    """Deterministic fictional histories; anchors are illustrative, never quotes."""
-    dates = pd.bdate_range(end="2026-09-25", periods=1260)
-    histories = {}
-    for index, (symbol, company) in enumerate(COMPANIES.items()):
-        rng = random.Random(900 + index)
-        price = company.demo_price * (0.5 + index * 0.045)
-        rows = []
-        for day in range(len(dates)):
-            opening = price * (1 + rng.gauss(0, 0.003))
-            drift = 0.00025 + 0.0003 * math.sin(day / 90 + index)
-            price = max(1, opening * (1 + drift + rng.gauss(0, 0.012)))
-            high = max(opening, price) * (1 + rng.uniform(0.001, 0.015))
-            low = min(opening, price) * (1 - rng.uniform(0.001, 0.015))
-            rows.append([opening, high, low, price, price, rng.randrange(500_000, 12_000_000)])
-        histories[symbol] = clean_history(pd.DataFrame(rows, index=dates, columns=FIELDS))
-    return MarketData(histories, "Simulated demo prices · not real company history", "2026-09-25", True)
+    return MarketData(histories, str(payload["source"]), str(payload["fetched_at"]))
 
 
 def load_market_data(path: Path = SNAPSHOT_PATH) -> MarketData:
     try:
         return from_snapshot(json.loads(Path(path).read_text(encoding="utf-8")))
     except (OSError, KeyError, TypeError, ValueError) as exc:
-        data = demo_market_data()
-        data.message = f"No usable downloaded snapshot. Demo history is simulated. Refresh market data to fetch real history. ({type(exc).__name__})"
-        return data
+        return MarketData({}, "Market history unavailable", "", message=f"No usable provider snapshot. Refresh market data to download history. ({type(exc).__name__})")
 
 
 def period_history(frame: pd.DataFrame, period: str) -> pd.DataFrame:
@@ -138,6 +118,8 @@ def period_history(frame: pd.DataFrame, period: str) -> pd.DataFrame:
                "1Y": pd.DateOffset(years=1), "5Y": pd.DateOffset(years=5)}
     if period not in offsets:
         raise ValueError("unknown history period")
+    if frame.empty:
+        return frame.copy()
     return frame[frame.index >= frame.index[-1] - offsets[period]].copy()
 
 
@@ -157,16 +139,18 @@ def indicators(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def history_metrics(frame: pd.DataFrame) -> dict:
+    if frame.empty:
+        return dict.fromkeys(["last", "change_pct", "growth_pct", "cagr_pct", "volatility_pct", "drawdown_pct", "volume"])
     close = frame["Adj Close"]
     returns = close.pct_change().dropna()
     years = (frame.index[-1] - frame.index[0]).days / 365.25
     growth = (float(close.iloc[-1]) / float(close.iloc[0]) - 1) * 100
     return {
         "last": float(frame["Close"].iloc[-1]),
-        "change_pct": (float(close.iloc[-1]) / float(close.iloc[-2]) - 1) * 100,
-        "growth_pct": growth,
+        "change_pct": (float(close.iloc[-1]) / float(close.iloc[-2]) - 1) * 100 if len(close) > 1 else None,
+        "growth_pct": growth if len(close) > 1 else None,
         "cagr_pct": ((float(close.iloc[-1]) / float(close.iloc[0])) ** (1 / years) - 1) * 100 if years >= 1 else None,
-        "volatility_pct": float(returns.std(ddof=0)) * math.sqrt(252) * 100,
+        "volatility_pct": float(returns.std(ddof=0)) * math.sqrt(252) * 100 if len(returns) else None,
         "drawdown_pct": float(((close / close.cummax() - 1) * 100).min()),
         "volume": int(frame["Volume"].iloc[-1]),
     }
@@ -175,6 +159,8 @@ def history_metrics(frame: pd.DataFrame) -> dict:
 def market_rows(data: MarketData) -> list[dict]:
     rows = []
     for symbol, company in COMPANIES.items():
+        if symbol not in data.histories or data.histories[symbol].empty:
+            continue
         frame = data.histories[symbol]
         stats = history_metrics(period_history(frame, "1Y"))
         rows.append({"Symbol": symbol, "Company": company.name, "Sector": company.sector,

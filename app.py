@@ -1,6 +1,6 @@
 """Build and run the complete TradeVelocity app with browser selection.
 
-Run ``python app.py``. Ctrl+C stops the server. Use demoapp.py for verified examples.
+Run ``python app.py`` for the web app or ``python app.py --desktop`` for Windows.
 """
 
 from __future__ import annotations
@@ -171,15 +171,16 @@ def serve(port: int, browser: str | None, skip_build: bool) -> int:
         sys.path.insert(0, str(ROOT / "src"))
         import uvicorn
         from stock_engine.api import app as application
+        from stock_engine.server_runtime import server_options
 
-        server = uvicorn.Server(uvicorn.Config(application, host=HOST, port=port, workers=1))
+        server = uvicorn.Server(uvicorn.Config(application, host=HOST, port=port, **server_options()))
         finished = threading.Event()
 
         def announce_when_ready() -> None:
             while not finished.wait(0.1):
                 if server.started:
                     print(f"\nTradeVelocity is ready: {url}", flush=True)
-                    print("Press Ctrl+C to stop. Paper sessions are saved in .marketlab/sessions.", flush=True)
+                    print("Press Ctrl+C to stop. Matching sessions are saved in .marketlab/sessions.", flush=True)
                     if browser:
                         open_browser(browser, url)
                     return
@@ -207,6 +208,8 @@ def main(arguments: list[str] | None = None) -> int:
     parser.add_argument("--skip-build", action="store_true", help="reuse frontend/dist")
     parser.add_argument("--desktop", action="store_true", help="open a native desktop window")
     parser.add_argument("--smoke-test", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--check-system", action="store_true", help="write read-only Windows prerequisite diagnostics without starting the app")
+    parser.add_argument("--diagnostics-output", type=Path, help="JSON output path for --check-system")
     args = parser.parse_args(arguments)
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
@@ -217,6 +220,16 @@ def main(arguments: list[str] | None = None) -> int:
         delegated_exit = use_project_python(arguments)
         if delegated_exit is not None:
             return delegated_exit
+        if args.check_system:
+            sys.path.insert(0,str(ROOT / "src"))
+            from stock_engine.windows_checks import check_windows
+            result = check_windows()
+            output = args.diagnostics_output or Path(os.environ.get("LOCALAPPDATA",str(ROOT))) / "TradeVelocity" / "windows-readiness.json"
+            output.parent.mkdir(parents=True,exist_ok=True)
+            output.write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
+            if sys.stdout is not None:
+                print(f"Windows readiness: {result['ready']}. Report: {output}")
+            return 0 if result["ready"] else 1
         if args.desktop:
             check_dependencies()
             build_frontend(args.skip_build or getattr(sys, "frozen", False))

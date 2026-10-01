@@ -1,8 +1,172 @@
 # Detailed development and update log
 
+## Repository publication and verified-PC presentation — 2 October 2026
+
+The user confirmed local use and explicitly requested a README/About update
+and push to the existing repository. Confirm the recorded passing Windows/web
+checks first; do not represent finite tests as proof that no defect exists.
+
+- Identify the existing public `sgshiv001/TRADE-VELOCITY` repository and `main`
+  branch; compare the remote head before publication. No new repository is made.
+- Add the current 0.3.3 verified-on-this-PC status, actual light/dark screenshots
+  from isolated browser QA, current functionality, preserved team credits, and
+  direct completion/Windows guides to the README.
+- Generalize the temporary extraction path in new public evidence, remove
+  links to ignored local build artifacts, and review the upload for secrets,
+  private app sessions, environments, generated binaries and unrelated files.
+- Publish the completed matching workspace, persistent retries/reviews, AI v3,
+  Windows/security/release tools, frontend/browser tests and recorded results.
+  Update the About description and topics to describe the local Windows/web
+  app, not a broker connection or public multi-user exchange.
+- Use normal commits/pushes without rewriting remote history. The actual
+  publication SHA is available in Git history. Treat GitHub Actions outcomes
+  separately from the already-passing local results; do not invent remote CI
+  success. No certificate signing, purchase or live web deployment is included.
+
+## Local completion and release checks — 1–2 October 2026
+
+The user requested the remaining fixes and a list-format report, choosing
+**tooling only; keep the app local** for Windows signing and deployment.
+Application version: **0.3.3**. Work and checks below are local, not remote CI.
+
+1. Repair the v2 high-volume seed-2009 miss using a fixed raw-count envelope.
+   Require robust feature corroboration for forest alerts. Development-only
+   selection over 54 candidates chooses margin 0.08, robust floor 8.0, padding
+   1.0, confirmation 4.0, and size multiplier 20.0. Preserve the 24-fit/16-cutoff
+   baseline and advisory isolation from matching.
+2. Treat the former held-out seeds as regression cases, not untouched evidence.
+   Reserve seeds 3000–3031 for a new 192-stream controlled evaluation. Fresh
+   results: TP 1,536, FP 0, FN 0, TN 15,360; old regression: TP 768, FP 0,
+   FN 0, TN 7,680. Two evaluator runs reproduce settings/counts. Document
+   extreme synthetic deviations, repeated profiles, guard-dominant attribution,
+   fixed ordering, and unvalidated real-market/baseline-contamination behavior.
+3. Replace the Windows Proactor transport with Uvicorn's supported custom
+   Selector-loop factory and SansIO WebSocket transport. Preserve cancellation
+   handling; Python tests cover 20 disconnects and browser QA covers ten rapid
+   reloads. The final browser run does not reproduce WinError 10054.
+4. Add fail-closed opt-in private hosting, Secure/HTTP-only/Strict cookies,
+   server-side revocation, bearer clients, HTTP/WebSocket Host/origin checks,
+   rate/body/concurrency limits, and response headers. Local launches remain
+   loopback-only with no login requirement. Test malformed hosts, foreign
+   clients, expiration, logout, and authorized-socket revocation. This is one
+   trusted operator/shared key, not isolated multi-user accounts.
+5. Prepare Docker/Caddy templates and the hosting entry, but do not install
+   Docker, run containers, configure DNS/TLS, or publish. The UI access-gate
+   browser test is an explicit fixture; backend security tests exercise real
+   ASGI routes/cookies/sockets in-process, not a live HTTPS reverse proxy.
+6. Add read-only Windows prerequisite diagnostics and optional SignTool
+   certificate-store signing/verification. The real local prerequisite check
+   passes on Windows 11 x64, WebView2 154.0.4258.37 and .NET release 533509.
+   A placeholder dry-run validates command construction without accessing a
+   certificate or timestamp service. Authenticode remains **NotSigned**.
+7. Rerun the full current suite: **159 passed in 29.84 seconds**, no skips.
+   TypeScript/Vite production build succeeds (1,748 modules). Chromium QA:
+   **10 passed in 19.7 seconds**. npm audit reports zero known vulnerabilities;
+   pip check reports no broken requirements. A Node color-environment warning
+   is harmless and recorded in the completion report.
+8. Repackage the latest built EXE with corrected Windows instructions. CRC
+   passes for 2,610 ZIP entries; EXE, frontend and calibration agree. Extract
+   it into a fresh temporary folder with spaces. Use isolated LOCALAPPDATA
+   and writable sessions, clear Python search settings, and restrict PATH to
+   Windows/system32. No project source, virtual environment or node_modules is
+   present in the extraction. Frozen prerequisite and native smoke exit 0.
+9. The actual hidden WebView renders the frontend; the native smoke matches
+   seven shares/one trade, measures six isolated benchmark rows, loads v3,
+   checks 46 execution observations plus the high-volume regression, and
+   proves monitoring leaves matching exports unchanged. Repeat while an owned
+   test listener holds 8765: the app selects 57794 and releases it afterward.
+   Both owned Windows processes exit. Retain the machine-readable evidence in
+   [portable-smoke.json](../benchmarks/portable-smoke.json).
+10. Create the [completion report](completion-report.md), update this log and
+    changelog, and preserve v2 evidence under explicitly archived names. The
+    generated extraction's deletion is blocked by command policy; do not use
+    another deletion method to evade that restriction. Its exact path is in
+    the report/receipt for optional manual cleanup. Normal app data is intact.
+    No GitHub commit/push, certificate purchase/signing, or deployment occurs.
+
+## Execution-watchdog calibration — 1 October 2026
+
+The user's request was to complete AI calibration and provide a test report.
+This work calibrates advisory execution monitoring, not real-money routing or
+historical daily-bar anomaly analysis. Application version: 0.3.2.
+
+- Replace default forest decisions with a hybrid fixed-baseline detector:
+  24 fit observations, 16 cutoff observations, logged positive count/depth
+  features, median/MAD guards with scale floors, and per-branch labels.
+- Select parameters on 48 development streams; generate 96 held-out streams
+  only afterward. Retain every candidate, aggregate result, profile/deviation
+  counts, detector contributions, and every error in ai-calibration.json
+  (subsequently preserved as ai-calibration-v2.json).
+- Run the evaluator twice; selected settings and confusion counts reproduced.
+  Result: TP 767, FP 6, FN 1, TN 7,674. The high-volume seed-2009 miss is
+  documented, not eliminated by tuning against held-out evidence. Synthetic,
+  partly deterministic profiles do not establish real-market fraud accuracy.
+- Add Python and real-browser regression coverage for the original missed
+  large execution. Preserve stable earlier severity, saved reviews, cached
+  models, baseline/fit separation, and advisory matching isolation.
+- The initial complete-suite run exposed a WebSocket cleanup cancellation
+  race (122 passed, one failed). Reproduce it independently, shield finalization
+  according to AnyIO guidance, and test 20 reconnect/disconnect cycles. The
+  final complete run passed **124 tests in 19.88 seconds** with no skips.
+- Production UI build succeeded; final browser run passed **5 tests in
+  12.4 seconds**, including review persistence and the calibrated regression.
+  Windows printed one closed-connection WinError 10054 diagnostic during that
+  run; it did not fail an assertion. npm audit reported zero known
+  vulnerabilities; pip check found no broken requirements.
+- Rebuild the native Windows application with selected JSON settings. Hidden
+  packaged smoke exited 0, rendered the frontend, matched 7 shares/one trade,
+  measured six isolated benchmark rows, and exercised 46 execution observations
+  in a separate calibration session. It detected AI-LARGE-BUY through the
+  robust guard, loaded version v2 and the 24/16 split, and verified exported
+  matching records were unchanged by monitoring. Its own server/window closed.
+- Refresh the portable ZIP with this rebuilt executable and folder shortcut.
+  Verify CRC integrity for all 2,655 entries and exact EXE/frontend/settings
+  agreement. No app process or test listeners on 8765/8804 remained afterward.
+- Write the [v2 calibration report](ai-calibration-v2-report.md), refresh current
+  architecture/evaluation/README explanations, and retain archived old results.
+  All changes are local; no GitHub push or production/session mutation was done.
+
+## Operational matching workspace — 30 September 2026
+
+The user replaced the unfinished walkthrough with removal of demo/classroom
+features and selected an own-engine app without real-money execution. This
+update implements Windows and local browser modes, not public deployment.
+
+- Replace App.tsx/Experience.tsx with Workspace.tsx/Trading.tsx. Remove the
+  presentation entry, injected sessions, simulator controls, DSA illustrations,
+  and placeholder analytics. Show actual orders, trades, depth, provider history,
+  computed metrics, and activity-based AI monitoring.
+- Remove demoapp.py, its configurations/tests, preset APIs, classroom generators,
+  and evaluation script. Retain the developer fixture as order-lifecycle.json;
+  it is not included in the desktop package or applied to application sessions.
+- New sessions start empty. Existing commands and legacy virtual-account records
+  stay on disk. Add amendment, custom symbols, complete trade search/pagination,
+  full CSV export, and confirmed session import/clear with engine replay checks.
+- Missing history stays unavailable; no prices or counterparties are generated.
+  Refresh provider history into writable user storage, preserving orders and
+  cached history on failure. AI observes the user's actual executed orders.
+- Keep one application entry and the Windows/browser shortcuts. No new project
+  or backup folder. Update README, architecture, packaging, and CI references.
+
+Verification: frontend build passed; **93 tests passed in 11.61 seconds**. These
+include removed-route, empty-session, persistence/legacy, concurrent quantity,
+amendment/replay, full-history, unavailable-data and refresh-cache regressions.
+
+An isolated browser test submitted a sell for 5 at 100 and a buy for 3: 3 matched,
+2 remained. Amended the remainder to 4 at 101; history retained the original
+execution. Reopening restored the session. Canceling clear confirmation kept
+records. Provider refresh returned history dated 30 September; analysis computed
+results. Light/dark layouts were inspected, with no classroom controls.
+
+Final packaged smoke: exit 0, 7 matched shares, 1 trade, 1 watchdog observation,
+6 isolated benchmark rows, and rendered UI. The real Windows window also opened
+with saved user records intact. Closing stopped its server. Browser testing was
+stopped; ports 8765 and 8799 had no listeners afterward. GitHub was not modified.
+Historical entries below describe removed features, not current instructions.
+
 ## What this log covers
 
-This is the available project history through 29 September 2026. Two original
+This is the available project history through 1 October 2026. Two original
 engine commits and the existing GitHub initialization commit have exact Git
 timestamps. Later working-directory development is summarized from the
 implementation and development session. Intermediate versions that were never

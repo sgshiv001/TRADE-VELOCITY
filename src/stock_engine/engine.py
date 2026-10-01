@@ -5,11 +5,14 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from threading import RLock
 
 from .models import Order, OrderResult, Side, Trade
 from .structures import AVLTree, BinaryHeap, FenwickTree, HashTable, LinkedQueue, QueueNode
+
+CURRENT_TIME = object()
 
 
 @dataclass(slots=True)
@@ -146,6 +149,7 @@ class MatchingEngine:
         side: Side | str,
         quantity: int,
         price: Decimal | str | int | None = None,
+        *, timestamp: datetime | None | object = CURRENT_TIME,
     ) -> OrderResult:
         """A missing price makes a market order; its unfilled remainder expires."""
         with self._lock:
@@ -155,9 +159,9 @@ class MatchingEngine:
                 raise ValueError(f"order ID already used: {order_id}")
             symbol, side, price = self._validate(symbol, side, quantity, price)
             self._used_ids.add(order_id)
-            return self._place_validated(order_id, symbol, side, quantity, price)
+            return self._place_validated(order_id, symbol, side, quantity, price, timestamp)
 
-    def _place_validated(self, order_id: str, symbol: str, side: Side, quantity: int, price: Decimal | None) -> OrderResult:
+    def _place_validated(self, order_id: str, symbol: str, side: Side, quantity: int, price: Decimal | None, timestamp=CURRENT_TIME) -> OrderResult:
         self._sequence += 1
         incoming = Order(order_id, symbol, side, quantity, quantity, price, self._sequence)
         buy_book, sell_book = self._books[symbol]
@@ -182,6 +186,7 @@ class MatchingEngine:
                 executed,
                 incoming.order_id if side == Side.BUY else maker.order_id,
                 maker.order_id if side == Side.BUY else incoming.order_id,
+                **({"timestamp": timestamp} if timestamp is not CURRENT_TIME else {}),
             )
             self._trades.append(trade)
             self._symbol_trades[symbol].append(trade)
@@ -209,7 +214,7 @@ class MatchingEngine:
             (books[0] if order.side == Side.BUY else books[1]).remove(order, node)
             return True
 
-    def modify_order(self, order_id: str, quantity: int, price: Decimal | str | int) -> OrderResult:
+    def modify_order(self, order_id: str, quantity: int, price: Decimal | str | int, *, timestamp=CURRENT_TIME) -> OrderResult:
         """Replace a resting limit order; quantity is its new open quantity and priority resets."""
         with self._lock:
             entry = self._active.get(order_id)
@@ -220,7 +225,7 @@ class MatchingEngine:
             if new_price is None:
                 raise ValueError("a modified order must have a limit price")
             self.cancel_order(order_id)
-            return self._place_validated(order_id, symbol, side, quantity, new_price)
+            return self._place_validated(order_id, symbol, side, quantity, new_price, timestamp)
 
     def get_order(self, order_id: str) -> dict | None:
         with self._lock:

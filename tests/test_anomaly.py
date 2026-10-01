@@ -1,9 +1,9 @@
 from stock_engine.anomaly import FEATURE_NAMES, build_features, detect_anomalies
-from stock_engine.market_data import demo_market_data
+from stock_engine.market_data import load_market_data
 
 
 def test_feature_engineering_returns_required_numeric_features():
-    data = demo_market_data()
+    data = load_market_data()
     features = build_features(data.histories["RELIANCE"])
 
     assert list(features.columns) == list(FEATURE_NAMES)
@@ -12,7 +12,7 @@ def test_feature_engineering_returns_required_numeric_features():
 
 
 def test_isolation_forest_report_is_serializable_and_bounded():
-    data = demo_market_data()
+    data = load_market_data()
     report = detect_anomalies(data.histories, "RELIANCE", "1Y")
 
     assert report["model"] == "Isolation Forest"
@@ -24,7 +24,7 @@ def test_isolation_forest_report_is_serializable_and_bounded():
 
 
 def test_unknown_anomaly_symbol_is_rejected():
-    data = demo_market_data()
+    data = load_market_data()
 
     try:
         detect_anomalies(data.histories, "UNKNOWN")

@@ -9,6 +9,13 @@ import webview
 from stock_engine import desktop
 
 
+@pytest.fixture(autouse=True)
+def isolated_prerequisite_check(monkeypatch):
+    # Lifecycle tests mock the native window; real prerequisites are validated
+    # by the separate actual Windows smoke and dedicated prerequisite tests.
+    monkeypatch.setattr("stock_engine.windows_checks.check_windows",lambda:{"ready":True,"problems":[],"test_fixture":True})
+
+
 def test_desktop_smoke_runs_real_api_and_releases_owned_port(tmp_path, monkeypatch):
     class Window:
         title = "TradeVelocity"
@@ -32,10 +39,19 @@ def test_desktop_smoke_runs_real_api_and_releases_owned_port(tmp_path, monkeypat
     assert desktop.run_desktop(smoke_test=True) == 0
     receipt = json.loads((tmp_path / "smoke-test.json").read_text())
     assert receipt["ok"]
-    assert receipt["heldout"] == 50
-    assert receipt["detected"] > 0
+    assert receipt["matched_shares"] == 7
+    assert receipt["recorded_trades"] == 1
+    assert receipt["observations"] == 1
     assert receipt["benchmark_rows"] == 6
-    assert receipt["simulation_commands"] == 100
+    assert receipt["calibrated_alert"]
+    assert receipt["model_version"] == "execution-watchdog-v3"
+    assert receipt["calibrated_observations"] == 46
+    assert receipt["calibration"]["forest_margin"] == .08
+    assert receipt["calibration"]["fit_observations"] == 24
+    assert receipt["calibration"]["cutoff_observations"] == 16
+    assert "robust_guard" in receipt["detectors"]
+    assert receipt["matching_unchanged_by_monitor"]
+    assert receipt["high_volume_regression"]
     assert window.destroyed
     assert captured["options"]["hidden"]
     assert "?build=" in captured["url"]

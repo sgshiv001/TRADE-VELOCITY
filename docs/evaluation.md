@@ -1,5 +1,9 @@
 # Testing and performance evaluation
 
+## Current execution-monitor calibration
+
+See [the calibration report](ai-calibration-report.md) and [raw results](../benchmarks/ai-calibration.json). Reproduce the isolated experiment with `python scripts/calibrate_ai.py`. The model fits 24 baseline observations and uses 16 separate baseline observations to set cutoffs; offline parameters are selected on development seeds before held-out seeds are generated. Reports measure controlled engine deviations, not actual fraud. Daily-history analysis is a separate, in-sample tool and is not validated by this experiment.
+
 ## Correctness
 
 Run:
@@ -13,7 +17,7 @@ The suite checks resting-price execution, price-time priority, partial fills, ma
 The bundled scenario can be replayed with:
 
 ```powershell
-python -m stock_engine.cli run scenarios/demo.json
+python -m stock_engine.cli run scenarios/order-lifecycle.json
 ```
 
 Expected summary: nine commands, four trades; ACME has 190 executed shares and TECH has 40.
@@ -65,4 +69,11 @@ Compare medians within the same workload and size. An indexed/list throughput ra
 
 ## Limitations and extensions
 
-The matching core has no broker connectivity, auctions, routing, or transaction fees. The surrounding API adds a virtual account and local JSON session persistence, but does not provide production authentication or transactional database storage. Historical data and AI analysis are separate from matching. Future extensions can add time-in-force rules and stronger persistence while keeping the core isolated.
+The matching core has no broker connectivity, auctions, routing, or transaction fees.
+The surrounding local API uses transactional SQLite storage, durable retry
+receipts, and saved review notes; it does not operate virtual accounts or provide
+production authentication. Legacy JSON records remain preserved. Historical
+analysis and advisory execution monitoring are separate from matching.
+Controlled calibration does not establish real-market fraud accuracy. Future
+work can add realistic independent validation, baseline/drift monitoring,
+time-in-force rules, and deployment security while keeping the core isolated.

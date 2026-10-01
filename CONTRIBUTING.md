@@ -10,12 +10,12 @@ test suite and use `npm ci` in `frontend/` for locked frontend dependencies.
 
 ## Make a change
 
-Keep `app.py` and `demoapp.py` as the two application entry files. Put supporting
+Keep `app.py` as the single application entry for Windows and the web. Put supporting
 logic in `src/stock_engine/` and experiment tools in `scripts/` rather than
 adding another launcher or dashboard.
 
 1. Create a branch from current `main`, for example
-   `git switch -c feature/describe-your-change`.
+   `git switch -c codex/describe-your-change`.
 2. Keep matching logic in the engine and model analysis outside matching
    decisions. Preserve price-time priority, quantities, and index invariants.
 3. Add focused regression coverage for changes to engine behavior, persistence,
@@ -39,7 +39,7 @@ changed. Changes that were never committed cannot have an exact historical diff.
 ## Files to keep local
 
 Do not commit virtual environments, `node_modules`, frontend builds, TypeScript
-build caches, local paper sessions, credentials, or `.env` files. Preserve the
+build caches, local matching sessions, credentials, or `.env` files. Preserve the
 npm lockfile, source, tests, measured benchmark evidence, and relevant guides.
 
 Use one working folder for this application. An existing folder named

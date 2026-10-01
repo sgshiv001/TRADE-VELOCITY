@@ -8,22 +8,22 @@ export interface Company {
   ticker: string;
   quote_url: string;
   price: number;
-  day_change: number;
-  year_growth: number;
+  day_change: number | null;
+  year_growth: number | null;
   volume: number;
   as_of: string;
   sparkline: number[];
 }
 export interface Market {
+  available: boolean;
   companies: Company[];
   as_of: string;
   source: string;
   fetched_at: string;
-  is_demo: boolean;
   message: string;
   gainers: number;
   losers: number;
-  basket_change: number;
+  basket_change: number | null;
 }
 export interface Bar {
   date: string;
@@ -43,16 +43,15 @@ export interface History {
   period: string;
   source: string;
   basis: string;
-  is_demo: boolean;
-  performance: { period: string; return_pct: number }[];
+  performance: { period: string; return_pct: number | null }[];
   metrics: {
-    last: number;
-    change_pct: number;
-    growth_pct: number;
+    last: number | null;
+    change_pct: number | null;
+    growth_pct: number | null;
     cagr_pct: number | null;
-    volatility_pct: number;
-    drawdown_pct: number;
-    volume: number;
+    volatility_pct: number | null;
+    drawdown_pct: number | null;
+    volume: number | null;
   };
 }
 export interface Analysis {
@@ -150,9 +149,10 @@ export interface Trade {
   quantity: number;
   buy_order_id: string;
   sell_order_id: string;
-  timestamp: string;
+  timestamp: string | null;
 }
 export interface Lab {
+  revision: number;
   total_trades: number;
   symbols: string[];
   orders: Order[];

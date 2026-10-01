@@ -1,4 +1,4 @@
-"""Deterministic, explainable market insights for the TradeVelocity demo."""
+"""Deterministic, explainable market insights for the TradeVelocity application."""
 
 from datetime import datetime, timezone
 import math
@@ -17,6 +17,8 @@ def analyze_history(symbol: str, histories: dict, period: str = "1Y") -> dict:
         raise ValueError("company was not found")
     full = indicators(histories[symbol])
     frame = period_history(full, period)
+    if len(frame) < 2:
+        raise ValueError("At least two observations are needed for historical analysis. Choose a longer period.")
     metrics = history_metrics(frame)
     latest = full.iloc[-1]
     close = float(latest["Adj Close"])

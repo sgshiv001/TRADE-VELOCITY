@@ -1,0 +1,8 @@
+{
+  "model_version": "execution-watchdog-v3",
+  "forest_margin": 0.08,
+  "guard_floor": 8.0,
+  "guard_padding": 1.0,
+  "forest_confirmation": 4.0,
+  "size_multiplier": 20.0
+}

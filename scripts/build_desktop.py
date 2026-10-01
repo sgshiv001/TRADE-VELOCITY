@@ -1,13 +1,64 @@
 """Build a portable Windows app folder, including Python and the production UI."""
 from pathlib import Path
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
 import os
 import shutil
 import struct
 import subprocess
 import sys
 import zlib
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def digest(path):
+    result = hashlib.sha256()
+    with Path(path).open("rb") as source:
+        for chunk in iter(lambda:source.read(1024*1024),b""):
+            result.update(chunk)
+    return result.hexdigest()
+
+
+def package_desktop():
+    folder = (ROOT / "dist/TradeVelocity").resolve()
+    if folder.parent != (ROOT / "dist").resolve():
+        raise ValueError("Desktop folder must stay in this project's dist directory")
+    executable = folder / "TradeVelocity.exe"
+    calibration = folder / "_internal/stock_engine/data/watchdog-calibration.json"
+    entry = folder / "_internal/frontend/dist/index.html"
+    if not executable.is_file() or not entry.is_file() or not calibration.is_file():
+        raise ValueError("Build the complete Windows application before packaging")
+    if (entry.read_bytes() != (ROOT / "frontend/dist/index.html").read_bytes()
+            or calibration.read_bytes() != (ROOT / "src/stock_engine/data/watchdog-calibration.json").read_bytes()):
+        raise ValueError("Packaged frontend/calibration is stale; rebuild before packaging")
+    archive = ROOT / "dist/TradeVelocity-Windows-x64.zip"
+    with zipfile.ZipFile(archive,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=6) as output:
+        output.write(ROOT / "Launch_Desktop.vbs","Launch_Desktop.vbs")
+        instructions = ROOT / "docs/windows-release.md"
+        if instructions.exists():
+            output.write(instructions,"WINDOWS-README.md")
+        for path in sorted(folder.rglob("*")):
+            if not path.resolve().is_relative_to(folder):
+                raise ValueError("Refusing to package a link outside the generated desktop folder")
+            if path.is_file():
+                output.write(path,path.relative_to(folder.parent).as_posix())
+    with zipfile.ZipFile(archive) as output:
+        if output.testzip() is not None:
+            raise ValueError("Portable archive CRC integrity failed")
+        count = len(output.namelist())
+    result = {"version":json.loads((ROOT / "frontend/package.json").read_text())["version"],
+              "generated_at":datetime.now(timezone.utc).isoformat(),"archive":archive.name,
+              "bytes":archive.stat().st_size,"entries":count,"crc":"passed",
+              "sha256":digest(archive),"exe_sha256":digest(executable),
+              "calibration_sha256":digest(calibration),"frontend_matches":True,
+              "signature":"Not established by this manifest; check Authenticode separately"}
+    (ROOT / "dist/TradeVelocity-release.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
+    print(f"Verified ZIP: {archive}")
+    return result
 
 
 def make_icon(path: Path) -> None:
@@ -32,6 +83,12 @@ def make_icon(path: Path) -> None:
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--package-only",action="store_true",help="repackage an existing build, e.g. after certificate signing")
+    args = parser.parse_args()
+    if args.package_only:
+        package_desktop()
+        return
     if os.name != "nt":
         raise SystemExit("Build the Windows executable on Windows.")
     npm = shutil.which("npm.cmd")
@@ -48,6 +105,7 @@ def main():
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "TradeVelocity.spec"], cwd=ROOT, check=True)
     print(f"Ready: {ROOT / 'dist' / 'TradeVelocity' / 'TradeVelocity.exe'}")
     print("Copy the whole TradeVelocity folder, not just the EXE. WebView2 Runtime is required.")
+    package_desktop()
 
 
 if __name__ == "__main__":
