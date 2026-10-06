@@ -1,0 +1,46 @@
+TRADEVELOCITY 0.3.3 - WINDOWS APP
+
+Prepared for local testing before publication. No real-money trading.
+
+OPEN THE APP
+1. Extract the entire ZIP to a folder you can write to, for example Documents.
+2. Open Launch_Desktop.vbs, or TradeVelocity\TradeVelocity.exe directly.
+3. Keep the TradeVelocity folder and its _internal folder together.
+   Do not launch from inside the ZIP or copy only the EXE.
+
+You do not need a separate Python or Node.js installation.
+Windows 10/11 x64, WebView2 Evergreen and .NET Framework 4.6.2+ are required.
+If startup reports a missing prerequisite, read WINDOWS-README.md for official
+setup links. Nothing is installed automatically. The EXE is unsigned; Windows
+may show a warning. Do not disable antivirus or system security protections.
+
+TEST IT WITHOUT CLEARING EXISTING RECORDS
+1. Check that Overview opens and the light/dark theme button works.
+2. In Orders & depth, enter a new custom engine symbol such as TVCHECK.
+   Choose a different symbol if that one already has orders or trades.
+3. Submit a SELL limit order: 5 shares, price 100. It should remain open.
+4. Submit a BUY limit order: 3 shares, price 100. It should fill 3 shares,
+   leave 2 shares on the sell order, and record a trade at price 100.
+5. Close and reopen the app. Select your test symbol again; check that the
+   remaining order and trade were saved. Desktop/browser sessions are separate.
+6. Amend the remaining sell order to 4 shares at price 101. Then cancel that
+   test order. The execution already recorded must remain in Trade history.
+7. Export session and Export all trades from Trade history. Keep the files.
+   Do not clear/import over your normal records just to test restoration.
+8. Check Market history and chart controls. Provider refresh needs internet;
+   cached history is not a live exchange feed. Custom symbols have no provider
+   history. A small matching test leaves AI warming up until 40 executed-order
+   observations; that is expected, not a failure.
+9. Close the window. Your saved data should remain, and the app should stop.
+
+RECORD YOUR RESULT
+Windows version/build:
+TradeVelocity version (shown at the bottom of the app):
+Launch / matching / saved data / themes / exports / shutdown: pass or fail
+If anything fails: write the exact steps, expected result, actual result and
+error message. Share a screenshot only after removing private information.
+Startup log: %LOCALAPPDATA%\TradeVelocity\desktop.log
+Normal desktop data stays under %LOCALAPPDATA%\TradeVelocity.
+
+Keep this ZIP for your own and teammates' tests. Publication happens only after
+you confirm the result. This package does not deploy the web app.

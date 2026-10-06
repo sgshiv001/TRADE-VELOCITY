@@ -7,6 +7,11 @@ target PC does not need a separate Python or Node.js installation.
 No installer, certificate purchase, runtime download, or system change runs
 automatically. A portable app still needs compatible Windows/browser runtimes.
 
+For the local pre-publication test package, open the ZIP's `START-HERE.txt` for
+short launch instructions and manual checks that do not clear your saved data.
+Source copy: `docs/windows-start-here.txt`. Preparing
+or building this package does not publish a GitHub release or deploy the app.
+
 ## Read-only prerequisite check
 
 Run the packaged EXE with `--check-system`. It writes

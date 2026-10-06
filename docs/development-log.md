@@ -1,5 +1,43 @@
 # Detailed development and update log
 
+## Local Windows release candidate — 3 October 2026
+
+The user requested creation first, manual testing next, and publication later.
+Prepare the current full v0.3.3 app locally; do not broaden that into deployment,
+signing, automatic backups, a new GitHub release, commits, or another push.
+
+1. Add a plain-text quick-start/manual checklist to the portable ZIP and test
+   that packaging preserves it exactly. The manual flow uses an unused custom
+   symbol rather than clearing or replacing normal saved records.
+2. The fresh build exposed an obsolete explicit SansIO import in the spec.
+   Inspect the installed Uvicorn mapping and PyInstaller's standard hook:
+   the actual implementation is already collected by the hook. Use the mapping
+   directly in the spec so there is no stale guessed import or misleading error.
+3. Strengthen the native smoke assertion to require the real WebView's live
+   update status, not just a rendered brand label. Cover the receipt flag in
+   desktop lifecycle tests. This changes the verification path, not normal
+   matching rules or user-session initialization.
+4. Final full Python suite: **159 passed in 20.45 seconds**, no skips/failures.
+   Browser suite: **10 passed in 17.0 seconds**. Production UI build succeeds.
+   The complete packaged build finishes; third-party PyInstaller hook warnings
+   for generated pycparser tables and an optional SciPy module remain, but the
+   old Uvicorn hidden-import error does not recur. No warning was hidden.
+5. Run the actual latest EXE's prerequisite check and hidden native smoke with
+   an independent writable profile and Windows-only PATH. WebView2 154.0.4258.48
+   and .NET release 533509 are ready on this Windows 11 x64 PC. Native checks
+   render the UI, connect live updates, match seven shares/one trade, measure six
+   benchmark rows, evaluate 46 observations plus the high-volume regression,
+   and prove advisory monitoring leaves matching exports unchanged. Exit 0;
+   owned window/server close and the port is released. User data is untouched.
+6. Regenerate the ZIP/manifest with the final quick-start instructions. Keep
+   exact current hashes and measurements in `dist/TradeVelocity-release.json`
+   and `dist/TradeVelocity-test-build.json`, not in older historical reports.
+   The isolated verification profile stays under ignored `dist/` and is not
+   included in the portable ZIP. No recursive cleanup is needed to hand over.
+7. Add draft release notes and update local README/checklists. The build remains
+   unsigned; different-PC acceptance and the user's manual result are pending.
+   No Git operation or external publication is performed in this preparation.
+
 ## Repository publication and verified-PC presentation — 2 October 2026
 
 The user confirmed local use and explicitly requested a README/About update

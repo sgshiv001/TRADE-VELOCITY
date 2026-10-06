@@ -52,6 +52,7 @@ def test_desktop_smoke_runs_real_api_and_releases_owned_port(tmp_path, monkeypat
     assert "robust_guard" in receipt["detectors"]
     assert receipt["matching_unchanged_by_monitor"]
     assert receipt["high_volume_regression"]
+    assert receipt["live_workspace"]
     assert window.destroyed
     assert captured["options"]["hidden"]
     assert "?build=" in captured["url"]

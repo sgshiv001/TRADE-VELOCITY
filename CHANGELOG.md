@@ -6,6 +6,25 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-10-03 — Prepare Windows 0.3.3 locally before manual acceptance
+
+- Rebuild the full portable Windows app from the current source; do not create
+  a GitHub release, upload binaries, deploy, commit, or push this preparation.
+- Include `START-HERE.txt` with direct launch and safe matching/restart/export
+  checks using a separate custom symbol without clearing existing records.
+- Repair the obsolete explicit SansIO hidden-import name by reading Uvicorn's
+  installed protocol mapping in the build specification. Its standard hook
+  already collected the implementation; this removes the misleading build error.
+- Strengthen native smoke to require live WebSocket UI status as well as
+  frontend rendering, matching and AI checks. Add receipt assertion coverage.
+- Verification: **159 Python tests in 20.45 seconds**, **10 browser tests in
+  17.0 seconds**, production UI build and actual frozen native smoke passed.
+  Run with isolated writable storage and Python/Node excluded from PATH. The
+  app releases its own port and preserves normal user data.
+- Retain the regenerated CRC/SHA-256 manifest and local acceptance receipt in
+  `dist/`; preserve older reports with their original dates/hashes. Signing and
+  different-PC validation remain outstanding. User testing/publication are pending.
+
 ## 2026-10-02 — Publish the tested local application and repository presentation
 
 - Update the README with verified Windows/web status, exact local test counts,

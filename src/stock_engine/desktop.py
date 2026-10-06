@@ -121,10 +121,13 @@ def run_desktop(smoke_test: bool = False) -> int:
                 deadline = time.monotonic() + 30
                 while time.monotonic() < deadline:
                     rendered = window.evaluate_js("Boolean(document.querySelector('#root')?.textContent.includes('VELOCITY'))")
-                    if rendered:
-                        outcome.update(ok=True, port=port, title=window.title)
+                    live = window.evaluate_js("Boolean(document.querySelector('main [role=status]')?.textContent.includes('LIVE WORKSPACE UPDATES'))")
+                    if rendered and live:
+                        outcome.update(ok=True, port=port, title=window.title, live_workspace=True)
                         break
                     time.sleep(.2)
+                if not outcome["ok"]:
+                    raise RuntimeError("Frontend rendering/live WebSocket connection did not become ready within 30 seconds")
             except Exception as exc:
                 outcome["error"] = str(exc)
             finally:

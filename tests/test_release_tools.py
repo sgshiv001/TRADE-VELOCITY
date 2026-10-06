@@ -43,7 +43,8 @@ def test_portable_package_checks_integrity_and_stale_inputs(tmp_path,monkeypatch
              "frontend/dist/index.html":b"<html>test</html>",
              "dist/TradeVelocity/_internal/stock_engine/data/watchdog-calibration.json":b"{}",
              "src/stock_engine/data/watchdog-calibration.json":b"{}",
-             "Launch_Desktop.vbs":b"test shortcut", "frontend/package.json":b'{"version":"test"}'}
+             "Launch_Desktop.vbs":b"test shortcut", "frontend/package.json":b'{"version":"test"}',
+             "docs/windows-start-here.txt":b"Extract before launch; test without clearing saved records"}
     for name,content in files.items():
         path = tmp_path / name
         path.parent.mkdir(parents=True,exist_ok=True)
@@ -52,6 +53,7 @@ def test_portable_package_checks_integrity_and_stale_inputs(tmp_path,monkeypatch
     assert receipt["crc"] == "passed"
     with zipfile.ZipFile(tmp_path / "dist/TradeVelocity-Windows-x64.zip") as archive:
         assert "Launch_Desktop.vbs" in archive.namelist()
+        assert archive.read("START-HERE.txt") == files["docs/windows-start-here.txt"]
         assert archive.testzip() is None
     (tmp_path / "frontend/dist/index.html").write_bytes(b"changed")
     with pytest.raises(ValueError,match="stale"):

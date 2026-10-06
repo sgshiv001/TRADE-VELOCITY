@@ -41,6 +41,9 @@ def package_desktop():
         instructions = ROOT / "docs/windows-release.md"
         if instructions.exists():
             output.write(instructions,"WINDOWS-README.md")
+        quick_start = ROOT / "docs/windows-start-here.txt"
+        if quick_start.exists():
+            output.write(quick_start,"START-HERE.txt")
         for path in sorted(folder.rglob("*")):
             if not path.resolve().is_relative_to(folder):
                 raise ValueError("Refusing to package a link outside the generated desktop folder")

@@ -1,13 +1,14 @@
 # Build with: .venv\Scripts\python.exe -m PyInstaller TradeVelocity.spec
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files
+from uvicorn.config import WS_PROTOCOLS
 
 root = Path(SPECPATH)
 a = Analysis([str(root / "app.py")], pathex=[str(root / "src")],
              datas=[(str(root / "frontend" / "dist"), "frontend/dist")] + collect_data_files("stock_engine"),
              hiddenimports=["webview.platforms.edgechromium", "uvicorn.logging", "uvicorn.loops.auto",
                             "uvicorn.protocols.http.auto", "uvicorn.protocols.websockets.auto",
-                            "uvicorn.protocols.websockets.websockets_sansio", "uvicorn.lifespan.on"],
+                            WS_PROTOCOLS["websockets-sansio"].split(":")[0], "uvicorn.lifespan.on"],
              excludes=["PyQt5", "PyQt6", "PySide2", "PySide6", "matplotlib", "IPython", "pytest"],
              noarchive=False)
 pyz = PYZ(a.pure)

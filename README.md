@@ -15,7 +15,7 @@
 ## Current status — 0.3.3
 
 **Tested and working on the maintainer's Windows 11 x64 PC.** The local web app
-and packaged Windows app passed the recorded verification on **1 October 2026**:
+and packaged Windows app passed the latest local verification on **3 October 2026**:
 
 - **159 Python tests** and **10 real-browser tests** passed.
 - Production UI build, order matching, saved-data/retry checks, AI review,
@@ -27,7 +27,8 @@ and packaged Windows app passed the recorded verification on **1 October 2026**:
 These results establish working tested flows on this PC, not a guarantee of
 zero bugs or compatibility with every computer. The app remains local and the
 Windows build is unsigned; AI results are controlled tests, not certified fraud
-detection. [Full completion report](docs/completion-report.md) ·
+detection. [Local release-candidate notes](docs/release-notes-v0.3.3.md) ·
+[Earlier completion report](docs/completion-report.md) ·
 [Windows setup and release guide](docs/windows-release.md).
 
 ## What the app does
@@ -117,7 +118,9 @@ To build the portable Windows application:
 Double-click **Launch_Desktop.vbs** in the project folder, or open
 **dist/TradeVelocity/TradeVelocity.exe** after building. The builder also creates
 **dist/TradeVelocity-Windows-x64.zip** and a hash/integrity manifest. Extract the
-entire ZIP; do not copy only the EXE. The target Windows computer needs WebView2
+entire ZIP; do not copy only the EXE. The package includes `START-HERE.txt` with
+launch and safe manual-testing steps. Preparing the ZIP does not publish it.
+The target Windows computer needs WebView2
 and .NET Framework 4.6.2+, not Python or Node. Run `app.py --check-system` or the
 packaged EXE's `--check-system` for read-only prerequisite diagnostics. This
 remains an unsigned portable build; certificate-store signing tools are prepared
@@ -169,9 +172,11 @@ These are suggested focus areas, not independently verified feature ownership. A
 
 ## Validate the app
 
-Latest local verification (1 October 2026): **159 Python tests**, **10 browser
-tests**, production UI build, and extracted Windows ZIP smoke passed. See the
-[completion report](docs/completion-report.md) for evidence and remaining limits.
+Latest local verification (3 October 2026): **159 Python tests**, **10 browser
+tests**, production UI build, and packaged Windows smoke with live updates
+passed. See the [release-candidate notes](docs/release-notes-v0.3.3.md), local
+`dist/TradeVelocity-test-build.json`, and the
+[earlier completion report](docs/completion-report.md) for evidence and limits.
 
 ~~~powershell
 cd frontend
