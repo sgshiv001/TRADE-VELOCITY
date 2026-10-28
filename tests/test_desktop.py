@@ -53,9 +53,10 @@ def test_desktop_smoke_runs_real_api_and_releases_owned_port(tmp_path, monkeypat
     assert receipt["matching_unchanged_by_monitor"]
     assert receipt["high_volume_regression"]
     assert receipt["live_workspace"]
+    assert receipt["launch_splash_complete"]
     assert window.destroyed
     assert captured["options"]["hidden"]
-    assert "?build=" in captured["url"]
+    assert "?desktop=1&build=" in captured["url"]
     assert "smoke-webview" in captured["storage"]
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", receipt["port"]))

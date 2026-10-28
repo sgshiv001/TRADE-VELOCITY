@@ -4,8 +4,12 @@ from PyInstaller.utils.hooks import collect_data_files
 from uvicorn.config import WS_PROTOCOLS
 
 root = Path(SPECPATH)
+datas = [(str(root / "frontend" / "dist"), "frontend/dist")] + collect_data_files("stock_engine")
+desktop_icon = root / "build" / "desktop-icon.ico"
+if desktop_icon.is_file():
+    datas.append((str(desktop_icon), "assets"))
 a = Analysis([str(root / "app.py")], pathex=[str(root / "src")],
-             datas=[(str(root / "frontend" / "dist"), "frontend/dist")] + collect_data_files("stock_engine"),
+             datas=datas,
              hiddenimports=["webview.platforms.edgechromium", "uvicorn.logging", "uvicorn.loops.auto",
                             "uvicorn.protocols.http.auto", "uvicorn.protocols.websockets.auto",
                             WS_PROTOCOLS["websockets-sansio"].split(":")[0], "uvicorn.lifespan.on"],

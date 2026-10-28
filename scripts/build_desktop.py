@@ -6,10 +6,8 @@ import hashlib
 import json
 import os
 import shutil
-import struct
 import subprocess
 import sys
-import zlib
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,24 +63,41 @@ def package_desktop():
 
 
 def make_icon(path: Path) -> None:
-    """Generate a small code-native TV icon, without external image tooling."""
-    size = 64
-    rows = []
+    """Create a crisp multi-resolution TV monogram for the EXE and taskbar."""
+    from PIL import Image, ImageDraw, ImageFilter
+
+    size = 512
+    icon = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    pixels = icon.load()
     for y in range(size):
-        row = bytearray([0])
         for x in range(size):
-            rounded = ((x < 10 or x >= 54) and (y < 10 or y >= 54) and
-                       (x - (10 if x < 10 else 53)) ** 2 + (y - (10 if y < 10 else 53)) ** 2 > 100)
-            t = (12 <= x < 33 and 19 <= y < 25) or (20 <= x < 26 and 19 <= y < 45)
-            v = 19 <= y < 45 and (abs(x - (35 + (y - 19) / 3)) < 3 or abs(x - (53 - (y - 19) / 3)) < 3)
-            row.extend((255, 255, 255, 255) if t or v else (49, 93, 232, 0 if rounded else 255))
-        rows.append(bytes(row))
-    def chunk(kind, data):
-        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
-    png += chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b"")
+            mix = min(1.0, (x * .58 + y * .42) / size)
+            teal_glow = max(0.0, 1 - (((x - 420) / 360) ** 2 + ((y - 125) / 350) ** 2) ** .5) * .2
+            pixels[x, y] = tuple(round(start * (1 - mix) + end * mix + teal * teal_glow)
+                                 for start, end, teal in zip((8, 20, 43), (37, 82, 205), (10, 130, 145))) + (255,)
+
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((8, 8, 504, 504), radius=112, fill=255)
+    icon.putalpha(mask)
+
+    glow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).line([(236, 211), (302, 341), (361, 258), (413, 157)],
+                              fill=(83, 239, 225, 165), width=48, joint="curve")
+    glow = glow.filter(ImageFilter.GaussianBlur(23))
+    icon = Image.alpha_composite(icon, glow)
+    draw = ImageDraw.Draw(icon)
+    draw.rounded_rectangle((8, 8, 504, 504), radius=112, outline=(180, 212, 255, 105), width=6)
+
+    # The T is a stable white anchor; the rising V doubles as a market trace.
+    draw.rounded_rectangle((70, 102, 279, 160), radius=24, fill=(247, 250, 255, 255))
+    draw.rounded_rectangle((145, 134, 204, 370), radius=22, fill=(247, 250, 255, 255))
+    draw.line([(236, 211), (302, 341), (361, 258), (413, 157)],
+              fill=(94, 238, 222, 255), width=27, joint="curve")
+    draw.polygon([(443, 110), (428, 177), (385, 151)], fill=(139, 255, 232, 255))
+    draw.ellipse((287, 326, 317, 356), fill=(12, 30, 61, 255), outline=(139, 255, 232, 255), width=7)
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(struct.pack("<HHH", 0, 1, 1) + struct.pack("<BBBBHHII", size, size, 0, 0, 1, 32, len(png), 22) + png)
+    icon.save(path, format="ICO", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
 
 
 def main():

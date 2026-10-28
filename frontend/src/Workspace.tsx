@@ -21,10 +21,39 @@ function Metric({ label, value, note }: { label: string; value: string | number;
   return <div className="metric-card"><span className="metric-head">{label}</span><strong className="metric-value">{value}</strong><small>{note}</small></div>;
 }
 
+function OrderBookScene({ lab, symbol }: { lab: Lab; symbol: string }) {
+  const asks = lab.book.asks.slice(0, 5).reverse();
+  const bids = lab.book.bids.slice(0, 5);
+  const levels = [...asks, ...bids];
+  const maxQuantity = Math.max(1, ...levels.map(level => level.quantity));
+  const bestAsk = lab.book.asks[0];
+  const bestBid = lab.book.bids[0];
+  const depthLabel = levels.length
+    ? `${symbol} order book depth. ${asks.length} sell levels and ${bids.length} buy levels. Best ask ${bestAsk ? inr(bestAsk.price) : "not available"}. Best bid ${bestBid ? inr(bestBid.price) : "not available"}.`
+    : `${symbol} order book is empty. Place orders to see real book depth here.`;
+
+  return <div className="depth-scene" role="img" aria-label={depthLabel}>
+    <div className="scene-topline"><span><i /> BOOK DEPTH</span><span>{levels.length ? `${levels.length} PRICE LEVELS` : "AWAITING ORDERS"}</span></div>
+    <div className={`depth-map ${levels.length ? "has-levels" : "is-empty"}`}>
+      <div className="depth-grid-plane" />
+      {levels.length ? <div className="depth-columns">
+        {asks.map((level, index) => <i aria-hidden="true" key={`ask-${level.price}-${index}`} className="depth-cube ask-cube" style={{ height: `${Math.max(16, level.quantity / maxQuantity * 112)}px` }} />)}
+        <div className="depth-match-line" aria-hidden="true"><span /></div>
+        {bids.map((level, index) => <i aria-hidden="true" key={`bid-${level.price}-${index}`} className="depth-cube bid-cube" style={{ height: `${Math.max(16, level.quantity / maxQuantity * 112)}px` }} />)}
+      </div> : <div className="depth-empty"><Layers3 size={23} /><span>No resting orders yet</span><small>Your orders will shape this view.</small></div>}
+      <div className="depth-legend"><span className="ask-label">SELL ORDERS</span><span>PRICE–TIME BOOK</span><span className="bid-label">BUY ORDERS</span></div>
+    </div>
+    <div className="scene-quotes"><div><span>BEST ASK</span><strong className="ask-label">{bestAsk ? inr(bestAsk.price) : "—"}</strong></div><div className="scene-last"><span>LAST MATCH · {symbol}</span><strong>{lab.stats.last ? inr(lab.stats.last) : "Waiting for first match"}</strong></div><div><span>BEST BID</span><strong className="bid-label">{bestBid ? inr(bestBid.price) : "—"}</strong></div></div>
+  </div>;
+}
+
 function Dashboard({ lab, symbol, openOrders }: { lab: Lab; symbol: string; openOrders: () => void }) {
   const latest = lab.trades.at(-1);
   return <>
-    <div className="section-title"><div><div className="eyebrow">YOUR MATCHING ENGINE</div><h1>Workspace overview</h1><p>Submitted orders, executed trades, and saved session activity.</p></div><button className="primary-button" onClick={openOrders}>Place an order <ArrowRight size={16} /></button></div>
+    <section className="cinematic-stage" aria-labelledby="workspace-heading">
+      <div className="stage-copy"><div className="stage-kicker"><i /> YOUR LOCAL MATCHING ENGINE</div><h1 id="workspace-heading">Workspace overview</h1><p>See your orders meet in a clear, animated view of the price–time book.</p><button className="primary-button" onClick={openOrders}>Place an order <ArrowRight size={16} /></button><div className="stage-caption"><span><Activity size={14} /> Updates as your book changes</span><span>Simulation only</span></div></div>
+      <OrderBookScene lab={lab} symbol={symbol} />
+    </section>
     <div className="metric-grid four">
       <Metric label="Active orders" value={number(lab.orders.length)} note="All symbols in this session" />
       <Metric label="Executed trades" value={number(lab.total_trades)} note="All symbols, all recorded trades" />
@@ -128,6 +157,7 @@ function TradeHistory({ revision, changed }: { revision: number; changed: () => 
 }
 
 export default function Workspace() {
+  const desktopLaunch = new URLSearchParams(window.location.search).get("desktop") === "1";
   const [page, setPage] = useState<Page>("dashboard");
   const [navOpen, setNavOpen] = useState(false);
   const [symbol, setSymbol] = useState("RELIANCE");
@@ -139,6 +169,8 @@ export default function Workspace() {
   const [revision, setRevision] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [version, setVersion] = useState("");
+  const [launchMinimumElapsed, setLaunchMinimumElapsed] = useState(!desktopLaunch);
+  const [launchPhase, setLaunchPhase] = useState<"showing" | "leaving" | "hidden">(desktopLaunch ? "showing" : "hidden");
   const [watchlist, setWatchlist] = useState<string[]>(() => { try { const value = JSON.parse(localStorage.getItem("tradevelocity-watchlist") ?? "[]"); return Array.isArray(value) ? value.filter((item: unknown) => typeof item === "string" && /^[A-Z][A-Z0-9.]{0,15}$/.test(item)).slice(0,30) : []; } catch { return []; } });
   const seenRevision = useRef(-1);
   const requestVersion = useRef(0);
@@ -148,10 +180,24 @@ export default function Workspace() {
     catch (cause) { if (current === requestVersion.current) setError(errorMessage(cause)); }
   }
   const live = useLiveSession(loadLab);
+  const launchReady = lab !== null || Boolean(error);
   useEffect(() => { void loadLab(); return () => { requestVersion.current++; }; }, [symbol]);
   useEffect(() => { api<Market>("/market").then(setMarket).catch(cause => setMarketError(errorMessage(cause))); }, []);
   useEffect(() => { api<{version: string}>("/health").then(data => setVersion(data.version)).catch(() => {}); }, []);
-  useEffect(() => { localStorage.setItem("tradevelocity-watchlist", JSON.stringify(watchlist)); }, [watchlist]);
+  useEffect(() => { try { localStorage.setItem("tradevelocity-watchlist", JSON.stringify(watchlist)); } catch { /* Keep the in-memory watchlist usable when browser storage is unavailable. */ } }, [watchlist]);
+  useEffect(() => {
+    if (!desktopLaunch) return;
+    const timer = window.setTimeout(() => setLaunchMinimumElapsed(true), 720);
+    return () => window.clearTimeout(timer);
+  }, [desktopLaunch]);
+  useEffect(() => {
+    if (desktopLaunch && launchMinimumElapsed && launchReady && launchPhase === "showing") setLaunchPhase("leaving");
+  }, [desktopLaunch, launchMinimumElapsed, launchReady, launchPhase]);
+  useEffect(() => {
+    if (launchPhase !== "leaving") return;
+    const timer = window.setTimeout(() => setLaunchPhase("hidden"), 520);
+    return () => window.clearTimeout(timer);
+  }, [launchPhase]);
   async function refreshMarket() {
     setRefreshing(true); setMarketError("");
     try { setMarket(await api<Market>("/market/refresh", { method: "POST" })); }
@@ -162,6 +208,17 @@ export default function Workspace() {
   const selectSymbol = (next: string) => { if (next !== symbol) { setLab(null); setSymbol(next); } };
   const navigate = (next: Page) => { setPage(next); setNavOpen(false); window.scrollTo({ top: 0 }); };
   return <div className="app-shell">
+    {launchPhase !== "hidden" && <div className={`launch-splash${launchPhase === "leaving" ? " is-leaving" : ""}`} data-testid="desktop-launch-splash" role="status" aria-live="polite" aria-label="TradeVelocity is launching">
+      <div className="launch-splash-grid" />
+      <div className="launch-splash-glow" />
+      <section className="launch-splash-panel" aria-label="TradeVelocity startup">
+        <div className="launch-brand"><img src="/favicon.svg" alt="" /><div><strong>TRADE<span>VELOCITY</span></strong><small>LOCAL MATCHING ENGINE</small></div></div>
+        <div className="launch-splash-copy"><div className="launch-eyebrow"><i /> WINDOWS WORKSPACE</div><h1>Move at<br /><span>market speed.</span></h1><p>Opening your local order book and preparing your workspace.</p></div>
+        <div className="launch-visual" aria-hidden="true"><div className="launch-orbit orbit-one" /><div className="launch-orbit orbit-two" /><div className="launch-floor" /><div className="launch-columns"><i /><i /><i /><i /><i /></div><div className="launch-trace"><span /></div></div>
+        <div className="launch-footer"><span className={launchReady && !error ? "ready" : ""}><i />{error ? "CHECKING ENGINE CONNECTION" : launchReady ? "MATCHING ENGINE READY" : "CONNECTING TO LOCAL ENGINE"}</span><small>SIMULATION ONLY · NO BROKER CONNECTION</small></div>
+        <div className="launch-progress" aria-hidden="true"><i /></div>
+      </section>
+    </div>}
     {navOpen && <button className="nav-overlay" aria-label="Close navigation" onClick={() => setNavOpen(false)} />}
     <aside className={`sidebar ${navOpen ? "open" : ""}`}><div className="sidebar-brand"><div className="brand-box">TV</div><div><strong>TRADE<br />VELOCITY</strong><small>MATCHING WORKSPACE</small></div></div><div className="nav-label">WORKSPACE</div><nav aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? "selected" : ""} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon size={17} /><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><div className="engine-status-label">EXECUTION VENUE</div><p className="fine-print">Your local matching engine.<br />No broker or real-money execution.</p><div className="engine-version"><Server size={13} /> Saved local session</div></div></aside>
     <div className="workspace"><header className="topbar"><button className="mobile-menu" aria-label="Open navigation" onClick={() => setNavOpen(true)}><Menu size={20} /></button><div className="crumb"><span>TRADEVELOCITY</span><ArrowRight size={13} /><strong>{navigation.find(item => item.id === page)?.label}</strong></div><label className="symbol-select"><Layers3 size={16} /><select aria-label="Select symbol" value={symbol} onChange={event => { setLab(null); setSymbol(event.target.value); }}>{symbols.map(value => <option key={value}>{value}</option>)}</select></label><div className="topbar-actions"><ThemeToggle /></div></header>
@@ -169,7 +226,9 @@ export default function Workspace() {
         <div className="watchlist-bar" aria-label="Watchlist"><button className="secondary-button" aria-label={`${watchlist.includes(symbol) ? "Remove" : "Add"} ${symbol} ${watchlist.includes(symbol) ? "from" : "to"} watchlist`} onClick={() => setWatchlist(list => list.includes(symbol) ? list.filter(item => item !== symbol) : [...list,symbol].slice(-30))}><Star size={14} fill={watchlist.includes(symbol) ? "currentColor" : "none"} />{watchlist.includes(symbol) ? "Watching" : "Watch"} {symbol}</button>{watchlist.map(item => <button key={item} className={`watchlist-chip ${item === symbol ? "selected" : ""}`} onClick={() => selectSymbol(item)}>{item}</button>)}</div>
         {error && <div className="notice error" role="alert"><X size={15} />{error}<button className="text-button" onClick={() => void loadLab()}>Retry connection</button></div>}
         {page === "markets" && marketError && <div className="notice error" role="alert">{marketError}</div>}
-        {page === "markets" ? <Markets market={market} symbol={symbol} refresh={() => void refreshMarket()} refreshing={refreshing} /> : page === "performance" ? <RealBenchmark /> : page === "watchdog" ? <Watchdog symbol={symbol} /> : page === "history" ? <TradeHistory revision={revision} changed={loadLab} /> : lab ? page === "orders" ? <Orders lab={lab} symbol={symbol} changed={loadLab} selectSymbol={selectSymbol} /> : <Dashboard lab={lab} symbol={symbol} openOrders={() => navigate("orders")} /> : !error && <div className="loading-screen" role="status"><RefreshCw className="spin" size={22} /> Connecting to matching engine…</div>}
+        <div className="page-transition" key={page} data-page={page}>
+          {page === "markets" ? <Markets market={market} symbol={symbol} refresh={() => void refreshMarket()} refreshing={refreshing} /> : page === "performance" ? <RealBenchmark /> : page === "watchdog" ? <Watchdog symbol={symbol} /> : page === "history" ? <TradeHistory revision={revision} changed={loadLab} /> : lab ? page === "orders" ? <Orders lab={lab} symbol={symbol} changed={loadLab} selectSymbol={selectSymbol} /> : <Dashboard lab={lab} symbol={symbol} openOrders={() => navigate("orders")} /> : !error && <div className="loading-screen" role="status"><RefreshCw className="spin" size={22} /> Connecting to matching engine…</div>}
+        </div>
         <footer><span>TRADEVELOCITY {version && `v${version}`} · WINDOWS & WEB</span><span>Local orders only · Market history is not a live feed</span></footer>
       </main>
     </div>

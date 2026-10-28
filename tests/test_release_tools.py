@@ -58,3 +58,16 @@ def test_portable_package_checks_integrity_and_stale_inputs(tmp_path,monkeypatch
     (tmp_path / "frontend/dist/index.html").write_bytes(b"changed")
     with pytest.raises(ValueError,match="stale"):
         build.package_desktop()
+
+
+def test_windows_icon_contains_crisp_common_sizes(tmp_path):
+    pytest.importorskip("PIL")
+    spec = importlib.util.spec_from_file_location("desktop_build_icon",ROOT / "scripts/build_desktop.py")
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+    icon = tmp_path / "TradeVelocity.ico"
+    build.make_icon(icon)
+    from PIL import Image
+    with Image.open(icon) as image:
+        assert image.format == "ICO"
+        assert {(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)} <= image.ico.sizes()

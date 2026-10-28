@@ -12,22 +12,26 @@
   <a href="https://github.com/sgshiv001/TRADE-VELOCITY/actions/workflows/tests.yml"><img alt="Repository build and tests" src="https://github.com/sgshiv001/TRADE-VELOCITY/actions/workflows/tests.yml/badge.svg"></a>
 </p>
 
-## Current status — 0.3.3
+## Current status — 0.3.4 local candidate
 
-**Tested and working on the maintainer's Windows 11 x64 PC.** The local web app
-and packaged Windows app passed the latest local verification on **3 October 2026**:
+The refreshed interface is prepared for local testing. The Windows package is a
+test candidate; no signed installer or formal binary release is available.
+The Windows app now opens with a branded TradeVelocity icon and a short animated
+startup screen that waits for the local matching workspace before fading into
+the app. The Overview shows a 3D view of actual resting orders, with smooth
+page/card transitions and responsive hover feedback. Reduced-motion settings
+disable decorative animation. Light/dark themes and direct order-entry controls
+remain available.
 
-- **159 Python tests** and **10 real-browser tests** passed.
-- Production UI build, order matching, saved-data/retry checks, AI review,
-  light/dark themes and responsive layouts passed.
-- The extracted Windows ZIP launched without Python or Node.js on PATH, rendered
-  the interface, matched orders, checked the AI regressions, recovered from an
-  occupied port and shut down its own server.
-
-These results establish working tested flows on this PC, not a guarantee of
-zero bugs or compatibility with every computer. The app remains local and the
-Windows build is unsigned; AI results are controlled tests, not certified fraud
-detection. [Local release-candidate notes](docs/release-notes-v0.3.3.md) ·
+On **28 October 2026**, the production frontend build, **160 Python tests**,
+**13 Playwright browser tests**, and rebuilt Windows app smoke test passed. The
+packaged app verified the Windows window icon, startup handoff, matching, live
+updates, and AI calibration. The browser suite covers the cinematic launch,
+animated 3D order book, reduced-motion behavior, themes, order lifecycle, AI
+review, reconnection, and responsive layouts.
+Manual testing of the Windows package is pending. The build is unsigned, and AI
+results are controlled tests, not certified fraud detection.
+[Local release-candidate notes](docs/release-notes-v0.3.4.md) ·
 [Earlier completion report](docs/completion-report.md) ·
 [Windows setup and release guide](docs/windows-release.md).
 
@@ -49,7 +53,7 @@ An order book must select the best compatible price, preserve arrival order at t
 
 | Workspace | Working behavior |
 | --- | --- |
-| Overview | Actual open-order count, trade count, matched shares, VWAP, and latest execution |
+| Overview | Animated 3D view of actual resting orders; open-order count, trade count, matched shares, VWAP, and latest execution |
 | Orders & depth | Buy/sell limit and market orders; partial fills; amendment and cancellation; depth by symbol |
 | Market history | Downloaded daily company history, explicit source/date, adjusted chart, volatility, drawdown, RSI, and recent bars |
 | AI watchdog | Unusual-execution alerts computed from your own matching activity, with exportable reports |
@@ -62,6 +66,10 @@ Custom engine symbols are supported. Provider history is available only for the 
 The original project title includes market simulation. Generated workloads are now restricted to developer measurements; the application no longer injects them into the active order book.
 
 ## Interface preview
+
+**Windows launch screen**
+
+![TradeVelocity Windows startup screen](docs/assets/desktop-launch.png)
 
 Actual market-history screens captured during isolated browser QA, not mockups.
 They use the downloaded historical snapshot; neither theme changes matching.
@@ -172,11 +180,12 @@ These are suggested focus areas, not independently verified feature ownership. A
 
 ## Validate the app
 
-Latest local verification (3 October 2026): **159 Python tests**, **10 browser
-tests**, production UI build, and packaged Windows smoke with live updates
-passed. See the [release-candidate notes](docs/release-notes-v0.3.3.md), local
-`dist/TradeVelocity-test-build.json`, and the
-[earlier completion report](docs/completion-report.md) for evidence and limits.
+On 28 October 2026, the 0.3.4 production UI build passed with **160 Python
+tests**, **13 browser tests**, and packaged Windows smoke checks for the window
+icon, startup handoff, matching, live updates, and AI calibration. See the
+[current release-candidate notes](docs/release-notes-v0.3.4.md) and
+[earlier completion report](docs/completion-report.md) for verification scope
+and limits. Manual testing on another PC remains pending.
 
 ~~~powershell
 cd frontend

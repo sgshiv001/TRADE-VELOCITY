@@ -1,5 +1,47 @@
 # Detailed development and update log
 
+## Windows identity and cinematic startup — 28 October 2026
+
+Create a multiresolution TradeVelocity ICO and use it for the Windows EXE and
+native pywebview window. Add a desktop-only animated startup screen with the
+brand mark, a restrained market-depth visual, local-engine connection state,
+and an automatic fade into the ready workspace. Keep reduced-motion support.
+Capture the startup appearance for the project README.
+
+Verification passed: production frontend build; **160 Python tests** and **13
+Playwright browser tests**; packaged Windows x64 smoke with `window_icon`, live
+workspace, and `launch_splash_complete` all true. The smoke also matched seven
+shares, checked six benchmark rows, calibrated the watchdog, and passed the
+high-volume regression. ZIP CRC passed. Manual user acceptance remains pending;
+the build is unsigned and has not been released as a Windows binary.
+
+## Local UI motion polish and retest — 28 October 2026
+
+Add smooth page-entry and staggered card transitions, subtle order-book scene
+motion, hover/focus feedback, and smooth route scrolling. Respect the operating
+system's reduced-motion preference by turning off these decorative animations.
+Rebuild the portable Windows app so the desktop artifact uses the same frontend
+as the web build.
+
+Verification passed: frontend production build, **159 Python tests**, **12
+Playwright browser tests** (including 390, 820, and 1440 pixel layouts and
+reduced-motion behavior), and isolated native Windows smoke for the rebuilt
+package. Manual user acceptance remains pending. No commit or push was made.
+
+## Local 0.3.4 interface update — 19 October 2026
+
+The Overview now presents a 3D-styled order-book scene. Its two sides, depth
+columns, best ask, best bid, and last matched price come from the selected local
+session; an empty book is labeled as empty. The prominent order button stays
+outside the animated graphic, and reduced-motion preferences disable the
+motion. Larger touch targets and narrow-screen layout preserve usability.
+
+Two browser reliability issues were addressed: denied local storage no longer
+breaks theme or watchlist use, and offline state stops polling/reconnect loops
+until connectivity returns. Package/API version is 0.3.4. The production UI
+build passed; browser tests and native Windows smoke were not rerun after these
+changes. The Windows package is for manual user testing before publication.
+
 ## Local Windows release candidate — 3 October 2026
 
 The user requested creation first, manual testing next, and publication later.

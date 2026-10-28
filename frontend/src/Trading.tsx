@@ -9,8 +9,8 @@ type AlertReview = { status: "open" | "reviewed" | "dismissed"; note: string };
 type WatchdogReport = { status: string; observations: number; baseline_size: number; flagged: number; open_alerts: number; scored?: number; model_version: string; method: string; calibration: { fit_observations: number; cutoff_observations: number; forest_threshold?: number; robust_threshold?: number; baseline_warning?: string }; alerts: { event: number; order_id: string; price: number; quantity: number; score: number; reasons: string[]; detectors: string[]; review: AlertReview }[]; note: string };
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState(() => localStorage.getItem("tradevelocity-theme") === "dark" ? "dark" : "light");
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem("tradevelocity-theme", theme); }, [theme]);
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem("tradevelocity-theme") === "dark" ? "dark" : "light"; } catch { return "light"; } });
+  useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem("tradevelocity-theme", theme); } catch { /* Theme remains usable for this tab if storage is unavailable. */ } }, [theme]);
   return <button className="theme-toggle" aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`} onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}<span>{theme === "light" ? "Dark" : "Light"} mode</span></button>;
 }
 

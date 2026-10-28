@@ -6,6 +6,46 @@ session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)
 and `git log --all --stat` for the full available record.
 
+## 2026-10-19 — Prepare TradeVelocity 0.3.4 for manual testing
+
+- Add a cinematic CSS 3D visualization of the actual selected symbol's order
+  book, with readable best bid/ask, last-match information, and an honest empty
+  state when no orders are resting.
+- Keep the primary order-entry action prominent, improve button and input target
+  sizes, and retain a responsive layout, light/dark themes, and reduced-motion
+  support.
+- Guard theme/watchlist preferences when browser storage is blocked. Pause live
+  polling while offline and restart the WebSocket cleanly when connectivity
+  returns.
+- Production frontend build passed. Browser tests and native Windows smoke have
+  not been rerun for this update; manual acceptance is pending.
+
+## 2026-10-28 — Windows app icon and cinematic startup
+
+- Add a branded multi-size TradeVelocity icon to the Windows executable and
+  native app window. Introduce an animated startup screen that waits for the
+  local workspace, displays its connection status, and fades into the app.
+- Verify reduced-motion support, startup handoff, and packaged Windows icon.
+- Rebuild the local Windows x64 folder and ZIP; keep this candidate unsigned and
+  unpublished for manual acceptance.
+- Follow-up verification: production frontend build passed; **160 Python tests**
+  and **13 browser tests** passed; packaged smoke confirmed icon, startup
+  handoff, matching, live workspace updates, AI calibration, and the high-volume
+  regression.
+
+## 2026-10-28 — UI motion polish and verification
+
+- Add smooth route-entry and staggered card transitions, refined hover/focus
+  feedback, and subtle motion to the 3D order-book scene while keeping controls
+  clear and readable.
+- Respect reduced-motion preferences by disabling decorative animations and
+  smooth scrolling.
+- Rebuild the portable Windows x64 package with the updated frontend.
+- Verification: production frontend build passed; **159 Python tests** and
+  **12 browser tests** passed; packaged Windows smoke passed for matching, live
+  workspace updates, AI calibration, and the high-volume regression. The
+  candidate remains unsigned and user manual acceptance is pending.
+
 ## 2026-10-03 — Prepare Windows 0.3.3 locally before manual acceptance
 
 - Rebuild the full portable Windows app from the current source; do not create

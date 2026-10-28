@@ -1,4 +1,4 @@
-TRADEVELOCITY 0.3.3 - WINDOWS APP
+TRADEVELOCITY 0.3.4 - WINDOWS APP
 
 Prepared for local testing before publication. No real-money trading.
 
@@ -15,23 +15,26 @@ setup links. Nothing is installed automatically. The EXE is unsigned; Windows
 may show a warning. Do not disable antivirus or system security protections.
 
 TEST IT WITHOUT CLEARING EXISTING RECORDS
-1. Check that Overview opens and the light/dark theme button works.
+1. Check the Overview's animated depth scene and the light/dark theme button.
+   An empty book should say "No resting orders yet"; it should not invent bars.
 2. In Orders & depth, enter a new custom engine symbol such as TVCHECK.
    Choose a different symbol if that one already has orders or trades.
 3. Submit a SELL limit order: 5 shares, price 100. It should remain open.
 4. Submit a BUY limit order: 3 shares, price 100. It should fill 3 shares,
    leave 2 shares on the sell order, and record a trade at price 100.
-5. Close and reopen the app. Select your test symbol again; check that the
+5. Return to Overview and select your test symbol. Check that its depth scene
+   shows the resting sell order, correct best bid/ask and last match after fills.
+6. Close and reopen the app. Select your test symbol again; check that the
    remaining order and trade were saved. Desktop/browser sessions are separate.
-6. Amend the remaining sell order to 4 shares at price 101. Then cancel that
+7. Amend the remaining sell order to 4 shares at price 101. Then cancel that
    test order. The execution already recorded must remain in Trade history.
-7. Export session and Export all trades from Trade history. Keep the files.
+8. Export session and Export all trades from Trade history. Keep the files.
    Do not clear/import over your normal records just to test restoration.
-8. Check Market history and chart controls. Provider refresh needs internet;
+9. Check Market history and chart controls. Provider refresh needs internet;
    cached history is not a live exchange feed. Custom symbols have no provider
    history. A small matching test leaves AI warming up until 40 executed-order
    observations; that is expected, not a failure.
-9. Close the window. Your saved data should remain, and the app should stop.
+10. Close the window. Your saved data should remain, and the app should stop.
 
 RECORD YOUR RESULT
 Windows version/build:

@@ -81,7 +81,7 @@ class Session:
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
                security: SecuritySettings | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="0.3.3", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="TradeVelocity", version="0.3.4", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.security = guard = SecurityGuard(security or SecuritySettings.from_environment())
     app.middleware("http")(guard.protect)
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))

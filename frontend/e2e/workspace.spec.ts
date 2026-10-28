@@ -21,6 +21,60 @@ async function submit(page: Page, side: "BUY" | "SELL", quantity: number, price:
   await page.getByRole("button", {name:`Submit ${side.toLowerCase()}`, exact:true}).click();
 }
 
+test("desktop launch animation hands off after the local matching workspace is ready", async ({page}, testInfo) => {
+  await page.route("**/api/lab?symbol=RELIANCE", async route => {
+    await new Promise(resolve => setTimeout(resolve, 1800));
+    await route.continue();
+  });
+  await page.goto("/?desktop=1");
+  const splash = page.getByTestId("desktop-launch-splash");
+  await expect(splash).toBeVisible();
+  await expect(page.getByRole("heading", {name:/Move at market speed/})).toBeVisible();
+  await expect(splash).toContainText("CONNECTING TO LOCAL ENGINE");
+  await expect(splash).toHaveCSS("animation-name", "launch-fade-in");
+  await expect(splash).toHaveCSS("opacity", "1");
+  await page.screenshot({path:testInfo.outputPath("tradevelocity-desktop-launch-0.3.4.png"), animations:"allow"});
+  await expect(splash).toBeHidden({timeout:6000});
+  await expect(page.getByRole("heading", {name:"Workspace overview"})).toBeVisible();
+  await expect(page.getByText("LIVE WORKSPACE UPDATES", {exact:true})).toBeVisible();
+});
+
+test("cinematic overview shows live 3D depth for resting orders", async ({page}, testInfo) => {
+  await open(page);
+  const emptyBook = page.getByRole("img", {name:/RELIANCE order book is empty/});
+  await expect(emptyBook).toBeVisible();
+  await expect(page.getByText("No resting orders yet", {exact:true})).toBeVisible();
+  await expect(page.locator(".depth-map")).toHaveCSS("perspective", "700px");
+  const placeOrder = page.getByRole("button", {name:"Place an order", exact:true});
+  expect((await placeOrder.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+
+  await placeOrder.click();
+  await submit(page, "SELL", 4, "101");
+  await submit(page, "BUY", 6, "99");
+  await page.getByRole("button", {name:"Overview", exact:true}).click();
+  const populatedBook = page.getByRole("img", {name:/RELIANCE order book depth\. 1 sell levels and 1 buy levels/});
+  await expect(populatedBook).toBeVisible();
+  await expect(page.locator(".depth-columns")).toHaveCSS("transform-style", "preserve-3d");
+  await expect(page.locator(".ask-cube")).toHaveCount(1);
+  await expect(page.locator(".bid-cube")).toHaveCount(1);
+  await expect(page.getByText("BEST ASK", {exact:true})).toBeVisible();
+  await expect(page.getByText("BEST BID", {exact:true})).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath("tradevelocity-overview-0.3.4.png"), fullPage:true, animations:"disabled"});
+  await page.getByRole("button", {name:"Switch to dark mode"}).click();
+  await page.screenshot({path:testInfo.outputPath("tradevelocity-overview-dark-0.3.4.png"), fullPage:true, animations:"disabled"});
+});
+
+test("page and card transitions respect reduced-motion settings", async ({page}) => {
+  await open(page);
+  await expect(page.locator(".page-transition")).toHaveCSS("animation-name", "page-arrive");
+  await expect(page.locator(".metric-card").first()).toHaveCSS("animation-name", "card-arrive");
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.reload();
+  await expect(page.getByRole("heading", {name:"Workspace overview"})).toBeVisible();
+  await expect(page.locator(".page-transition")).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".depth-scene")).toHaveCSS("animation-name", "none");
+});
+
 test("order lifecycle, live second tab, export, import and timestamp preservation", async ({page, context, request}) => {
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   const id = await open(page);

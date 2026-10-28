@@ -58,10 +58,12 @@ def run_desktop(smoke_test: bool = False) -> int:
             time.sleep(.05)
         webview.settings["ALLOW_DOWNLOADS"] = True
         build_id = hashlib.sha256((PROJECT_ROOT / "frontend" / "dist" / "index.html").read_bytes()).hexdigest()[:12]
-        window = webview.create_window("TradeVelocity — Matching Workspace", f"http://127.0.0.1:{port}/?build={build_id}",
+        window = webview.create_window("TradeVelocity — Matching Workspace", f"http://127.0.0.1:{port}/?desktop=1&build={build_id}",
                                        width=1380, height=900, min_size=(820, 600),
-                                       background_color="#f5f7fb", hidden=smoke_test, text_select=True)
-        outcome = {"ok": False}
+                                       background_color="#081321", hidden=smoke_test, text_select=True)
+        icon_path = (Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "assets" / "desktop-icon.ico"
+                     if getattr(sys, "frozen", False) else PROJECT_ROOT / "build" / "desktop-icon.ico")
+        outcome = {"ok": False, "window_icon": False}
 
         def verify_window():
             try:
@@ -122,12 +124,19 @@ def run_desktop(smoke_test: bool = False) -> int:
                 while time.monotonic() < deadline:
                     rendered = window.evaluate_js("Boolean(document.querySelector('#root')?.textContent.includes('VELOCITY'))")
                     live = window.evaluate_js("Boolean(document.querySelector('main [role=status]')?.textContent.includes('LIVE WORKSPACE UPDATES'))")
-                    if rendered and live:
-                        outcome.update(ok=True, port=port, title=window.title, live_workspace=True)
+                    splash_complete = window.evaluate_js("!document.querySelector('.launch-splash')")
+                    if rendered and live and splash_complete:
+                        native = getattr(window, "native", None)
+                        native_icon = getattr(native, "Icon", None) if native is not None else None
+                        outcome["window_icon"] = native_icon is not None
+                        if getattr(sys, "frozen", False) and os.name == "nt" and not outcome["window_icon"]:
+                            raise RuntimeError("Packaged Windows window icon could not be applied")
+                        outcome.update(ok=True, port=port, title=window.title, live_workspace=True,
+                                       launch_splash_complete=True)
                         break
                     time.sleep(.2)
                 if not outcome["ok"]:
-                    raise RuntimeError("Frontend rendering/live WebSocket connection did not become ready within 30 seconds")
+                    raise RuntimeError("Frontend rendering/live updates/startup handoff did not become ready within 30 seconds")
             except Exception as exc:
                 outcome["error"] = str(exc)
             finally:
@@ -135,7 +144,8 @@ def run_desktop(smoke_test: bool = False) -> int:
 
         try:
             webview.start(verify_window if smoke_test else None, gui="edgechromium" if os.name == "nt" else None,
-                          private_mode=False, storage_path=str(directory / ("smoke-webview" if smoke_test else "webview")))
+                          private_mode=False, storage_path=str(directory / ("smoke-webview" if smoke_test else "webview")),
+                          icon=str(icon_path) if icon_path.is_file() else None)
         finally:
             server.should_exit = True
             thread.join(timeout=10)

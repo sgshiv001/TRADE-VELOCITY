@@ -1,1 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#315de8"/><path d="M12 21h21M22.5 21v24M35 21l9 24 9-24" fill="none" stroke="white" stroke-width="6" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="shell" x1="7" y1="5" x2="58" y2="61" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142B57"/>
+      <stop offset=".55" stop-color="#315DE8"/>
+      <stop offset="1" stop-color="#157FA1"/>
+    </linearGradient>
+    <linearGradient id="velocity" x1="29" y1="28" x2="54" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9CFFF0"/>
+      <stop offset="1" stop-color="#4DE1D8"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#shell)"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="16.25" stroke="#C2D7FF" stroke-opacity=".4" stroke-width="1.5"/>
+  <path d="M11 17.5h23M22.5 18v29" stroke="#F8FAFF" stroke-width="6" stroke-linecap="round"/>
+  <path d="m31 29 8 17 7-11 5-12" stroke="url(#velocity)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m45 23 9-7-1 11" stroke="#A5FFF2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="39" cy="46" r="2.3" fill="#102444" stroke="#A5FFF2" stroke-width="1.8"/>
+</svg>
