@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-10-28T18:23:23.305Z",
+  "browser": "Chromium headless",
+  "storage": "temporary isolated test server",
+  "live_workspace": {
+    "websocket_connections": 1,
+    "websocket_change_frames": 2,
+    "second_tab_saw_open_order": true,
+    "second_tab_saw_executed_trade": true,
+    "filled_shares": 3,
+    "remaining_sell_shares": 2
+  },
+  "watchdog": {
+    "symbol": "RELIANCE",
+    "observations": 46,
+    "baseline_size": 40,
+    "scored": 6,
+    "alerted_order": "LIVE-LARGE-BUY",
+    "detectors": [
+      "robust_guard",
+      "size_envelope"
+    ],
+    "filled_shares": 5000,
+    "alert_visible_in_ui": true
+  },
+  "screenshots": [
+    "screenshots/live-websocket-dashboard.png",
+    "screenshots/live-watchdog-monitor.png"
+  ]
+}
