@@ -1,6 +1,8 @@
-# TradeVelocity v0.3.4 — local Windows test candidate
+# TradeVelocity v0.3.4 — Windows pre-release
 
-**Updated 28 October 2026 for user testing. The Windows binary is not released.**
+**Published 28 October 2026 as an unsigned pre-release for testing.**
+
+[Download the Windows x64 package](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v0.3.4).
 
 ## What changed
 
@@ -31,6 +33,6 @@ order lifecycle, AI review, reconnection, and responsive layouts. Manual
 acceptance on the user's PC and testing on another PC remain pending;
 code-signing status is unchanged.
 
-This remains a local, unsigned Windows x64 package. It requires Windows 10/11
+This is an unsigned Windows x64 pre-release. It requires Windows 10/11
 x64, WebView2 Evergreen, and .NET Framework 4.6.2 or newer. Orders stay in the
 local matching engine; no broker or real-money execution is involved.

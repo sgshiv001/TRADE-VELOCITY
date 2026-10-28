@@ -12,10 +12,10 @@
   <a href="https://github.com/sgshiv001/TRADE-VELOCITY/actions/workflows/tests.yml"><img alt="Repository build and tests" src="https://github.com/sgshiv001/TRADE-VELOCITY/actions/workflows/tests.yml/badge.svg"></a>
 </p>
 
-## Current status — 0.3.4 local candidate
+## Current status — 0.3.4 Windows pre-release
 
-The refreshed interface is prepared for local testing. The Windows package is a
-test candidate; no signed installer or formal binary release is available.
+The Windows portable app is available as an **unsigned pre-release for testing**.
+It is not a signed installer, and manual testing on another PC is still pending.
 The Windows app now opens with a branded TradeVelocity icon and a short animated
 startup screen that waits for the local matching workspace before fading into
 the app. The Overview shows a 3D view of actual resting orders, with smooth
@@ -31,7 +31,8 @@ animated 3D order book, reduced-motion behavior, themes, order lifecycle, AI
 review, reconnection, and responsive layouts.
 Manual testing of the Windows package is pending. The build is unsigned, and AI
 results are controlled tests, not certified fraud detection.
-[Local release-candidate notes](docs/release-notes-v0.3.4.md) ·
+[Download TradeVelocity 0.3.4 for Windows](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v0.3.4) ·
+[Release notes](docs/release-notes-v0.3.4.md) ·
 [Earlier completion report](docs/completion-report.md) ·
 [Windows setup and release guide](docs/windows-release.md).
 
@@ -131,7 +132,7 @@ launch and safe manual-testing steps. Preparing the ZIP does not publish it.
 The target Windows computer needs WebView2
 and .NET Framework 4.6.2+, not Python or Node. Run `app.py --check-system` or the
 packaged EXE's `--check-system` for read-only prerequisite diagnostics. This
-remains an unsigned portable build; certificate-store signing tools are prepared
+is an unsigned portable pre-release; certificate-store signing tools are prepared
 but no publisher certificate was supplied. See the
 [Windows release checklist](docs/windows-release.md).
 
@@ -230,7 +231,7 @@ docs/                  Architecture and historical development record
 
 [Completion/test checklist](docs/completion-report.md) · [Architecture](docs/architecture.md) · [Historical measurements](docs/results.md) · [Changelog](CHANGELOG.md) · [Development log](docs/development-log.md)
 
-Historical logs retain the record of removed features; they are not current application instructions. Older GitHub release downloads may contain the previous presentation interface until a new build is published. Generated builds, dependencies, local sessions, and credentials are excluded from Git.
+Historical logs retain the record of removed features; they are not current application instructions. The latest Windows pre-release is linked above. Generated builds, dependencies, local sessions, and credentials stay out of Git; download the Windows package from GitHub Releases rather than cloning a 115 MiB binary into the source repository.
 
 ## License
 

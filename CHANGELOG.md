@@ -33,6 +33,15 @@ and `git log --all --stat` for the full available record.
   handoff, matching, live workspace updates, AI calibration, and the high-volume
   regression.
 
+## 2026-10-28 — Publish the Windows 0.3.4 pre-release
+
+- Publish the tested portable Windows x64 ZIP as a GitHub pre-release, keeping
+  the 115 MiB binary out of Git source history.
+- Link the download and current verification details from the README and release
+  notes; update the repository About text to describe the Windows/web app.
+- The package is unsigned and labeled for testing; user manual acceptance on a
+  second PC remains pending.
+
 ## 2026-10-28 — UI motion polish and verification
 
 - Add smooth route-entry and staggered card transitions, refined hover/focus

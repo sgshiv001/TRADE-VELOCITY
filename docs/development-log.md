@@ -1,5 +1,18 @@
 # Detailed development and update log
 
+## Publish the v0.3.4 Windows pre-release — 28 October 2026
+
+Publish the previously verified 120,503,382-byte Windows x64 ZIP as a GitHub
+pre-release asset instead of adding the generated executable and runtime files
+to the source repository. Keep build outputs ignored. The repository contains
+no generated app folders; the bundled market-history snapshot is runtime data
+and remains in source. Refresh the README and repository About text with the
+version, verified features, and download link.
+
+The app remains unsigned; manual acceptance on another computer is pending.
+The pre-release notes disclose these limits and list the WebView2/.NET
+requirements. No Git history rewrite is used.
+
 ## Windows identity and cinematic startup — 28 October 2026
 
 Create a multiresolution TradeVelocity ICO and use it for the Windows EXE and
