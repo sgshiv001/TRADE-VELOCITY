@@ -170,6 +170,8 @@ Historical analysis is separate. It computes measurements from dated daily bars;
 
 Created collaboratively by **Shivanshu Gupta, Aditya Verma, Sourabh Gupta, and Harshit Sharma**.
 
+Use the [three-minute ADSA demo guide](docs/adsa-demo.md) to present the matching engine and its performance comparison.
+
 | Member | Presentation focus across the shared project |
 | --- | --- |
 | Shivanshu Gupta | Matching rules, core engine, fills, cancellations, correctness |
