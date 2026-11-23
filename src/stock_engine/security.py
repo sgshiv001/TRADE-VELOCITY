@@ -43,8 +43,11 @@ class SecuritySettings:
 
     @classmethod
     def from_environment(cls):
-        return cls(os.environ.get("TRADEVELOCITY_MODE", "local"),
-                   os.environ.get("TRADEVELOCITY_ORIGIN", "").rstrip("/"),
+        mode = os.environ.get("TRADEVELOCITY_MODE", "local")
+        origin = os.environ.get("TRADEVELOCITY_ORIGIN")
+        if origin is None and mode == "accounts":
+            origin = os.environ.get("RENDER_EXTERNAL_URL", "")
+        return cls(mode, (origin or "").rstrip("/"),
                    os.environ.get("TRADEVELOCITY_ACCESS_KEY", ""))
 
 

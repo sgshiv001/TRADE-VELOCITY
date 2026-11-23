@@ -12,6 +12,23 @@ Use a persistent PostgreSQL volume and schedule backups at the provider.
 Existing desktop and private workspaces can be moved using session export
 and import from **Trade history**.
 
+## Render Free and Neon
+
+Create a free PostgreSQL project in Neon and copy its direct connection URL
+with TLS enabled. In Render, create a Blueprint from this repository and
+select the branch containing `render.yaml`. Keep the web service on the Free
+plan and enter the Neon URL in the `DATABASE_URL` secret field. Use the
+actual HTTPS address Render assigns. The app reads it from
+`RENDER_EXTERNAL_URL` and uses it for origin checks.
+
+Orders, accounts and tutorial settings persist in Neon when Render sleeps or
+restarts. Refreshed market files are temporary on the Free web service.
+[Render free services](https://render.com/docs/free) · [Render Blueprints](https://render.com/docs/infrastructure-as-code)
+
+Before sharing the address, confirm `/api/ready` reports `postgresql` and
+verify signup, sign-in and the tutorial in the deployed app. If you later
+attach a custom domain, set `TRADEVELOCITY_ORIGIN` to its exact HTTPS origin.
+
 ## Railway
 
 Add a PostgreSQL service and an app service that builds this repository.
