@@ -89,6 +89,19 @@ summary { color: var(--accent); cursor: pointer; font-size: 13px; padding: 12px 
 .access-panel { width: min(100%, 480px); }
 .access-panel form, .access-panel label { display: grid; gap: 16px; }
 .access-panel h1 { margin: 20px 0; }
+.trader-access { padding: clamp(22px, 5vw, 40px); }
+.trader-access-brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+.trader-access-brand img { width: 38px; height: 38px; }
+.trader-access form { margin-block: 24px; }
+.trader-access label { gap: 6px; }
+.trader-access .fine-print { margin: -9px 0 0; }
+.tutorial-dialog { max-width: min(90vw, 520px); padding: clamp(22px, 5vw, 36px); color: inherit; background: var(--surface); }
+.tutorial-dialog::backdrop { background: rgb(12 22 38 / 72%); }
+.tutorial-top, .tutorial-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.tutorial-top { justify-content: space-between; margin-bottom: 20px; }
+.tutorial-actions { justify-content: flex-end; margin-top: 24px; }
+.tutorial-dialog h2 { margin: 10px 0; }
+.tutorial-dialog p { line-height: 1.6; }
 .access-strip { display: flex; align-items: center; justify-content: flex-end; gap: 18px; padding: 8px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .title-actions { flex-wrap: wrap; }
 .custom-symbol-form { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; margin-bottom: 24px; }

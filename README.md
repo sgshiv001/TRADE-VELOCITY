@@ -88,6 +88,12 @@ They use the downloaded historical snapshot; neither theme changes matching.
 
 ## Run the web app
 
+For database configuration and an Android USB connection, follow the
+[backend and database guide](docs/backend.md).
+
+For the web app with trader accounts and a built-in tutorial, see the
+[hosted workspace guide](docs/hosted-workspace.md).
+
 Install Python 3.10+ and Node.js 22/npm. From this existing project folder:
 
 ~~~powershell

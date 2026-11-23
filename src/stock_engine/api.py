@@ -17,9 +17,12 @@ from uuid import UUID, uuid4
 from anyio import CancelScope
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from .companies import COMPANIES
 from .analysis import analyze_history
@@ -27,7 +30,7 @@ from .anomaly import detect_anomalies
 from .experiments import compare_workload
 from .market_data import SNAPSHOT_PATH, MarketData, download_market_data, history_metrics, indicators, load_market_data, market_rows, period_history, save_snapshot
 from .session import ExchangeSession
-from .storage import SessionStore
+from .storage import PostgresSessionStore, StorageError, create_store
 from .watchdog import ExecutionMonitor
 from .security import COOKIE, SecurityGuard, SecuritySettings
 
@@ -64,6 +67,11 @@ class Login(BaseModel):
     access_key: str = Field(min_length=1, max_length=1024)
 
 
+class Credentials(BaseModel):
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_]+$")
+    password: str = Field(min_length=1, max_length=128)
+
+
 RequestKey = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=100, pattern=r"^[A-Za-z0-9.:_-]+$")]
 
 
@@ -77,31 +85,46 @@ class Session:
     revision: int = 0
     monitor: ExecutionMonitor = field(default_factory=ExecutionMonitor)
     listeners: list = field(default_factory=list)
+    needs_reload: bool = False
 
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
-               security: SecuritySettings | None = None) -> FastAPI:
+               security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
     app = FastAPI(title="TradeVelocity", version="0.3.4", docs_url=None, redoc_url=None, openapi_url=None)
-    app.state.security = guard = SecurityGuard(security or SecuritySettings.from_environment())
-    app.middleware("http")(guard.protect)
+    settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
+    app.state.store = store = create_store(app.state.data_dir, database_url)
+    accounts = None
+    if settings.mode == "accounts":
+        if not isinstance(store, PostgresSessionStore):
+            raise ValueError("Hosted trader accounts require a PostgreSQL database")
+        from .accounts import Accounts
+        accounts = Accounts(store)
+    app.state.accounts = accounts
+    app.state.security = guard = SecurityGuard(settings, accounts=accounts)
+    app.middleware("http")(guard.protect)
     cached_market = app.state.data_dir.parent / "market-history.json"
     app.state.market = market if market is not None else load_market_data(cached_market if cached_market.exists() else SNAPSHOT_PATH)
     app.state.sessions = {}
     app.state.registry_lock = RLock()
-    app.state.store = SessionStore(app.state.data_dir)
     app.state.market_lock = RLock()
 
     @app.middleware("http")
     async def fresh_application_state(request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith("/api/") or request.url.path in ("/", "/index.html"):
+        if request.url.path.startswith("/api/") or request.url.path in ("/", "/index.html", "/login", "/signup"):
             response.headers["Cache-Control"] = "no-store"
         return response
 
     @app.exception_handler(ValueError)
     async def input_error(request, exc):
         return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, exc: RequestValidationError):
+        if request.url.path in ("/api/auth/login", "/api/auth/register"):
+            return JSONResponse(status_code=422, content={"detail": "Check your sign-in details and try again"})
+        return await request_validation_exception_handler(request, exc)
 
     def metadata(session: Session):
         payload = {"reviews": session.reviews}
@@ -110,8 +133,10 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         return payload
 
     @app.exception_handler(sqlite3.Error)
+    @app.exception_handler(OSError)
+    @app.exception_handler(StorageError)
     async def storage_error(request, exc):
-        return JSONResponse(status_code=503, content={"detail": "Local storage is unavailable. Check disk space and folder permissions."})
+        return JSONResponse(status_code=503, content={"detail": "Workspace storage is unavailable. Check the database connection or local folder permissions."})
 
     def notify(session: Session):
         def latest(queue, update):
@@ -125,6 +150,8 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     def commit(context, operation, fingerprint: str, key: str | None = None, *, replace_events=False):
         session_id, session = context
         with session.lock:
+            if session.needs_reload:
+                reload_session(session_id, session)
             if key:
                 prior = app.state.store.receipt(session_id, key)
                 if prior:
@@ -142,8 +169,10 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                 # No reader sees uncommitted work: all session reads use this lock.
                 session.lab = ExchangeSession.from_dict({"version": 2, "events": before.events[:count]}) if session.lab is before else before
                 session.reviews, session.monitor = reviews, monitor
-                if isinstance(exc, (sqlite3.Error, OSError)):
-                    raise HTTPException(503, "Could not save this change. Nothing was committed; check disk space and folder permissions, then retry.") from exc
+                if isinstance(exc, (sqlite3.Error, OSError, StorageError)):
+                    # A disconnected database can have committed before its acknowledgement was lost.
+                    session.needs_reload = True
+                    raise HTTPException(503, "Could not save this change. Check storage availability, then retry the same action.") from exc
                 raise
             session.revision += 1
             notify(session)
@@ -152,37 +181,104 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     def fingerprint(action: str, payload=None):
         return hashlib.sha256(json.dumps([action, payload], sort_keys=True).encode()).hexdigest()
 
-    def get_session(x_session_id: Annotated[str, Header()]) -> tuple[str, Session]:
+    def reload_session(session_id: str, session: Session):
+        payload = app.state.store.load(session_id)
+        if payload is None:
+            raise HTTPException(404, "local session was not found")
+        try:
+            lab = ExchangeSession.from_dict(payload["lab"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise HTTPException(503, "Saved session is unreadable. Its records have been preserved; restore a valid export.") from exc
+        session.lab = lab
+        session.legacy_account = payload.get("broker")
+        session.reviews = payload.get("reviews", {})
+        session.revision = payload.get("revision", 0)
+        session.monitor = ExecutionMonitor()
+        session.needs_reload = False
+        notify(session)
+
+    def load_session(x_session_id: str) -> tuple[str, Session]:
         try:
             session_id = str(UUID(x_session_id))
         except ValueError as exc:
             raise HTTPException(401, "invalid local session") from exc
         with app.state.registry_lock:
-            if session_id not in app.state.sessions:
-                payload = app.state.store.load(session_id)
-                if payload is None:
-                    raise HTTPException(404, "local session was not found")
-                try:
-                    lab = ExchangeSession.from_dict(payload["lab"])
-                except (KeyError, TypeError, ValueError) as exc:
-                    raise HTTPException(503, "Saved session is unreadable. Its records have been preserved; restore a valid export.") from exc
-                app.state.sessions[session_id] = Session(lab=lab, legacy_account=payload.get("broker"), reviews=payload.get("reviews", {}), revision=payload.get("revision", 0))
-            return session_id, app.state.sessions[session_id]
+            session = app.state.sessions.get(session_id)
+            if session is None:
+                session = Session(needs_reload=True)
+            with session.lock:
+                if session.needs_reload:
+                    reload_session(session_id, session)
+            app.state.sessions[session_id] = session
+            return session_id, session
+
+    def get_session(request: Request, x_session_id: Annotated[str, Header()]) -> tuple[str, Session]:
+        if accounts and request.state.trader.workspace_id != x_session_id:
+            raise HTTPException(401, "Sign in to access this workspace")
+        return load_session(x_session_id)
 
     SessionDependency = Annotated[tuple[str, Session], Depends(get_session)]
 
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "application": "trade-velocity", "version": app.version, "execution": "local_matching_engine", "real_money": False, "storage": "sqlite", "live_updates": True}
+        return {"status": "ok", "application": "trade-velocity", "version": app.version, "execution": "local_matching_engine", "real_money": False, "storage": app.state.store.kind, "live_updates": True}
+
+    @app.get("/api/ready")
+    def ready():
+        (accounts or store).check()
+        return {"status": "ready", "storage": app.state.store.kind}
 
     @app.get("/api/auth/status")
     def auth_status(request: Request):
+        if accounts:
+            trader = accounts.identity(request.cookies.get(COOKIE, ""))
+            return {"required": True, "mode": "accounts", "authenticated": trader is not None,
+                    "trader": asdict(trader) if trader else None}
         return {"required":guard.settings.mode == "private", "authenticated":guard.authorized(request.headers,request.cookies)}
 
+    def sign_in_account(payload: Credentials, request: Request, *, register: bool):
+        from .accounts import SESSION_LIFETIME
+
+        if register and len(payload.password) < 12:
+            raise HTTPException(400, "Use a password with at least 12 characters")
+        username = payload.username.lower()
+        client = request.client.host if request.client else "unknown"
+        action = "register" if register else "sign-in"
+        if guard.limited(client, action, 30) or guard.limited(username, "account-" + action, 8):
+            raise HTTPException(429, "Too many attempts. Try again in one minute.", headers={"Retry-After": "60"})
+        authenticate = accounts.register if register else accounts.login
+        token = authenticate(username, payload.password, request.cookies.get(COOKIE, ""))
+        if token is None:
+            if register:
+                raise HTTPException(409, "Choose a different username")
+            raise HTTPException(401, "Incorrect username or password")
+        response = JSONResponse({"authenticated": True}, status_code=201 if register else 200)
+        response.set_cookie(COOKIE, token, max_age=SESSION_LIFETIME, secure=True, httponly=True, samesite="strict", path="/")
+        return response
+
+    @app.post("/api/auth/register")
+    def register(payload: Credentials, request: Request):
+        if not accounts:
+            raise HTTPException(404, "Account creation is available in the hosted app")
+        return sign_in_account(payload, request, register=True)
+
+    @app.post("/api/auth/tutorial")
+    def finish_tutorial(request: Request):
+        if not accounts:
+            raise HTTPException(404, "Tutorial preferences are stored in hosted accounts")
+        accounts.finish_tutorial(request.state.trader)
+        return {"tutorial_seen": True}
+
     @app.post("/api/auth/login")
-    def login(payload: Login, request: Request):
+    def login(payload: Login | Credentials, request: Request):
+        if accounts:
+            if not isinstance(payload, Credentials):
+                raise HTTPException(400, "Enter your username and password")
+            return sign_in_account(payload, request, register=False)
         if guard.settings.mode == "local":
             raise HTTPException(404,"Sign-in is not enabled for the local app")
+        if not isinstance(payload, Login):
+            raise HTTPException(400, "Enter the workspace access key")
         if guard.limited(request.client.host if request.client else "unknown", "login", 5):
             raise HTTPException(429,"Too many sign-in attempts; retry after one minute",headers={"Retry-After":"60"})
         token = guard.issue(payload.access_key)
@@ -194,13 +290,18 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
 
     @app.post("/api/auth/logout")
     def logout(request: Request):
-        guard.revoke(request.cookies)
+        if accounts:
+            accounts.logout(request.cookies.get(COOKIE, ""))
+        else:
+            guard.revoke(request.cookies)
         response = JSONResponse({"authenticated":False})
         response.delete_cookie(COOKIE,secure=True,httponly=True,samesite="strict",path="/")
         return response
 
     @app.post("/api/session")
-    def new_session():
+    def new_session(request: Request):
+        if accounts:
+            return {"session_id": request.state.trader.workspace_id}
         session_id = str(uuid4())
         session = Session()
         with app.state.registry_lock:
@@ -210,15 +311,24 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
 
     @app.websocket("/api/live")
     async def live(websocket: WebSocket, session_id: str):
+        async def allowed():
+            if not accounts:
+                return guard.authorized(websocket.headers, websocket.cookies)
+            try:
+                trader = await run_in_threadpool(accounts.identity, websocket.cookies.get(COOKIE, ""))
+            except StorageError:
+                return False
+            return trader is not None and trader.workspace_id == session_id
+
         if (not guard.valid_host(websocket.headers) or not guard.valid_origin(websocket.headers)
                 or not guard.local_client(websocket.client)
-                or not guard.authorized(websocket.headers,websocket.cookies)
-                or guard.limited(websocket.client.host if websocket.client else "unknown", "websocket", 60)):
+                or guard.limited(websocket.client.host if websocket.client else "unknown", "websocket", 600 if accounts else 60)
+                or not await allowed()):
             await websocket.close(code=1008)
             return
         try:
-            _, session = get_session(session_id)
-        except (HTTPException, ValueError, sqlite3.Error, OSError):
+            _, session = await run_in_threadpool(load_session, session_id)
+        except (HTTPException, ValueError, sqlite3.Error, OSError, StorageError):
             await websocket.close(code=1008)
             return
         await websocket.accept()
@@ -233,7 +343,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             await websocket.send_json({"type": "connected", "revision": revision})
             while True:
                 done, _ = await asyncio.wait([incoming, outgoing], timeout=25, return_when=asyncio.FIRST_COMPLETED)
-                if not guard.authorized(websocket.headers,websocket.cookies):
+                if not await allowed():
                     await websocket.close(code=1008)
                     break
                 if incoming in done:
@@ -455,6 +565,11 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     if serve_frontend:
         frontend = PROJECT_ROOT / "frontend" / "dist"
         if frontend.exists():
+            if accounts:
+                @app.get("/login")
+                @app.get("/signup")
+                def account_page():
+                    return FileResponse(frontend / "index.html")
             app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
     return app
 

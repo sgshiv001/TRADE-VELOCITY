@@ -1,8 +1,4 @@
-"""Local-origin protection and optional single-operator authenticated hosting.
-
-This is not multi-user account isolation. Deployment requires one worker and an
-HTTPS reverse proxy; local desktop/browser launches stay loopback-only.
-"""
+"""Origin validation and access controls for local and hosted workspaces."""
 from collections import deque
 from dataclasses import dataclass
 import hashlib
@@ -16,6 +12,9 @@ from urllib.parse import urlsplit
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+
+from .storage import StorageError
 
 COOKIE = "__Host-tradevelocity-access"
 MAX_BODY = 8 * 1024 * 1024
@@ -28,15 +27,17 @@ class SecuritySettings:
     access_key: str = ""
 
     def __post_init__(self):
-        if self.mode not in ("local", "private"):
-            raise ValueError("TRADEVELOCITY_MODE must be local or private")
-        if self.mode == "private":
+        if self.mode not in ("local", "private", "accounts"):
+            raise ValueError("TRADEVELOCITY_MODE must be local, private or accounts")
+        if self.mode != "local":
             parsed = urlsplit(self.origin)
             if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
                     or parsed.path not in ("", "/") or parsed.query or parsed.fragment):
-                raise ValueError("Private hosting requires one valid HTTPS TRADEVELOCITY_ORIGIN")
-            if len(self.access_key) < 32 or self.access_key.startswith("REPLACE_"):
+                raise ValueError("Hosting requires one valid HTTPS TRADEVELOCITY_ORIGIN")
+            if self.mode == "private" and (len(self.access_key) < 32 or self.access_key.startswith("REPLACE_")):
                 raise ValueError("Private hosting requires a TRADEVELOCITY_ACCESS_KEY of at least 32 characters")
+            if self.mode == "accounts" and self.access_key:
+                raise ValueError("Workspace access keys are only supported in private mode")
         elif self.access_key or self.origin:
             raise ValueError("Access keys/origins require explicit private hosting mode")
 
@@ -48,8 +49,9 @@ class SecuritySettings:
 
 
 class SecurityGuard:
-    def __init__(self, settings: SecuritySettings, clock=monotonic):
+    def __init__(self, settings: SecuritySettings, clock=monotonic, accounts=None):
         self.settings, self.clock = settings, clock
+        self.accounts = accounts
         self.lock, self.tokens, self.windows = RLock(), {}, {}
 
     def valid_host(self, headers):
@@ -61,7 +63,7 @@ class SecurityGuard:
                 return False
         except ValueError:
             return False
-        if self.settings.mode == "private":
+        if self.settings.mode != "local":
             return headers.get("host", "").lower() == urlsplit(self.settings.origin).netloc.lower()
         return hostname in ("127.0.0.1", "localhost", "::1", "testserver")
 
@@ -69,7 +71,7 @@ class SecurityGuard:
         origin = headers.get("origin")
         if not origin:  # CLI/API clients do not send browser Origin headers.
             return True
-        if self.settings.mode == "private":
+        if self.settings.mode != "local":
             return origin == self.settings.origin
         return origin in (f"http://{headers.get('host', '')}", f"https://{headers.get('host', '')}")
 
@@ -101,6 +103,8 @@ class SecurityGuard:
     def authorized(self, headers, cookies):
         if self.settings.mode == "local":
             return True
+        if self.settings.mode == "accounts":
+            return False  # Account requests use a database-backed identity.
         bearer = headers.get("authorization", "")
         if bearer.startswith("Bearer ") and hmac.compare_digest(bearer[7:].encode(), self.settings.access_key.encode()):
             return True
@@ -126,19 +130,32 @@ class SecurityGuard:
             self.tokens.pop(hashlib.sha256(cookies.get(COOKIE, "").encode()).hexdigest(), None)
 
     async def protect(self, request: Request, call_next):
-        if not self.valid_host(request.headers) or not self.local_client(request.client):
+        path = request.url.path
+        railway_probe = (self.settings.mode == "accounts" and request.method == "GET"
+                         and path == "/api/ready"
+                         and request.headers.get("host") == "healthcheck.railway.app")
+        if (not railway_probe and not self.valid_host(request.headers)) or not self.local_client(request.client):
             response = JSONResponse({"detail":"Untrusted host or non-local connection"},status_code=403)
         elif not self.valid_origin(request.headers):
             response = JSONResponse({"detail":"Cross-origin access is not allowed"},status_code=403)
         else:
-            path = request.url.path
-            public = path in ("/api/health", "/api/auth/status", "/api/auth/login")
+            response = None
+            public = path in ("/api/health", "/api/ready", "/api/auth/status", "/api/auth/login", "/api/auth/register")
             is_api = path.startswith("/api/")
-            if is_api and not public and not self.authorized(request.headers,request.cookies):
-                response = JSONResponse({"detail":"Sign in to access this workspace"},status_code=401)
-            elif is_api and self.limited(request.client.host if request.client else "unknown", "requests",
-                                         600 if self.settings.mode == "local" else 300):
+            client = request.client.host if request.client else "unknown"
+            if is_api and self.limited(client, "requests", 3000 if self.accounts else
+                                       600 if self.settings.mode == "local" else 300):
                 response = JSONResponse({"detail":"Request limit reached; retry after one minute"},status_code=429,headers={"Retry-After":"60"})
+            elif is_api and not public and self.accounts:
+                try:
+                    request.state.trader = await run_in_threadpool(self.accounts.identity, request.cookies.get(COOKIE, ""))
+                except StorageError:
+                    response = JSONResponse({"detail": "Workspace storage is unavailable."}, status_code=503)
+            if response is not None:
+                pass
+            elif is_api and not public and not (
+                    request.state.trader if self.accounts else self.authorized(request.headers, request.cookies)):
+                response = JSONResponse({"detail":"Sign in to access this workspace"},status_code=401)
             elif path in ("/api/experiments", "/api/market/refresh") and request.method == "POST" and self.limited(
                     request.client.host if request.client else "unknown", path, 2):
                 response = JSONResponse({"detail":"Expensive operation limit reached; retry after one minute"},status_code=429,headers={"Retry-After":"60"})
@@ -162,6 +179,6 @@ class SecurityGuard:
             "Referrer-Policy":"no-referrer", "Permissions-Policy":"camera=(), microphone=(), geolocation=()",
             "Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
         })
-        if self.settings.mode == "private":
+        if self.settings.mode != "local":
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         return response

@@ -1,4 +1,9 @@
 let sessionPromise: Promise<string> | null = null;
+let accountWorkspace: string | null = null;
+
+export function setAccountWorkspace(id: string | null) {
+  accountWorkspace = id;
+}
 type ApiOptions = RequestInit & { timeoutMs?: number; requestKey?: string };
 
 async function fetchTimed(path: string, options: RequestInit, timeoutMs: number) {
@@ -18,6 +23,7 @@ async function fetchTimed(path: string, options: RequestInit, timeoutMs: number)
 }
 
 export async function sessionId(): Promise<string> {
+  if (accountWorkspace) return accountWorkspace;
   const existing = localStorage.getItem("marketlab-session");
   if (existing) return existing;
   if (!sessionPromise)
@@ -60,7 +66,7 @@ export async function api<T>(
         window.dispatchEvent(new Event("tradevelocity-access-expired"));
         throw new Error("Your access has expired. Sign in again.");
       }
-      if (recover && [401,404].includes(response.status) && ["local session was not found", "invalid local session"].includes(body.detail)) {
+      if (!accountWorkspace && recover && [401,404].includes(response.status) && ["local session was not found", "invalid local session"].includes(body.detail)) {
         localStorage.removeItem("marketlab-session");
         return api<T>(path, { ...options, requestKey: key }, false);
       }

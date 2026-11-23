@@ -5,6 +5,8 @@ import PriceChart from "./PriceChart";
 import { useLiveSession } from "./useLiveSession";
 import { ThemeToggle, Watchdog, RealBenchmark, OrderTicket, SessionTools } from "./Trading";
 import type { Analysis, AnomalyReport, History, Lab, Market, Trade } from "./types";
+import type { Trader } from "./AccessGate";
+import Tutorial, { tutorialSteps } from "./Tutorial";
 
 type Page = "dashboard" | "orders" | "markets" | "watchdog" | "history" | "performance";
 const navigation = [
@@ -156,7 +158,7 @@ function TradeHistory({ revision, changed }: { revision: number; changed: () => 
   </>;
 }
 
-export default function Workspace() {
+export default function Workspace({trader}: {trader: Trader | null}) {
   const desktopLaunch = new URLSearchParams(window.location.search).get("desktop") === "1";
   const [page, setPage] = useState<Page>("dashboard");
   const [navOpen, setNavOpen] = useState(false);
@@ -169,6 +171,9 @@ export default function Workspace() {
   const [revision, setRevision] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [version, setVersion] = useState("");
+  const [tutorialStep, setTutorialStep] = useState<number | null>(
+    trader && !trader.tutorial_seen ? 0 : null);
+  const [tutorialError, setTutorialError] = useState("");
   const [launchMinimumElapsed, setLaunchMinimumElapsed] = useState(!desktopLaunch);
   const [launchPhase, setLaunchPhase] = useState<"showing" | "leaving" | "hidden">(desktopLaunch ? "showing" : "hidden");
   const [watchlist, setWatchlist] = useState<string[]>(() => { try { const value = JSON.parse(localStorage.getItem("tradevelocity-watchlist") ?? "[]"); return Array.isArray(value) ? value.filter((item: unknown) => typeof item === "string" && /^[A-Z][A-Z0-9.]{0,15}$/.test(item)).slice(0,30) : []; } catch { return []; } });
@@ -207,7 +212,23 @@ export default function Workspace() {
   const symbols = [...new Set(["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "BHARTIARTL", "LT", "ITC", symbol, ...watchlist, ...(lab?.symbols ?? [])])];
   const selectSymbol = (next: string) => { if (next !== symbol) { setLab(null); setSymbol(next); } };
   const navigate = (next: Page) => { setPage(next); setNavOpen(false); window.scrollTo({ top: 0 }); };
+  function showTutorialStep(step: number) {
+    navigate(tutorialSteps[step].page);
+    setTutorialStep(step);
+  }
+  async function dismissTutorial() {
+    setTutorialStep(null);
+    if (!trader) return;
+    try {
+      await api("/auth/tutorial", {method: "POST"});
+      setTutorialError("");
+    } catch {
+      setTutorialError("Your tutorial preference could not be saved. Reopen the tutorial to try again.");
+    }
+  }
   return <div className="app-shell">
+    {tutorialStep !== null && lab && <Tutorial step={tutorialStep} onStep={showTutorialStep}
+      onDismiss={() => void dismissTutorial()} />}
     {launchPhase !== "hidden" && <div className={`launch-splash${launchPhase === "leaving" ? " is-leaving" : ""}`} data-testid="desktop-launch-splash" role="status" aria-live="polite" aria-label="TradeVelocity is launching">
       <div className="launch-splash-grid" />
       <div className="launch-splash-glow" />
@@ -229,7 +250,11 @@ export default function Workspace() {
         <div className="page-transition" key={page} data-page={page}>
           {page === "markets" ? <Markets market={market} symbol={symbol} refresh={() => void refreshMarket()} refreshing={refreshing} /> : page === "performance" ? <RealBenchmark /> : page === "watchdog" ? <Watchdog symbol={symbol} /> : page === "history" ? <TradeHistory revision={revision} changed={loadLab} /> : lab ? page === "orders" ? <Orders lab={lab} symbol={symbol} changed={loadLab} selectSymbol={selectSymbol} /> : <Dashboard lab={lab} symbol={symbol} openOrders={() => navigate("orders")} /> : !error && <div className="loading-screen" role="status"><RefreshCw className="spin" size={22} /> Connecting to matching engine…</div>}
         </div>
-        <footer><span>TRADEVELOCITY {version && `v${version}`} · WINDOWS & WEB</span><span>Local orders only · Market history is not a live feed</span></footer>
+        {tutorialError && <p className="notice error" role="alert">{tutorialError}</p>}
+        <footer><span>TRADEVELOCITY {version && `v${version}`} · WINDOWS & WEB</span>
+          <button className="text-button" onClick={() => showTutorialStep(0)}>Open tutorial</button>
+          <span>Simulated orders · Historical market data</span>
+        </footer>
       </main>
     </div>
   </div>;
