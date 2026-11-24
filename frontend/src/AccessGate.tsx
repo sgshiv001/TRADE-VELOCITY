@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { setAccountWorkspace } from "./api";
+import ProductPage from "./ProductPage";
 
 export type Trader = { username: string; workspace_id: string; tutorial_seen: boolean };
 type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null };
@@ -20,7 +21,9 @@ export default function AccessGate({children}: {children: (trader: Trader | null
       const next: Access = await response.json();
       setAccountWorkspace(next.trader?.workspace_id ?? null);
       if (next.mode === "accounts" && next.authenticated && ["/login", "/signup"].includes(window.location.pathname)) {
-        window.history.replaceState(null, "", "/");
+        window.history.replaceState(null, "", "/app");
+      } else if (next.mode === "accounts" && !next.authenticated && window.location.pathname === "/app") {
+        window.history.replaceState(null, "", "/login");
       }
       setAccess(next);
       setError("");
@@ -52,12 +55,16 @@ export default function AccessGate({children}: {children: (trader: Trader | null
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Sign-in failed."); }
     finally { setBusy(false); }
   }
+  if (access?.mode === "accounts" && window.location.pathname === "/") {
+    return <ProductPage signedIn={access.authenticated} />;
+  }
   if (access?.authenticated) return <>
     {access.required && <div className="access-strip"><span>{access.trader ? `Signed in as ${access.trader.username}` : "Private single-operator workspace"}</span><button className="secondary-button" onClick={async () => {
       try {
         const response = await fetch("/api/auth/logout", {method: "POST"});
         if (!response.ok) throw new Error();
         setAccountWorkspace(null);
+        if (access.mode === "accounts") window.history.replaceState(null, "", "/login");
         setAccess({...access, authenticated: false, trader: null});
         setError("");
       }

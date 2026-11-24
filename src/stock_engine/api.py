@@ -112,7 +112,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     @app.middleware("http")
     async def fresh_application_state(request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith("/api/") or request.url.path in ("/", "/index.html", "/login", "/signup"):
+        if request.url.path.startswith("/api/") or request.url.path in ("/", "/index.html", "/app", "/login", "/signup"):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -566,6 +566,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         frontend = PROJECT_ROOT / "frontend" / "dist"
         if frontend.exists():
             if accounts:
+                @app.get("/app")
                 @app.get("/login")
                 @app.get("/signup")
                 def account_page():
