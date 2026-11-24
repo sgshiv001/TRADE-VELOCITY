@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="TradeVelocity is a hands-on order book built by Hash Syndicate for an Advanced Data Structures and Algorithms project at Bennett University.">
+  <title>TradeVelocity — see an order book in action</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="shell nav" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="TradeVelocity home"><span class="brand-mark" aria-hidden="true">TV</span><span>TradeVelocity</span></a>
+      <div class="nav-links"><a href="#how-it-works">How it works</a><a href="#features">Inside the app</a><a href="#team">Team</a><a href="https://github.com/sgshiv001/TRADE-VELOCITY">GitHub</a></div>
+      <a class="button button-small button-primary" href="https://gettradevelocity.onrender.com">Open the app <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero shell" id="top" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-line"></span> An ADSA project by Hash Syndicate</p>
+        <h1 id="hero-title">Put two orders in.<br><em>See what happens next.</em></h1>
+        <p class="hero-intro">TradeVelocity is a practice stock order book. Place a buy or sell order, watch the engine match it, and inspect what remains on the book. We built it to make the data structures behind trading easier to see and try.</p>
+        <div class="hero-actions"><a class="button button-primary" href="https://gettradevelocity.onrender.com">Try the web app <span aria-hidden="true">↗</span></a><a class="button button-outline" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a></div>
+        <p class="hero-note">Practice orders only. No broker connection, money, or real shares.</p>
+      </div>
+      <div class="hero-visual"><img src="assets/market-light.png" alt="TradeVelocity's market-history screen with price chart and market data" width="1280" height="720"><p>Market history is separate from the practice order book and uses dated daily data.</p></div>
+    </section>
+
+    <section class="section section-light" id="how-it-works" aria-labelledby="how-title">
+      <div class="shell">
+        <div class="section-heading"><p class="eyebrow dark">A match in three steps</p><h2 id="how-title">An order book you can follow.</h2><p>Here is a small example you can recreate in the app after you make a trader account. The first-run guide can be skipped or opened again later.</p></div>
+        <div class="steps">
+          <article class="step"><span class="step-number">01</span><div class="order-tag sell">SELL</div><h3>Place 5 shares at ₹100</h3><p>The sell order waits on the book. It is now the resting order.</p></article>
+          <article class="step"><span class="step-number">02</span><div class="order-tag buy">BUY</div><h3>Place 3 shares at ₹101</h3><p>The buy price crosses the sell price, so the engine can match them.</p></article>
+          <article class="step"><span class="step-number">03</span><div class="order-tag trade">TRADE</div><h3>3 trade at ₹100</h3><p>The resting order sets the price. Two sell shares stay on the book.</p></article>
+        </div>
+        <p class="section-footnote">Open <strong>Orders &amp; depth</strong> to place the orders, then check <strong>Trade history</strong> to see the result.</p>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title"><div class="shell">
+      <div class="section-heading"><p class="eyebrow">Inside the app</p><h2 id="features-title">More than a matching demo.</h2><p>Each screen helps answer a different question about orders, trades, and the way the engine behaves.</p></div>
+      <div class="feature-grid">
+        <article class="feature"><span class="feature-icon" aria-hidden="true">↗</span><h3>Orders &amp; depth</h3><p>Place limit and market orders. See the best prices, depth, partial fills, and open orders you can amend or cancel.</p></article>
+        <article class="feature"><span class="feature-icon" aria-hidden="true">≡</span><h3>Trade history</h3><p>Search executions, export trades, and save or restore your practice session.</p></article>
+        <article class="feature"><span class="feature-icon" aria-hidden="true">⌁</span><h3>Market history</h3><p>Explore dated daily bars and charts for eight supported companies. These are historical data, not live quotes.</p></article>
+        <article class="feature"><span class="feature-icon" aria-hidden="true">◎</span><h3>AI watchdog</h3><p>Review unusual patterns in your own executions. Alerts are advisory and never block an order.</p></article>
+        <article class="feature"><span class="feature-icon" aria-hidden="true">◫</span><h3>Performance</h3><p>Run an isolated workload to compare the indexed order book with a list-based reference.</p></article>
+        <article class="feature"><span class="feature-icon" aria-hidden="true">⌘</span><h3>Under the hood</h3><p>Heaps, AVL trees, FIFO queues, hash tables, and a Fenwick tree each have a job in the engine.</p><a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/docs/architecture.md">Read the architecture notes <span aria-hidden="true">→</span></a></article>
+      </div>
+    </div></section>
+
+    <section class="section section-light" id="get-started" aria-labelledby="start-title"><div class="shell">
+      <div class="section-heading"><p class="eyebrow dark">Get started</p><h2 id="start-title">Try it your way.</h2><p>The web version stores trader workspaces in PostgreSQL. The Windows download keeps its session on your PC. The Android build is a test APK that opens the hosted app.</p></div>
+      <div class="download-grid">
+        <article class="download-card"><p class="platform">01 / WEB</p><h3>Open in a browser</h3><p>Create an account, follow or skip the guide, and place your first practice order.</p><a href="https://gettradevelocity.onrender.com">Open TradeVelocity <span aria-hidden="true">↗</span></a></article>
+        <article class="download-card"><p class="platform">02 / WINDOWS</p><h3>Use the desktop build</h3><p>Extract the complete portable ZIP and open <code>Launch_Desktop.vbs</code>. This build is unsigned.</p><a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v0.3.4/TradeVelocity-Windows-x64.zip">Download Windows ZIP <span aria-hidden="true">↗</span></a></article>
+        <article class="download-card"><p class="platform">03 / ANDROID</p><h3>Try the test APK</h3><p>Install the debug-signed build on Android. It needs internet access to reach the hosted app.</p><a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v1.0.1-android-test/TradeVelocity-Android-test.apk">Download Android APK <span aria-hidden="true">↗</span></a></article>
+      </div>
+      <p class="section-footnote">The free web host may take a moment to wake up. We tested the Windows package on Windows 11 and the Android APK on an emulator; a second Windows PC and a physical phone are still untested.</p>
+    </div></section>
+
+    <section class="section team-section" id="team" aria-labelledby="team-title"><div class="shell team-layout"><div><p class="eyebrow">The people behind it</p><h2 id="team-title">Hash Syndicate.</h2><p>We developed and integrated TradeVelocity together for our Advanced Data Structures and Algorithms project at Bennett University. These are the areas we explained in our group presentation; the codebase is shared.</p><a class="text-link" href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/docs/team.md">Read the team page <span aria-hidden="true">→</span></a></div><div class="team-list"><div><strong>Shivanshu Gupta</strong><span>Matching rules and engine</span></div><div><strong>Aditya Verma</strong><span>Interface and market views</span></div><div><strong>Sourabh Gupta</strong><span>Backend and performance</span></div><div><strong>Harshit Sharma</strong><span>Monitoring and validation</span></div></div></div></section>
+
+    <section class="section closing"><div class="shell closing-inner"><div><p class="eyebrow">Want a closer look?</p><h2>Start with one order.</h2><p>The guided tour is there if you want it. You can skip it and explore at your own pace.</p></div><a class="button button-primary" href="https://gettradevelocity.onrender.com">Open the web app <span aria-hidden="true">↗</span></a></div></section>
+  </main>
+
+  <footer class="site-footer"><div class="shell footer-inner"><span>TradeVelocity · Hash Syndicate · Bennett University</span><div><a href="https://github.com/sgshiv001/TRADE-VELOCITY">Source code</a><a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/docs/adsa-demo.md">Demo guide</a><a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/LICENSE">MIT license</a></div></div></footer>
+</body>
+</html>
