@@ -11,6 +11,6 @@ catch { document.documentElement.dataset.theme = "light"; }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <AccessGate><App /></AccessGate>
+    <AccessGate>{trader => <App key={trader?.workspace_id ?? "local"} trader={trader} />}</AccessGate>
   </React.StrictMode>,
 );

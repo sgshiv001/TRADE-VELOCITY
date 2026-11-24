@@ -10,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 XDG_CACHE_HOME=/tmp/.cache
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
-RUN pip install --no-cache-dir -e ".[app]" && useradd --uid 10001 --create-home appuser && mkdir -p /data/sessions && chown -R appuser:appuser /data
+RUN pip install --no-cache-dir -e ".[app,postgres,accounts]" && useradd --uid 10001 --create-home appuser && mkdir -p /data/sessions && chown -R appuser:appuser /data
 COPY --from=frontend /ui/dist/ ./frontend/dist/
 USER appuser
 EXPOSE 8000

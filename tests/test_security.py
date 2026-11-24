@@ -34,6 +34,18 @@ def test_unsafe_configuration_fails_closed(settings):
         SecuritySettings(*settings)
 
 
+def test_accounts_use_render_assigned_https_origin_unless_explicitly_configured(monkeypatch):
+    monkeypatch.setenv("TRADEVELOCITY_MODE", "accounts")
+    monkeypatch.delenv("TRADEVELOCITY_ORIGIN", raising=False)
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://preview.onrender.com/")
+    assert SecuritySettings.from_environment().origin == "https://preview.onrender.com"
+    monkeypatch.setenv("TRADEVELOCITY_ORIGIN", "https://trading.example.com")
+    assert SecuritySettings.from_environment().origin == "https://trading.example.com"
+    monkeypatch.setenv("TRADEVELOCITY_ORIGIN", "http://trading.example.com")
+    with pytest.raises(ValueError, match="HTTPS"):
+        SecuritySettings.from_environment()
+
+
 def login(client):
     response = client.post("/api/auth/login",json={"access_key":KEY},headers={"Origin":ORIGIN})
     assert response.status_code == 200

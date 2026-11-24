@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "deploy/Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/ready"
+healthcheckTimeout = 120
+numReplicas = 1

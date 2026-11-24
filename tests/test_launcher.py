@@ -141,7 +141,7 @@ def test_stopping_launcher_releases_server_port():
             assert response.status == 200
             html = response.read().decode()
             assert 'id="root"' in html
-            assert "<title>TradeVelocity | Order Matching Engine</title>" in html
+            assert "<title>TradeVelocity | Learn Order Matching</title>" in html
         base_python = Path(sys.base_prefix) / ("python.exe" if os.name == "nt" else "bin/python3")
         second = subprocess.run(
             [str(base_python if base_python.exists() else sys.executable),
