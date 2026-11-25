@@ -92,3 +92,56 @@ def test_bad_sign_in_and_duplicate_registration(backend):
     assert invalid_password not in invalid_request.text
     assert client.post("/api/auth/login", json={"username": username, "password": "wrong"}).status_code == 401
     assert client.get("/api/auth/status").json()["authenticated"] is False
+
+
+def test_shared_depth_updates_both_traders_and_survives_restart(backend, monkeypatch):
+    app = backend()
+    buyer = TestClient(app, base_url=ORIGIN)
+    seller = TestClient(app, base_url=ORIGIN)
+    outsider = TestClient(app, base_url=ORIGIN)
+    buyer_trader, seller_trader, outsider_trader = map(register, (buyer, seller, outsider))
+    symbol = "QA" + uuid4().hex[:12].upper()
+    buyer_headers = {"X-Session-ID": buyer_trader["workspace_id"], "Idempotency-Key": "order-1"}
+    seller_headers = {"X-Session-ID": seller_trader["workspace_id"], "Idempotency-Key": "order-1"}
+    outsider_headers = {"X-Session-ID": outsider_trader["workspace_id"]}
+    order = {"order_id": "personal-reference", "symbol": symbol, "side": "BUY",
+             "quantity": 10, "price": "1800"}
+    socket_headers = {"Host": "tradevelocity.test", "Origin": ORIGIN,
+                      "Cookie": f"{COOKIE}={seller.cookies.get(COOKIE)}"}
+    with seller.websocket_connect(f"/api/live?session_id={seller_trader['workspace_id']}",
+                                  headers=socket_headers) as socket:
+        assert socket.receive_json()["type"] == "connected"
+        placed = buyer.post("/api/exchange/orders", headers=buyer_headers, json=order)
+        assert placed.is_success, placed.text
+        assert socket.receive_json() == {"type": "exchange_changed"}
+    assert buyer.post("/api/exchange/orders", headers=buyer_headers, json=order).json() == placed.json()
+    order_id = placed.json()["order_id"]
+    state = seller.get(f"/api/exchange?symbol={symbol}", headers=seller_headers).json()
+    assert state["book"]["bids"] == [{"price": "1800.00", "quantity": 10, "orders": 1}]
+    assert state["orders"] == []
+    assert seller.delete(f"/api/exchange/orders/{order_id}", headers=seller_headers).status_code == 404
+    assert seller.patch(f"/api/exchange/orders/{order_id}", headers=seller_headers,
+                        json={"quantity": 20, "price": "1800"}).status_code == 404
+    fill = seller.post("/api/exchange/orders", headers=seller_headers,
+                       json={**order, "side": "SELL", "quantity": 5, "price": "1799"})
+    assert fill.is_success, fill.text
+    assert fill.json()["filled"] == 5
+    assert float(fill.json()["trades"][0]["price"]) == 1800
+    assert buyer.get("/api/exchange/trades", headers=buyer_headers).json()["total"] == 1
+    assert seller.get("/api/exchange/trades", headers=seller_headers).json()["total"] == 1
+    assert outsider.get("/api/exchange/trades", headers=outsider_headers).json()["total"] == 0
+    assert seller.get(f"/api/lab?symbol={symbol}", headers=seller_headers).json()["book"]["bids"] == []
+
+    monkeypatch.setenv("TRADEVELOCITY_ADMIN_USERNAME", buyer_trader["username"])
+    restarted = backend()
+    buyer_after = TestClient(restarted, base_url=ORIGIN, cookies={COOKIE: buyer.cookies.get(COOKIE)})
+    seller_after = TestClient(restarted, base_url=ORIGIN, cookies={COOKIE: seller.cookies.get(COOKIE)})
+    state = buyer_after.get(f"/api/exchange?symbol={symbol}", headers=buyer_headers).json()
+    assert state["book"]["bids"][0]["quantity"] == state["orders"][0]["remaining"] == 5
+    assert seller_after.post("/api/auth/activity").is_success
+    assert seller_after.get("/api/admin/activity").status_code == 403
+    assert buyer_after.get("/api/auth/status").json()["trader"]["admin"] is True
+    report = buyer_after.get("/api/admin/activity").json()
+    row = next(user for user in report["users"] if user["username"] == seller_trader["username"])
+    assert row["active"] and row["orders"] == row["executions"] == 1
+    assert set(row) == {"username", "active", "last_active_at", "orders", "executions"}

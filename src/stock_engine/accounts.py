@@ -13,6 +13,8 @@ from argon2.exceptions import VerifyMismatchError
 from .storage import PostgresSessionStore
 
 SESSION_LIFETIME = 7 * 24 * 60 * 60
+SHARED_BOOK = "00000000-0000-0000-0000-000000000001"
+ACTIVE_SECONDS = 90
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,10 @@ class Accounts:
                         expires_at TIMESTAMPTZ NOT NULL)
                 """)
                 connection.execute("CREATE INDEX IF NOT EXISTS trader_logins_expiration ON trader_logins(expires_at)")
+                connection.execute("ALTER TABLE trader_accounts ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ")
+                connection.execute(
+                    "INSERT INTO sessions VALUES (%s, %s, 0, %s) ON CONFLICT (session_id) DO NOTHING",
+                    (SHARED_BOOK, '{"reviews":{}}', datetime.now(timezone.utc).isoformat()))
             self.initialized = True
 
     def register(self, username: str, password: str, previous_token: str = "") -> str | None:
@@ -67,7 +73,7 @@ class Accounts:
         token = secrets.token_urlsafe(32)
         with self.store.connect() as connection:
             connection.execute(
-                "INSERT INTO sessions VALUES (%s, %s, 0, %s)",
+                "INSERT INTO sessions (session_id, metadata, revision, updated_at) VALUES (%s, %s, 0, %s)",
                 (workspace_id, '{"reviews":{}}', datetime.now(timezone.utc).isoformat()))
             created = connection.execute("""
                 INSERT INTO trader_accounts (username, password_hash, workspace_id)
@@ -135,3 +141,20 @@ class Accounts:
         with self.store.connect() as connection:
             connection.execute("UPDATE trader_accounts SET tutorial_seen=TRUE WHERE username=%s",
                                (trader.username,))
+
+    def record_activity(self, trader: Trader):
+        with self.store.connect() as connection:
+            connection.execute("""
+                UPDATE trader_accounts SET last_active_at=now() WHERE username=%s
+                AND (last_active_at IS NULL OR last_active_at < now() - interval '15 seconds')
+            """, (trader.username,))
+
+    def activity(self):
+        with self.store.connect() as connection:
+            rows = connection.execute("""
+                SELECT username, workspace_id, last_active_at,
+                    COALESCE(last_active_at >= now() - %s * interval '1 second', FALSE) AS active,
+                    COALESCE(last_active_at >= now() - interval '24 hours', FALSE) AS active_today
+                FROM trader_accounts ORDER BY last_active_at DESC NULLS LAST, username
+            """, (ACTIVE_SECONDS,)).fetchall()
+        return rows

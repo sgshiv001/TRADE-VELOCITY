@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { setAccountWorkspace } from "./api";
 import ProductPage from "./ProductPage";
 
-export type Trader = { username: string; workspace_id: string; tutorial_seen: boolean };
+export type Trader = { username: string; workspace_id: string; tutorial_seen: boolean; admin?: boolean };
 type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null };
 
 export default function AccessGate({children}: {children: (trader: Trader | null) => ReactNode}) {

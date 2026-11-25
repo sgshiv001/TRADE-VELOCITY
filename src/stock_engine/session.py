@@ -21,6 +21,7 @@ class ExchangeSession:
         self.events: list[dict[str, Any]] = []
         # Derived from successful commands; replay reconstructs this telemetry.
         self.observations: list[dict[str, Any]] = []
+        self.owners: dict[str, str] = {}
 
     def _observe(self, result: OrderResult, symbol: str, quantity: int, book: dict) -> None:
         if not result.trades:
@@ -42,7 +43,7 @@ class ExchangeSession:
             "depth_imbalance": (bids - asks) / max(1, bids + asks),
         })
 
-    def place_order(self, order_id: str, symbol: str, side: Side | str, quantity: int, price: str | int | None = None, *, timestamp=CURRENT_TIME) -> OrderResult:
+    def place_order(self, order_id: str, symbol: str, side: Side | str, quantity: int, price: str | int | None = None, *, timestamp=CURRENT_TIME, owner: str | None = None) -> OrderResult:
         timestamp = datetime.now(timezone.utc) if timestamp is CURRENT_TIME else timestamp
         book = self.engine.order_book(symbol, 30)
         result = self.engine.place_order(order_id, symbol, side, quantity, price, timestamp=timestamp)
@@ -52,6 +53,9 @@ class ExchangeSession:
             "quantity": quantity, "price": str(price) if price is not None else None,
             "timestamp": timestamp.isoformat() if timestamp else None,
         })
+        if owner is not None:
+            self.events[-1]["owner"] = owner
+            self.owners[order_id] = owner
         self._observe(result, symbol, quantity, book)
         return result
 
@@ -97,7 +101,8 @@ class ExchangeSession:
                             raise ValueError("timestamp must include a timezone")
                         timestamp = timestamp.astimezone(timezone.utc)
                 if kind == "place":
-                    session.place_order(event["order_id"], event["symbol"], event["side"], event["quantity"], event.get("price"), timestamp=timestamp)
+                    session.place_order(event["order_id"], event["symbol"], event["side"], event["quantity"], event.get("price"),
+                                        timestamp=timestamp, owner=event.get("owner"))
                 elif kind == "cancel":
                     if not session.cancel_order(event["order_id"]):
                         raise ValueError("order is not active")

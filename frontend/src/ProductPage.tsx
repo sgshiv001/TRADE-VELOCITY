@@ -7,7 +7,7 @@ import {
 import "./product-page.css";
 
 const features = [
-  {icon: Layers3, title: "A real order book", text: "Place limit or market orders against your own book. Inspect the best bid, best ask, depth, and resting quantities."},
+  {icon: Layers3, title: "A shared practice order book", text: "Place limit or market orders with other traders. Check the reference market price, best bid, best ask, and resting quantities."},
   {icon: ArrowRight, title: "Every fill has a reason", text: "Watch price priority and arrival order determine each match. Partial fills leave the correct quantity open."},
   {icon: BarChart3, title: "Historical market context", text: "Explore dated daily bars, adjusted charts, volatility, drawdown, and RSI for eight supported companies."},
   {icon: Sparkles, title: "Advisory AI review", text: "Review unusual patterns in your simulated executions. Signals explain what was flagged and never block an order."},

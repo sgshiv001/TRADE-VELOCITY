@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowRight, BarChart3, BookOpen, BrainCircuit, Download, History as HistoryIcon, Layers3, Menu, RefreshCw, Search, Server, Star, Timer, X } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, BookOpen, BrainCircuit, Download, History as HistoryIcon, Layers3, Menu, RefreshCw, Search, Server, Star, Timer, Users, X } from "lucide-react";
 import { api, download, inr, number, percent, tradeTime } from "./api";
 import PriceChart from "./PriceChart";
 import { useLiveSession } from "./useLiveSession";
-import { ThemeToggle, Watchdog, RealBenchmark, OrderTicket, SessionTools } from "./Trading";
-import type { Analysis, AnomalyReport, History, Lab, Market, Trade } from "./types";
+import { ThemeToggle, Watchdog, RealBenchmark, OrderTicket, SessionTools, MarketPrice } from "./Trading";
+import type { Analysis, AnomalyReport, History, Lab, Market, Quote, Trade } from "./types";
 import type { Trader } from "./AccessGate";
 import Tutorial, { tutorialSteps } from "./Tutorial";
+import AdminActivity, { useTraderActivity } from "./AdminActivity";
 
-type Page = "dashboard" | "orders" | "markets" | "watchdog" | "history" | "performance";
+type Page = "dashboard" | "orders" | "markets" | "watchdog" | "history" | "performance" | "admin";
 const navigation = [
   { id: "dashboard", label: "Overview", icon: Activity },
   { id: "orders", label: "Orders & depth", icon: BookOpen },
@@ -49,16 +50,16 @@ function OrderBookScene({ lab, symbol }: { lab: Lab; symbol: string }) {
   </div>;
 }
 
-function Dashboard({ lab, symbol, openOrders }: { lab: Lab; symbol: string; openOrders: () => void }) {
+function Dashboard({ lab, symbol, openOrders, shared }: { lab: Lab; symbol: string; openOrders: () => void; shared: boolean }) {
   const latest = lab.trades.at(-1);
   return <>
     <section className="cinematic-stage" aria-labelledby="workspace-heading">
-      <div className="stage-copy"><div className="stage-kicker"><i /> YOUR LOCAL MATCHING ENGINE</div><h1 id="workspace-heading">Workspace overview</h1><p>See your orders meet in a clear, animated view of the price–time book.</p><button className="primary-button" onClick={openOrders}>Place an order <ArrowRight size={16} /></button><div className="stage-caption"><span><Activity size={14} /> Updates as your book changes</span><span>Simulation only</span></div></div>
+      <div className="stage-copy"><div className="stage-kicker"><i /> {shared ? "SHARED MATCHING ENGINE" : "YOUR LOCAL MATCHING ENGINE"}</div><h1 id="workspace-heading">Workspace overview</h1><p>{shared ? "See the shared order book and your own simulated executions." : "See your orders meet in a clear, animated view of the price–time book."}</p><button className="primary-button" onClick={openOrders}>Place an order <ArrowRight size={16} /></button><div className="stage-caption"><span><Activity size={14} /> Updates as the book changes</span><span>Simulation only</span></div></div>
       <OrderBookScene lab={lab} symbol={symbol} />
     </section>
     <div className="metric-grid four">
-      <Metric label="Active orders" value={number(lab.orders.length)} note="All symbols in this session" />
-      <Metric label="Executed trades" value={number(lab.total_trades)} note="All symbols, all recorded trades" />
+      <Metric label="Active orders" value={number(lab.orders.length)} note="Your orders across all symbols" />
+      <Metric label="Executed trades" value={number(lab.total_trades)} note="Your executions across all symbols" />
       <Metric label={`${symbol} matched shares`} value={number(lab.stats.volume)} note="From completed executions" />
       <Metric label={`${symbol} VWAP`} value={lab.stats.vwap ? inr(lab.stats.vwap) : "—"} note="Volume-weighted execution price" />
     </div>
@@ -66,21 +67,39 @@ function Dashboard({ lab, symbol, openOrders }: { lab: Lab; symbol: string; open
       <section className="panel"><div className="eyebrow">LATEST EXECUTION</div><h2>{latest ? `${latest.symbol} · ${number(latest.quantity)} shares` : "No trades yet"}</h2>
         {latest ? <><strong className="execution-price">{inr(latest.price)}</strong><div className="detail-list"><div><span>Buy order</span><strong>{latest.buy_order_id}</strong></div><div><span>Sell order</span><strong>{latest.sell_order_id}</strong></div><div><span>Time</span><strong>{tradeTime(latest.timestamp)}</strong></div></div></> : <p className="workspace-copy">The engine starts with an empty book. Submit a sell limit order and a compatible buy order in Orders & depth to execute a match. No liquidity is generated automatically.</p>}
       </section>
-      <section className="panel"><div className="eyebrow">SESSION STATUS</div><h2>Built around your activity</h2><div className="detail-list"><div><span>Recorded commands</span><strong>{number(lab.events)}</strong></div><div><span>Traded / active symbols</span><strong>{lab.symbols.length}</strong></div><div><span>Matching priority</span><strong>Price → Arrival time</strong></div><div><span>Execution venue</span><strong>Local engine only</strong></div></div><p className="fine-print">Orders are matched inside TradeVelocity, not sent to NSE or a broker. No real money or securities are transferred.</p></section>
+      <section className="panel"><div className="eyebrow">SESSION STATUS</div><h2>Matching activity</h2><div className="detail-list"><div><span>{shared ? "Shared book commands" : "Recorded commands"}</span><strong>{number(lab.events)}</strong></div><div><span>Traded / active symbols</span><strong>{lab.symbols.length}</strong></div><div><span>Matching priority</span><strong>Price → Arrival time</strong></div><div><span>Execution venue</span><strong>{shared ? "Shared simulation" : "Local simulation"}</strong></div></div></section>
     </div>
   </>;
 }
 
-function Orders({ lab, symbol, changed, selectSymbol }: { lab: Lab; symbol: string; changed: () => Promise<void>; selectSymbol: (symbol: string) => void }) {
+function Orders({ lab, symbol, changed, selectSymbol, shared }: { lab: Lab; symbol: string; changed: () => Promise<void>; selectSymbol: (symbol: string) => void; shared: boolean }) {
   const [customSymbol, setCustomSymbol] = useState("");
+  const [fetchedQuote, setQuote] = useState<Quote | null>(null);
+  const quote = fetchedQuote?.symbol === symbol ? fetchedQuote : null;
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer = 0;
+    async function refresh() {
+      try {
+        const next = await api<Quote>(`/quote/${encodeURIComponent(symbol)}`, {signal: controller.signal, timeoutMs: 20_000});
+        if (!controller.signal.aborted) setQuote(next);
+      } catch {
+        if (!controller.signal.aborted) setQuote({symbol, price: null, kind: "unavailable", source: null, as_of: null});
+      } finally {
+        if (!controller.signal.aborted) timer = window.setTimeout(refresh, 60_000);
+      }
+    }
+    void refresh();
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [symbol]);
   const max = Math.max(1, ...[...lab.book.bids, ...lab.book.asks].map(level => level.quantity));
   const bid = lab.book.bids[0], ask = lab.book.asks[0];
   return <>
-    <div className="section-title"><div><div className="eyebrow">PRICE–TIME MATCHING</div><h1>Orders & depth</h1><p>{symbol} · Submit, amend, and cancel orders against your own book.</p></div></div>
-    <form className="custom-symbol-form" onSubmit={event => { event.preventDefault(); selectSymbol(customSymbol.toUpperCase()); setCustomSymbol(""); }}><label>Custom engine symbol<input aria-label="Custom engine symbol" required maxLength={16} pattern="[A-Za-z][A-Za-z0-9.]*" placeholder="For example, MYCOMPANY" value={customSymbol} onChange={event => setCustomSymbol(event.target.value)} /></label><button className="secondary-button" type="submit">Use symbol</button><span className="fine-print">Custom symbols do not have provider market history.</span></form>
-    <OrderTicket key={symbol} symbol={symbol} lab={lab} changed={changed} />
+    <div className="section-title"><div><h1>Orders & depth</h1><p>{symbol} · {shared ? "Trade practice shares with other signed-in traders." : "Place and manage orders in your local book."}</p></div><MarketPrice quote={quote} /></div>
+    <form className="custom-symbol-form" onSubmit={event => { event.preventDefault(); selectSymbol(customSymbol.toUpperCase()); setCustomSymbol(""); }}><label>NSE or custom symbol<input aria-label="Custom engine symbol" required maxLength={16} pattern={String.raw`[A-Za-z][A-Za-z0-9.&\-]*`} placeholder="For example, SBIN" value={customSymbol} onChange={event => setCustomSymbol(event.target.value)} /></label><button className="secondary-button" type="submit">Use symbol</button><span className="fine-print">Provider prices are shown when available. You can also use a practice symbol.</span></form>
+    <OrderTicket key={symbol} symbol={symbol} lab={lab} changed={changed} quote={quote} shared={shared} />
     <div className="metric-grid four"><Metric label="Best bid" value={bid ? inr(bid.price) : "—"} note="Highest resting buy price" /><Metric label="Best ask" value={ask ? inr(ask.price) : "—"} note="Lowest resting sell price" /><Metric label="Spread" value={bid && ask ? inr(Number(ask.price) - Number(bid.price)) : "—"} note="Requires both sides of the book" /><Metric label="Resting shares" value={number([...lab.book.bids, ...lab.book.asks].reduce((sum, level) => sum + level.quantity, 0))} note="Top 30 levels on each side" /></div>
-    <section className="panel"><div className="panel-heading"><div><div className="eyebrow">{symbol} / ORDER BOOK</div><h2>Market depth</h2></div><span className="status"><i /> LOCAL ENGINE</span></div>
+    <section className="panel"><div className="panel-heading"><div><div className="eyebrow">{symbol} / ORDER BOOK</div><h2>Market depth</h2></div><span className="status"><i /> {shared ? "SHARED BOOK" : "LOCAL ENGINE"}</span></div>
       <div className="depth-sides">{(["bids", "asks"] as const).map(side => <div key={side}><h3 className={side === "bids" ? "success-text" : "danger-text"}>{side === "bids" ? "Buy orders" : "Sell orders"}</h3><div className="depth-header"><span>PRICE</span><span>SHARES</span><span>ORDERS</span></div>{lab.book[side].length ? lab.book[side].map(level => <div className={`depth-row ${side === "bids" ? "bid" : "ask"}`} key={level.price}><span className="depth-bar" style={{ width: `${level.quantity / max * 100}%` }} /><span>{inr(level.price)}</span><span>{number(level.quantity)}</span><span>{level.orders}</span></div>) : <p className="workspace-copy">No resting {side === "bids" ? "buy" : "sell"} orders.</p>}</div>)}</div>
       <p className="fine-print">Orders at the same price follow FIFO. Trades execute at the resting order's price. Unfilled limit quantities remain; unfilled market quantities expire.</p>
     </section>
@@ -125,8 +144,10 @@ function Markets({ market, symbol, refresh, refreshing }: { market: Market | nul
   </>;
 }
 
-function TradeHistory({ revision, changed }: { revision: number; changed: () => Promise<void> }) {
+function TradeHistory({ revision, changed, shared }: { revision: number; changed: () => Promise<void>; shared: boolean }) {
   const [query, setQuery] = useState("");
+  const [archive, setArchive] = useState(false);
+  const historyPath = shared && !archive ? "/exchange/trades" : "/lab/trades";
   const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<{ total: number; trades: Trade[] }>({ total: 0, trades: [] });
   const [error, setError] = useState("");
@@ -134,13 +155,13 @@ function TradeHistory({ revision, changed }: { revision: number; changed: () => 
   useEffect(() => {
     let active = true; setLoading(true);
     const timer = window.setTimeout(() => {
-      api<typeof result>(`/lab/trades?offset=${offset}&limit=50&query=${encodeURIComponent(query)}`).then(data => { if (active) { setResult(data); setError(""); if (offset > 0 && offset >= data.total) setOffset(Math.max(0, Math.floor((data.total - 1) / 50) * 50)); } }).catch(cause => { if (active) setError(errorMessage(cause)); }).finally(() => { if (active) setLoading(false); });
+      api<typeof result>(`${historyPath}?offset=${offset}&limit=50&query=${encodeURIComponent(query)}`).then(data => { if (active) { setResult(data); setError(""); if (offset > 0 && offset >= data.total) setOffset(Math.max(0, Math.floor((data.total - 1) / 50) * 50)); } }).catch(cause => { if (active) setError(errorMessage(cause)); }).finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [query, offset, revision]);
+  }, [query, offset, revision, historyPath]);
   async function exportCsv() {
     try {
-      const trades = await api<Trade[]>("/lab/trades/export");
+      const trades = await api<Trade[]>(`${historyPath}/export`);
       const cell = (value: string | number) => `"${String(typeof value === "string" && /^[=+@-]/.test(value) ? `'${value}` : value).replaceAll('"', '""')}"`;
       const rows = trades.map(trade => [trade.trade_id, trade.symbol, Number(trade.price), trade.quantity, trade.buy_order_id, trade.sell_order_id, trade.timestamp ?? "Unknown (legacy record)"].map(cell).join(","));
       download("tradevelocity-all-trades.csv", "trade_id,symbol,price,quantity,buy_order_id,sell_order_id,timestamp\r\n" + rows.join("\r\n"), true); setError("");
@@ -148,7 +169,11 @@ function TradeHistory({ revision, changed }: { revision: number; changed: () => 
   }
   return <>
     <div className="section-title"><div><div className="eyebrow">COMPLETE EXECUTION RECORD</div><h1>Trade history</h1><p>Search every recorded trade, not just the newest 100.</p></div><button className="secondary-button" onClick={() => void exportCsv()}><Download size={15} /> Export all trades</button></div>
-    <SessionTools changed={changed} />
+    {shared && <div className="title-actions history-source">
+      <button className="secondary-button" aria-pressed={!archive} onClick={() => {setArchive(false); setOffset(0);}}>Shared book trades</button>
+      <button className="secondary-button" aria-pressed={archive} onClick={() => {setArchive(true); setOffset(0);}}>Private practice archive</button>
+    </div>}
+    {(!shared || archive) && <SessionTools changed={changed} />}
     <section className="panel"><label className="search-inline"><Search size={16} /><input aria-label="Search trades" value={query} placeholder="Symbol, order ID, or trade ID" onChange={event => { setQuery(event.target.value); setOffset(0); }} /></label>
       {error && <p className="notice error" role="alert">{error}</p>}
       <div className="table-scroll" aria-busy={loading}><table className="data-table"><thead><tr><th>TIME</th><th>SYMBOL</th><th>PRICE</th><th>SHARES</th><th>TRADE ID</th><th>BUY ORDER</th><th>SELL ORDER</th></tr></thead><tbody>{result.trades.map(trade => <tr key={trade.trade_id}><td>{tradeTime(trade.timestamp)}</td><td>{trade.symbol}</td><td>{inr(trade.price)}</td><td>{number(trade.quantity)}</td><td>{trade.trade_id}</td><td>{trade.buy_order_id}</td><td>{trade.sell_order_id}</td></tr>)}</tbody></table></div>
@@ -159,6 +184,9 @@ function TradeHistory({ revision, changed }: { revision: number; changed: () => 
 }
 
 export default function Workspace({trader}: {trader: Trader | null}) {
+  const shared = Boolean(trader);
+  const links = trader?.admin ? [...navigation, {id: "admin" as const, label: "Admin activity", icon: Users}] : navigation;
+  useTraderActivity(shared);
   const desktopLaunch = new URLSearchParams(window.location.search).get("desktop") === "1";
   const [page, setPage] = useState<Page>("dashboard");
   const [navOpen, setNavOpen] = useState(false);
@@ -181,7 +209,7 @@ export default function Workspace({trader}: {trader: Trader | null}) {
   const requestVersion = useRef(0);
   async function loadLab() {
     const current = ++requestVersion.current;
-    try { const data = await api<Lab>(`/lab?symbol=${encodeURIComponent(symbol)}`); if (current === requestVersion.current) { setLab(data); setError(""); setLastUpdate(new Date().toLocaleTimeString()); if (seenRevision.current !== data.revision) { seenRevision.current = data.revision; setRevision(value => value + 1); } } }
+    try { const data = await api<Lab>(`${shared ? "/exchange" : "/lab"}?symbol=${encodeURIComponent(symbol)}`); if (current === requestVersion.current) { setLab(data); setError(""); setLastUpdate(new Date().toLocaleTimeString()); if (seenRevision.current !== data.revision) { seenRevision.current = data.revision; setRevision(value => value + 1); } } }
     catch (cause) { if (current === requestVersion.current) setError(errorMessage(cause)); }
   }
   const live = useLiveSession(loadLab);
@@ -241,14 +269,14 @@ export default function Workspace({trader}: {trader: Trader | null}) {
       </section>
     </div>}
     {navOpen && <button className="nav-overlay" aria-label="Close navigation" onClick={() => setNavOpen(false)} />}
-    <aside className={`sidebar ${navOpen ? "open" : ""}`}><div className="sidebar-brand"><div className="brand-box">TV</div><div><strong>TRADE<br />VELOCITY</strong><small>MATCHING WORKSPACE</small></div></div><div className="nav-label">WORKSPACE</div><nav aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? "selected" : ""} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon size={17} /><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><div className="engine-status-label">EXECUTION VENUE</div><p className="fine-print">Your local matching engine.<br />No broker or real-money execution.</p><div className="engine-version"><Server size={13} /> Saved local session</div></div></aside>
-    <div className="workspace"><header className="topbar"><button className="mobile-menu" aria-label="Open navigation" onClick={() => setNavOpen(true)}><Menu size={20} /></button><div className="crumb"><span>TRADEVELOCITY</span><ArrowRight size={13} /><strong>{navigation.find(item => item.id === page)?.label}</strong></div><label className="symbol-select"><Layers3 size={16} /><select aria-label="Select symbol" value={symbol} onChange={event => { setLab(null); setSymbol(event.target.value); }}>{symbols.map(value => <option key={value}>{value}</option>)}</select></label><div className="topbar-actions"><ThemeToggle /></div></header>
+    <aside className={`sidebar ${navOpen ? "open" : ""}`}><div className="sidebar-brand"><div className="brand-box">TV</div><div><strong>TRADE<br />VELOCITY</strong><small>MATCHING WORKSPACE</small></div></div><div className="nav-label">WORKSPACE</div><nav aria-label="Main navigation">{links.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? "selected" : ""} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon size={17} /><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><div className="engine-status-label">EXECUTION VENUE</div><p className="fine-print">Practice trading</p><div className="engine-version"><Server size={13} /> {shared ? "Shared order book" : "Saved local session"}</div></div></aside>
+    <div className="workspace"><header className="topbar"><button className="mobile-menu" aria-label="Open navigation" onClick={() => setNavOpen(true)}><Menu size={20} /></button><div className="crumb"><span>TRADEVELOCITY</span><ArrowRight size={13} /><strong>{links.find(item => item.id === page)?.label}</strong></div><label className="symbol-select"><Layers3 size={16} /><select aria-label="Select symbol" value={symbol} onChange={event => { setLab(null); setSymbol(event.target.value); }}>{symbols.map(value => <option key={value}>{value}</option>)}</select></label><div className="topbar-actions"><ThemeToggle /></div></header>
       <main className="content"><div className="data-strip"><span className={!live.online || error ? "danger-text" : "success-text"} role="status"><Activity size={12} />{!live.online ? "OFFLINE" : error ? "DATA UNAVAILABLE" : live.connected ? "LIVE WORKSPACE UPDATES" : "POLLING · RECONNECTING"}</span><span>LAST SYNC {lastUpdate ?? "—"} · MARKET HISTORY AS OF {market?.as_of ?? "—"}</span></div>
         <div className="watchlist-bar" aria-label="Watchlist"><button className="secondary-button" aria-label={`${watchlist.includes(symbol) ? "Remove" : "Add"} ${symbol} ${watchlist.includes(symbol) ? "from" : "to"} watchlist`} onClick={() => setWatchlist(list => list.includes(symbol) ? list.filter(item => item !== symbol) : [...list,symbol].slice(-30))}><Star size={14} fill={watchlist.includes(symbol) ? "currentColor" : "none"} />{watchlist.includes(symbol) ? "Watching" : "Watch"} {symbol}</button>{watchlist.map(item => <button key={item} className={`watchlist-chip ${item === symbol ? "selected" : ""}`} onClick={() => selectSymbol(item)}>{item}</button>)}</div>
         {error && <div className="notice error" role="alert"><X size={15} />{error}<button className="text-button" onClick={() => void loadLab()}>Retry connection</button></div>}
         {page === "markets" && marketError && <div className="notice error" role="alert">{marketError}</div>}
         <div className="page-transition" key={page} data-page={page}>
-          {page === "markets" ? <Markets market={market} symbol={symbol} refresh={() => void refreshMarket()} refreshing={refreshing} /> : page === "performance" ? <RealBenchmark /> : page === "watchdog" ? <Watchdog symbol={symbol} /> : page === "history" ? <TradeHistory revision={revision} changed={loadLab} /> : lab ? page === "orders" ? <Orders lab={lab} symbol={symbol} changed={loadLab} selectSymbol={selectSymbol} /> : <Dashboard lab={lab} symbol={symbol} openOrders={() => navigate("orders")} /> : !error && <div className="loading-screen" role="status"><RefreshCw className="spin" size={22} /> Connecting to matching engine…</div>}
+          {page === "admin" && trader?.admin ? <AdminActivity /> : page === "markets" ? <Markets market={market} symbol={symbol} refresh={() => void refreshMarket()} refreshing={refreshing} /> : page === "performance" ? <RealBenchmark /> : page === "watchdog" ? <Watchdog symbol={symbol} shared={shared} /> : page === "history" ? <TradeHistory revision={revision} changed={async () => {await loadLab(); setRevision(value => value + 1);}} shared={shared} /> : lab ? page === "orders" ? <Orders lab={lab} symbol={symbol} changed={loadLab} selectSymbol={selectSymbol} shared={shared} /> : <Dashboard lab={lab} symbol={symbol} shared={shared} openOrders={() => navigate("orders")} /> : !error && <div className="loading-screen" role="status"><RefreshCw className="spin" size={22} /> Connecting to matching engine…</div>}
         </div>
         {tutorialError && <p className="notice error" role="alert">{tutorialError}</p>}
         <footer><span>TRADEVELOCITY {version && `v${version}`} · WINDOWS & WEB</span>

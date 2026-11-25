@@ -6,6 +6,10 @@ export function setAccountWorkspace(id: string | null) {
 }
 type ApiOptions = RequestInit & { timeoutMs?: number; requestKey?: string };
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 async function fetchTimed(path: string, options: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -47,7 +51,7 @@ export async function api<T>(
 ): Promise<T> {
   const id = await sessionId();
   const { timeoutMs = path === "/market/refresh" ? 120000 : path === "/experiments" ? 60000 : 15000, requestKey, ...request } = options;
-  const mutation = request.method && request.method !== "GET" && path.startsWith("/lab/");
+  const mutation = request.method && request.method !== "GET" && (path.startsWith("/lab/") || path.startsWith("/exchange/"));
   const key = mutation ? requestKey ?? crypto.randomUUID() : undefined;
   const headers = new Headers(request.headers);
   headers.set("Content-Type", "application/json"); headers.set("X-Session-ID", id);
@@ -71,7 +75,7 @@ export async function api<T>(
         return api<T>(path, { ...options, requestKey: key }, false);
       }
       if (attempt === 0 && key && response.status === 503) continue;
-      throw new Error(typeof body.detail === "string" ? body.detail : "Could not complete the request. Check your inputs and try again.");
+      throw new ApiError(typeof body.detail === "string" ? body.detail : "Could not complete the request. Check your inputs and try again.", response.status);
     }
     return body as T;
   }

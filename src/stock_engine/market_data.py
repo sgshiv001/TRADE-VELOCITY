@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import OrderedDict, deque
 from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
+from threading import Lock
+from time import monotonic
 
 import pandas as pd
 
@@ -14,6 +17,71 @@ from .companies import COMPANIES
 
 SNAPSHOT_PATH = Path(__file__).parent / "data" / "market-history.json"
 FIELDS = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
+
+
+class MarketQuotes:
+    """Bounded cache for on-demand provider quotes, including misses."""
+
+    def __init__(self):
+        self.cache = OrderedDict()
+        self.lock = Lock()
+        self.in_flight = set()
+        self.requests = deque()
+
+    def lookup(self, symbol: str, market: MarketData, *, fetch_allowed: bool) -> dict:
+        now = monotonic()
+        fallback = self.daily_close(symbol, market)
+        with self.lock:
+            cached = self.cache.get(symbol)
+            if cached and now - cached[0] < 90:
+                return cached[1] or fallback
+            while self.requests and now - self.requests[0] >= 60:
+                self.requests.popleft()
+            if not fetch_allowed or len(self.requests) >= 30 or len(self.in_flight) >= 3 or symbol in self.in_flight:
+                return fallback
+            self.in_flight.add(symbol)
+            self.requests.append(now)
+        quote = None
+        try:
+            quote = self.provider_quote(symbol)
+        except Exception:
+            # Never substitute a simulated trade as a provider quote.
+            pass
+        finally:
+            with self.lock:
+                self.in_flight.remove(symbol)
+                self.cache[symbol] = (monotonic(), quote)
+                self.cache.move_to_end(symbol)
+                if len(self.cache) > 256:
+                    self.cache.popitem(last=False)
+        return quote or fallback
+
+    @staticmethod
+    def daily_close(symbol: str, market: MarketData) -> dict:
+        frame = market.histories.get(symbol)
+        if frame is not None and not frame.empty:
+            return {"symbol": symbol, "price": float(frame["Close"].iloc[-1]), "kind": "close",
+                    "as_of": frame.index[-1].strftime("%Y-%m-%d"), "source": market.source}
+        return {"symbol": symbol, "price": None, "kind": "unavailable", "as_of": None, "source": None}
+
+    @staticmethod
+    def provider_quote(symbol: str) -> dict | None:
+        import yfinance as yf
+
+        ticker = yf.Ticker(f"{symbol}.NS")
+        for period, interval, kind in (("5d", "1m", "intraday"), ("5d", "1d", "close")):
+            try:
+                history = ticker.history(period=period, interval=interval, auto_adjust=False,
+                                         timeout=5, raise_errors=True)
+                closes = history["Close"].dropna()
+                if not closes.empty and math.isfinite(closes.iloc[-1]) and closes.iloc[-1] > 0:
+                    observed = closes.index[-1]
+                    return {"symbol": symbol, "price": float(closes.iloc[-1]), "kind": kind,
+                            "as_of": observed.isoformat() if kind == "intraday" else observed.strftime("%Y-%m-%d"),
+                            "source": "Yahoo Finance"}
+            except Exception:
+                continue
+        return None
 
 
 @dataclass

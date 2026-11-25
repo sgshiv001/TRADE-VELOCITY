@@ -42,7 +42,7 @@ export function useLiveSession(changed: () => Promise<void>) {
           setConnected(true); delay = 1000;
         };
         connection.onmessage = event => {
-          try { const update = JSON.parse(event.data); if (["connected", "changed"].includes(update.type)) void callback.current(); }
+          try { const update = JSON.parse(event.data); if (["connected", "changed", "exchange_changed"].includes(update.type)) void callback.current(); }
           catch { /* Ignore malformed transport messages; API reads remain authoritative. */ }
         };
         connection.onclose = () => {
