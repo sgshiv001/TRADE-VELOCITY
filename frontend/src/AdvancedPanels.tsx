@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError, inr, number, tradeTime } from "./api";
 
+export function PaperAccountStrip({symbol, revision}: {symbol: string; revision: number}) {
+  const {data, error} = useResource<Wallet>("/account/portfolio", revision);
+  return <section className="panel" aria-label="Demo demat account">
+    <h2>Demo demat account</h2>
+    {data ? <div className="detail-list">
+      <div><span>Available virtual cash</span><strong>{inr(data.available_cash)}</strong></div>
+      <div><span>Cash reserved for orders</span><strong>{inr(data.reserved)}</strong></div>
+      <div><span>{symbol} shares held</span><strong>{number(data.holdings.find(row => row.symbol === symbol)?.quantity ?? 0)}</strong></div>
+    </div> : <p role="status">{error || "Loading demo balances…"}</p>}
+  </section>;
+}
+
 type Wallet = {
   cash: string; available_cash: string; reserved: string; equity: string; invested: string;
   realized: string; unrealized: string; contributed: string; holdings_value: string; market_as_of: string; market_source: string;
-  holdings: {symbol: string; quantity: number; average_cost: string; mark: string; mark_source: string; value: string; pnl: string}[];
+  holdings: {symbol: string; quantity: number; average_cost: string; mark: string; mark_source: string; mark_as_of?: string | null; value: string; pnl: string}[];
   activity: {id: string; amount: string; timestamp: string | null; description: string; symbol?: string}[];
 };
 
@@ -102,7 +114,7 @@ export function PaperPortfolio({funds, revision}: {funds: boolean; revision: num
         <p className="fine-print">{data.market_source} · Daily prices through {data.market_as_of}. Practice symbols use the last simulated fill.</p>
         {data.holdings.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Symbol</th><th>Shares</th><th>Average cost</th><th>Reference</th><th>Value</th><th>Open P&L</th></tr></thead><tbody>
           {data.holdings.map(row => <tr key={row.symbol}><td>{row.symbol}</td><td>{number(row.quantity)}</td><td>{inr(row.average_cost)}</td>
-            <td>{inr(row.mark)} · {row.mark_source === "daily_close" ? "Daily close" : "Simulated fill"}</td><td>{inr(row.value)}</td><td>{inr(row.pnl)}</td></tr>)}
+            <td>{inr(row.mark)} · {row.mark_as_of ? `Provider quote · ${tradeTime(row.mark_as_of)}` : row.mark_source === "daily_close" ? "Daily close" : "Simulated fill"}</td><td>{inr(row.value)}</td><td>{inr(row.pnl)}</td></tr>)}
         </tbody></table></div> : <p className="workspace-copy">Holdings appear when a buy order fills in the funded book.</p>}
       </section>}
     </>}

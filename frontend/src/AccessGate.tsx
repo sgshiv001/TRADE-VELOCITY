@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { setAccountWorkspace } from "./api";
 import ProductPage from "./ProductPage";
+import { desktopView, workspaceRoute } from "./desktopView";
 
 export type Trader = { username: string; workspace_id: string; tutorial_seen: boolean; admin?: boolean };
 type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null };
@@ -12,7 +13,8 @@ export default function AccessGate({children}: {children: (trader: Trader | null
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const signup = access?.mode === "accounts" && window.location.pathname === "/signup";
+  const desktopAdmin = desktopView() === "admin";
+  const signup = !desktopAdmin && access?.mode === "accounts" && window.location.pathname === "/signup";
 
   async function status() {
     try {
@@ -21,9 +23,9 @@ export default function AccessGate({children}: {children: (trader: Trader | null
       const next: Access = await response.json();
       setAccountWorkspace(next.trader?.workspace_id ?? null);
       if (next.mode === "accounts" && next.authenticated && ["/login", "/signup"].includes(window.location.pathname)) {
-        window.history.replaceState(null, "", "/app");
+        window.history.replaceState(null, "", workspaceRoute("/app"));
       } else if (next.mode === "accounts" && !next.authenticated && window.location.pathname === "/app") {
-        window.history.replaceState(null, "", "/login");
+        window.history.replaceState(null, "", workspaceRoute("/login"));
       }
       setAccess(next);
       setError("");
@@ -64,7 +66,7 @@ export default function AccessGate({children}: {children: (trader: Trader | null
         const response = await fetch("/api/auth/logout", {method: "POST"});
         if (!response.ok) throw new Error();
         setAccountWorkspace(null);
-        if (access.mode === "accounts") window.history.replaceState(null, "", "/login");
+        if (access.mode === "accounts") window.history.replaceState(null, "", workspaceRoute("/login"));
         setAccess({...access, authenticated: false, trader: null});
         setError("");
       }
@@ -75,8 +77,8 @@ export default function AccessGate({children}: {children: (trader: Trader | null
   if (access?.mode === "accounts") return <main className="access-page">
     <section className="panel access-panel trader-access" aria-labelledby="access-heading">
       <div className="trader-access-brand"><img src="/favicon.svg" alt="" /><span>TRADEVELOCITY</span></div>
-      <h1 id="access-heading">{signup ? "Create your account" : "Sign in"}</h1>
-      <p>Practice order matching in your own simulated trading workspace.</p>
+      <h1 id="access-heading">{desktopAdmin ? "Admin sign in" : signup ? "Create your account" : "Sign in"}</h1>
+      <p>{desktopAdmin ? "Sign in with the authorized TradeVelocity administrator account." : "Use your demo demat account to trade with virtual cash and shares."}</p>
       {error && <p className="notice error" role="alert">{error}</p>}
       <form onSubmit={event => { event.preventDefault(); void signIn(); }}>
         <label>Username<input autoComplete="username" autoCapitalize="none" spellCheck={false} required
@@ -89,9 +91,9 @@ export default function AccessGate({children}: {children: (trader: Trader | null
         {signup && <p className="fine-print">Use at least 12 characters.</p>}
         <button className="primary-button" disabled={busy}>{busy ? "Please wait…" : signup ? "Create account" : "Sign in"}</button>
       </form>
-      <p>{signup ? "Already have an account? " : "New to TradeVelocity? "}
-        <a href={signup ? "/login" : "/signup"}>{signup ? "Sign in" : "Create an account"}</a>
-      </p>
+      {!desktopAdmin && <p>{signup ? "Already have an account? " : "New to TradeVelocity? "}
+        <a href={workspaceRoute(signup ? "/login" : "/signup")}>{signup ? "Sign in" : "Create an account"}</a>
+      </p>}
     </section>
   </main>;
   return <main className="access-page"><section className="panel access-panel">

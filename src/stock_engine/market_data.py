@@ -56,6 +56,13 @@ class MarketQuotes:
                     self.cache.popitem(last=False)
         return quote or fallback
 
+    def current_marks(self) -> dict[str, dict]:
+        """Share recently fetched provider marks with portfolio valuation."""
+        now = monotonic()
+        with self.lock:
+            return {symbol: quote.copy() for symbol, (fetched, quote) in self.cache.items()
+                    if quote is not None and quote["kind"] == "intraday" and now - fetched < 180}
+
     @staticmethod
     def daily_close(symbol: str, market: MarketData) -> dict:
         frame = market.histories.get(symbol)

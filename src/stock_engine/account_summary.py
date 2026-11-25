@@ -83,7 +83,7 @@ def order_journal(exchange: ExchangeSession, owner: str | None) -> list[dict]:
 
 
 def account_portfolio(exchange: ExchangeSession, owner: str, market: dict,
-                      credits: list[dict]) -> dict:
+                      credits: list[dict], references: dict | None = None) -> dict:
     cash = contributed = STARTING_CASH + sum(Decimal(credit["amount"]) for credit in credits)
     realized = Decimal(0)
     positions: dict[str, Position] = {}
@@ -120,8 +120,10 @@ def account_portfolio(exchange: ExchangeSession, owner: str, market: dict,
     for symbol, position in sorted(positions.items()):
         if not position.quantity:
             continue
-        reference = market.get(symbol)
+        quote = (references or {}).get(symbol)
+        reference = quote["price"] if quote else market.get(symbol)
         mark = Decimal(str(reference)) if reference is not None else last_match[symbol]
+        mark_source = "provider_quote" if quote else "daily_close" if reference is not None else "last_simulated_fill"
         direction = 1 if position.quantity > 0 else -1
         value = mark * position.quantity
         pnl = value - position.cost * direction
@@ -129,7 +131,8 @@ def account_portfolio(exchange: ExchangeSession, owner: str, market: dict,
         unrealized += pnl
         invested += position.cost
         holdings.append({"symbol": symbol, "quantity": position.quantity, "average_cost": decimal_string(position.cost / abs(position.quantity)),
-                         "mark": decimal_string(mark), "mark_source": "daily_close" if reference is not None else "last_simulated_fill",
+                         "mark": decimal_string(mark), "mark_source": mark_source,
+                         "mark_as_of": quote["as_of"] if quote else None,
                          "value": decimal_string(value), "pnl": decimal_string(pnl)})
     return {"currency": "INR", "cash": decimal_string(cash),
             "available_cash": decimal_string(cash - reserved), "reserved": decimal_string(reserved),

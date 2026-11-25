@@ -1,0 +1,11 @@
+extends: ./electron-builder.yml
+appId: com.tradevelocity.admin
+productName: TradeVelocity Admin Dashboard
+artifactName: TradeVelocity-Admin-Dashboard.exe
+directories:
+  output: build/admin
+extraMetadata:
+  tradevelocityDesktopView: admin
+win:
+  signAndEditExecutable: false
+  target: portable

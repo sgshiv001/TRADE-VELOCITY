@@ -193,6 +193,36 @@ def test_funded_wallet_commits_reserves_fills_and_credits_once(backend, monkeypa
     assert statuses == ["cancelled", "filled"]
 
 
+def test_market_follow_keeps_resting_orders_and_discards_older_quotes(backend, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from stock_engine.market_data import MarketQuotes
+
+    observed_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+    snapshot = {"price": 100, "as_of": observed_at.isoformat(), "source": "Test provider"}
+    monkeypatch.setattr(MarketQuotes, "lookup", lambda *args, **kwargs: snapshot.copy())
+    client = TestClient(backend(), base_url=ORIGIN)
+    headers = {"X-Session-ID": register(client)["workspace_id"]}
+    endpoint = "/api/paper/liquidity/TCS?follow=true"
+    book = "/api/paper?symbol=TCS"
+    assert client.post(endpoint, headers=headers).json()["updated"] is True
+    first = client.get(book, headers=headers).json()
+    assert client.post(endpoint, headers=headers).json()["updated"] is False
+    assert client.get(book, headers=headers).json()["revision"] == first["revision"]
+    result = client.post("/api/paper/orders", headers={**headers, "Idempotency-Key": "follow-resting"}, json={
+        "order_id": "resting", "symbol": "TCS", "side": "BUY", "quantity": 2, "price": "75", "confirmed": True,
+    })
+    assert result.is_success, result.text
+    assert result.json()["remaining"] == 2
+    snapshot.update(price=110, as_of=(observed_at + timedelta(minutes=1)).isoformat())
+    assert client.post(endpoint, headers=headers).json()["updated"] is True
+    second = client.get(book, headers=headers).json()
+    assert float(second["book"]["asks"][0]["price"]) == 110.16
+    assert any(float(bid["price"]) == 75 and bid["quantity"] == 2 for bid in second["book"]["bids"])
+    snapshot.update(price=90, as_of=observed_at.isoformat())
+    assert client.post(endpoint, headers=headers).json()["updated"] is False
+    assert client.get(book, headers=headers).json()["revision"] == second["revision"]
+
+
 def test_native_sign_in_shares_profile_and_rejects_browser_token_requests(backend):
     app = backend()
     browser = TestClient(app, base_url=ORIGIN)

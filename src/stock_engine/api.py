@@ -115,7 +115,7 @@ class Session:
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
                security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="0.5.0", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="TradeVelocity", version="0.5.1", docs_url=None, redoc_url=None, openapi_url=None)
     settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
@@ -326,8 +326,9 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         owner, _ = context
         _, funded = funded_context()
         market = app.state.market
+        references = quotes.current_marks()
         with funded.lock:
-            data = account_portfolio(funded.lab, owner, market.marks(), funded_credits(funded, owner))
+            data = account_portfolio(funded.lab, owner, market.marks(), funded_credits(funded, owner), references)
         return {**data, "market_as_of": market.as_of, "market_source": market.source}
 
     def funded_credits(session, owner):
@@ -609,10 +610,12 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         symbol = symbol.upper()
         client = request.state.trader.username if accounts else "local"
         fetch_allowed = not guard.limited(client, "quotes", 30)
-        return quotes.lookup(symbol, app.state.market, fetch_allowed=fetch_allowed)
+        quote = quotes.lookup(symbol, app.state.market, fetch_allowed=fetch_allowed)
+        return {**quote, "simulation_supported": symbol in COMPANIES}
 
     @app.post("/api/paper/liquidity/{symbol}")
-    def paper_liquidity(symbol: str, request: Request, context: OrderBookDependency, key: RequestKey = None):
+    def paper_liquidity(symbol: str, request: Request, context: OrderBookDependency,
+                        follow: bool = False, key: RequestKey = None):
         symbol = symbol.upper()
         if symbol not in COMPANIES:
             raise HTTPException(404, "Simulated liquidity is available for supported market symbols")
@@ -622,17 +625,39 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         quote = quotes.lookup(symbol, app.state.market, fetch_allowed=True)
         if not quote["price"] or not quote["as_of"]:
             raise HTTPException(503, "A market reference price is unavailable")
-        age = (datetime.now(timezone.utc).date() - datetime.fromisoformat(quote["as_of"]).date()).days
+        stamp = datetime.fromisoformat(quote["as_of"])
+        age = (datetime.now(timezone.utc).date() - stamp.date()).days
         if not 0 <= age <= 7:
             raise HTTPException(503, "Refresh market data before generating simulated depth")
         session = context[1]
+        price = Decimal(str(quote["price"])).quantize(Decimal("0.01"))
+        result = {"symbol": symbol, "simulated": True, "reference_price": quote["price"],
+                  "as_of": quote["as_of"], "source": quote["source"]}
+
+        def timestamp(value):
+            parsed = datetime.fromisoformat(value)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
         def update():
-            refresh_virtual_depth(session.lab, symbol, Decimal(str(quote["price"])).quantize(Decimal("0.01")))
-            return {"symbol": symbol, "simulated": True, "reference_price": quote["price"],
-                    "as_of": quote["as_of"], "source": quote["source"]}
+            refresh_virtual_depth(session.lab, symbol, price)
+            references = session.account_data.get("maker_references", {})
+            session.account_data = {**session.account_data, "maker_references": {
+                **references, symbol: {"as_of": quote["as_of"], "price": str(price)},
+            }}
+            return {**result, "updated": True}
 
-        return commit(context, update, fingerprint("liquidity", symbol), private_key(owner, key))
+        with session.lock:
+            if session.needs_reload:
+                reload_session(context[0], session)
+            prior = session.account_data.get("maker_references", {}).get(symbol)
+            if prior:
+                published_at, previous_at = timestamp(quote["as_of"]), timestamp(prior["as_of"])
+                if published_at < previous_at or (
+                    follow and published_at == previous_at and price == Decimal(prior["price"])
+                ):
+                    return {**result, "updated": False}
+            payload = {"symbol": symbol, "follow": True} if follow else symbol
+            return commit(context, update, fingerprint("liquidity", payload), private_key(owner, key))
 
     @app.post("/api/market/refresh")
     def refresh_market():
