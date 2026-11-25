@@ -32,7 +32,7 @@ The matching engine uses heaps to reach the best price, AVL trees for ordered de
 | --- | --- | --- |
 | Web | [Open TradeVelocity](https://gettradevelocity.onrender.com) | Trader accounts and saved workspaces backed by PostgreSQL. The free host may take a moment to wake up. |
 | Windows | [Download the complete portable ZIP](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v0.3.4/TradeVelocity-Windows-x64.zip) | Extract the whole ZIP and open `Launch_Desktop.vbs`. This unsigned build keeps its session on your PC. |
-| Android | [Download the test APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v1.0.1-android-test/TradeVelocity-Android-test.apk) | Debug-signed test build that opens the hosted app and needs internet access. |
+| Android | [Download the test APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v1.1.0-android-test/TradeVelocity-Android-test.apk) | Debug-signed test build that opens the hosted app and needs internet access. |
 
 The Windows ZIP passed a packaged smoke test on Windows 11. The Android APK was built with Android Studio and checked on an emulator. We have not yet checked the Windows ZIP on a second PC or the APK on a physical phone. Use the links above: the files attached to the older v1.0.0 release are incomplete or configured for a local server.
 
