@@ -3,11 +3,11 @@ import { useEffect, useRef } from "react";
 export const tutorialSteps = [
   {
     page: "dashboard", title: "Read your order book",
-    text: "The overview shows resting buy and sell orders, the best bid and ask, and the last match. Your practice workspace starts empty.",
+    text: "The overview shows resting buy and sell orders, the best bid and ask, and the last match. Hosted traders see the same simulated order book.",
   },
   {
     page: "orders", title: "Try a partial fill",
-    text: "In Orders & depth, submit a limit sell for 5 shares at ₹100, then a limit buy for 3 shares at ₹101 on the same symbol. The engine matches 3 shares at the resting price of ₹100 and leaves 2 shares open.",
+    text: "In Orders & depth, choose a fresh practice symbol. Place a limit sell for 5 shares at ₹100, then place a limit buy for 3 at ₹101 on the same symbol. The engine matches 3 at ₹100 and leaves 2 shares open. You can place the buy from a second account.",
   },
   {
     page: "history", title: "Review the execution",

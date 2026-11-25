@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import sqlite3
 from pathlib import Path
@@ -28,7 +29,7 @@ from .companies import COMPANIES
 from .analysis import analyze_history
 from .anomaly import detect_anomalies
 from .experiments import compare_workload
-from .market_data import SNAPSHOT_PATH, MarketData, download_market_data, history_metrics, indicators, load_market_data, market_rows, period_history, save_snapshot
+from .market_data import SNAPSHOT_PATH, MarketData, MarketQuotes, download_market_data, history_metrics, indicators, load_market_data, market_rows, period_history, save_snapshot
 from .session import ExchangeSession
 from .storage import PostgresSessionStore, StorageError, create_store
 from .watchdog import ExecutionMonitor
@@ -38,7 +39,7 @@ PROJECT_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]
 
 
 class OrderRequest(BaseModel):
-    symbol: str = Field(min_length=1, max_length=16, pattern=r"^[A-Za-z][A-Za-z0-9.]*$")
+    symbol: str = Field(min_length=1, max_length=16, pattern=r"^[A-Za-z][A-Za-z0-9.&-]*$")
     side: Literal["BUY", "SELL"]
     quantity: int = Field(gt=0, le=1_000_000, strict=True)
 
@@ -90,7 +91,7 @@ class Session:
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
                security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="0.3.4", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="TradeVelocity", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
     settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
@@ -98,7 +99,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     if settings.mode == "accounts":
         if not isinstance(store, PostgresSessionStore):
             raise ValueError("Hosted trader accounts require a PostgreSQL database")
-        from .accounts import Accounts
+        from .accounts import ACTIVE_SECONDS, SHARED_BOOK, Accounts
         accounts = Accounts(store)
     app.state.accounts = accounts
     app.state.security = guard = SecurityGuard(settings, accounts=accounts)
@@ -108,6 +109,11 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     app.state.sessions = {}
     app.state.registry_lock = RLock()
     app.state.market_lock = RLock()
+    quotes = MarketQuotes()
+    admin_username = os.environ.get("TRADEVELOCITY_ADMIN_USERNAME", "").strip().lower()
+
+    def is_admin(trader):
+        return bool(trader and admin_username and trader.username == admin_username)
 
     @app.middleware("http")
     async def fresh_application_state(request, call_next):
@@ -219,6 +225,29 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
 
     SessionDependency = Annotated[tuple[str, Session], Depends(get_session)]
 
+    def shared_context():
+        if not accounts:
+            raise HTTPException(404, "Shared trading is available in the hosted app")
+        return load_session(SHARED_BOOK)
+
+    def order_owner(request: Request, context):
+        return request.state.trader.workspace_id if accounts and context[0] == SHARED_BOOK else None
+
+    def session_for_orders(request: Request, private: SessionDependency):
+        return shared_context() if request.url.path.startswith("/api/exchange") else private
+
+    OrderBookDependency = Annotated[tuple[str, Session], Depends(session_for_orders)]
+
+    def trader_trades(session, owner):
+        trades = session.lab.engine.trades()
+        if owner is None:
+            return trades
+        owners = session.lab.owners
+        return [trade for trade in trades if owner in (owners.get(trade.buy_order_id), owners.get(trade.sell_order_id))]
+
+    def private_key(owner, key):
+        return f"{owner}:{key}" if owner and key else key
+
     @app.get("/api/health")
     def health():
         return {"status": "ok", "application": "trade-velocity", "version": app.version, "execution": "local_matching_engine", "real_money": False, "storage": app.state.store.kind, "live_updates": True}
@@ -233,7 +262,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         if accounts:
             trader = accounts.identity(request.cookies.get(COOKIE, ""))
             return {"required": True, "mode": "accounts", "authenticated": trader is not None,
-                    "trader": asdict(trader) if trader else None}
+                    "trader": {**asdict(trader), "admin": is_admin(trader)} if trader else None}
         return {"required":guard.settings.mode == "private", "authenticated":guard.authorized(request.headers,request.cookies)}
 
     def sign_in_account(payload: Credentials, request: Request, *, register: bool):
@@ -268,6 +297,32 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             raise HTTPException(404, "Tutorial preferences are stored in hosted accounts")
         accounts.finish_tutorial(request.state.trader)
         return {"tutorial_seen": True}
+
+    @app.post("/api/auth/activity")
+    def record_activity(request: Request):
+        if not accounts:
+            raise HTTPException(404, "Account activity is available in the hosted app")
+        accounts.record_activity(request.state.trader)
+        return {"recorded": True}
+
+    @app.get("/api/admin/activity")
+    def admin_activity(request: Request):
+        if not accounts or not is_admin(request.state.trader):
+            raise HTTPException(403, "Administrator access required")
+        rows = accounts.activity()
+        _, session = shared_context()
+        submitted, executions = {}, {}
+        with session.lock:
+            for owner in session.lab.owners.values():
+                submitted[owner] = submitted.get(owner, 0) + 1
+            for trade in session.lab.engine.trades():
+                for owner in {session.lab.owners.get(trade.buy_order_id), session.lab.owners.get(trade.sell_order_id)}:
+                    executions[owner] = executions.get(owner, 0) + 1
+        return {"active_seconds": ACTIVE_SECONDS, "registered": len(rows),
+                "active": sum(row[3] for row in rows), "active_today": sum(row[4] for row in rows),
+                "users": [{"username": username, "last_active_at": last_active, "active": active,
+                           "orders": submitted.get(workspace, 0), "executions": executions.get(workspace, 0)}
+                          for username, workspace, last_active, active, _ in rows]}
 
     @app.post("/api/auth/login")
     def login(payload: Login | Credentials, request: Request):
@@ -328,21 +383,29 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             return
         try:
             _, session = await run_in_threadpool(load_session, session_id)
+            shared = (await run_in_threadpool(shared_context))[1] if accounts else None
         except (HTTPException, ValueError, sqlite3.Error, OSError, StorageError):
             await websocket.close(code=1008)
             return
         await websocket.accept()
         queue = asyncio.Queue(maxsize=1)
+        shared_queue = asyncio.Queue(maxsize=1)
         listener = (asyncio.get_running_loop(), queue)
+        shared_listener = (asyncio.get_running_loop(), shared_queue)
         with session.lock:
             session.listeners.append(listener)
             revision = session.revision
+        if shared:
+            with shared.lock:
+                shared.listeners.append(shared_listener)
         incoming = asyncio.create_task(websocket.receive_text())
         outgoing = asyncio.create_task(queue.get())
+        shared_update = asyncio.create_task(shared_queue.get()) if shared else None
         try:
             await websocket.send_json({"type": "connected", "revision": revision})
             while True:
-                done, _ = await asyncio.wait([incoming, outgoing], timeout=25, return_when=asyncio.FIRST_COMPLETED)
+                tasks = [incoming, outgoing] + ([shared_update] if shared_update else [])
+                done, _ = await asyncio.wait(tasks, timeout=25, return_when=asyncio.FIRST_COMPLETED)
                 if not await allowed():
                     await websocket.close(code=1008)
                     break
@@ -352,6 +415,9 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                 if outgoing in done:
                     await websocket.send_json(outgoing.result())
                     outgoing = asyncio.create_task(queue.get())
+                if shared_update in done:
+                    await websocket.send_json({"type": "exchange_changed"})
+                    shared_update = asyncio.create_task(shared_queue.get())
                 if not done:
                     await websocket.send_json({"type": "heartbeat"})
         except WebSocketDisconnect:
@@ -359,12 +425,16 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         finally:
             with session.lock:
                 session.listeners.remove(listener)
-            for task in (incoming, outgoing):
+            if shared:
+                with shared.lock:
+                    shared.listeners.remove(shared_listener)
+            tasks = [incoming, outgoing] + ([shared_update] if shared_update else [])
+            for task in tasks:
                 task.cancel()
             # Disconnect teardown can cancel the request while it drains its
             # child tasks. Finish cleanup without suppressing request cancellation.
             with CancelScope(shield=True):
-                await asyncio.gather(incoming, outgoing, return_exceptions=True)
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     @app.get("/api/market")
     def market_overview():
@@ -385,6 +455,15 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                 "losers": sum(value < 0 for value in changes),
                 "available": bool(companies),
                 "basket_change": sum(changes) / len(changes) if changes else None}
+
+    @app.get("/api/quote/{symbol}")
+    def market_quote(symbol: str, request: Request):
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9.&-]{0,15}", symbol):
+            raise HTTPException(400, "Enter a valid NSE symbol")
+        symbol = symbol.upper()
+        client = request.state.trader.username if accounts else "local"
+        fetch_allowed = not guard.limited(client, "quotes", 30)
+        return quotes.lookup(symbol, app.state.market, fetch_allowed=fetch_allowed)
 
     @app.post("/api/market/refresh")
     def refresh_market():
@@ -441,20 +520,29 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
 
+    @app.get("/api/exchange")
     @app.get("/api/lab")
-    def lab_state(context: SessionDependency, symbol: str = "RELIANCE"):
+    def lab_state(request: Request, context: OrderBookDependency, symbol: str = "RELIANCE"):
         _, session = context
+        owner = order_owner(request, context)
         with session.lock:
-            return {"symbols": session.lab.engine.symbols(), "orders": session.lab.engine.active_orders(),
+            orders = session.lab.engine.active_orders()
+            trades = trader_trades(session, owner)
+            if owner:
+                orders = [order for order in orders if session.lab.owners.get(order["order_id"]) == owner]
+            return {"symbols": session.lab.engine.symbols(), "orders": orders,
                     "book": session.lab.engine.order_book(symbol, 30), "stats": session.lab.engine.symbol_stats(symbol),
-                    "trades": jsonable_encoder(session.lab.engine.trades(limit=100)), "events": len(session.lab.events),
-                    "total_trades": len(session.lab.engine.trades()), "revision": session.revision}
+                    "trades": jsonable_encoder(trades[-100:]), "events": len(session.lab.events),
+                    "total_trades": len(trades), "revision": session.revision}
 
+    @app.get("/api/exchange/watchdog")
     @app.get("/api/lab/watchdog")
-    def lab_watchdog(context: SessionDependency, symbol: str = Query(default="RELIANCE", min_length=1, max_length=16, pattern=r"^[A-Za-z][A-Za-z0-9.]*$")):
+    def lab_watchdog(request: Request, context: OrderBookDependency, symbol: str = Query(default="RELIANCE", min_length=1, max_length=16, pattern=r"^[A-Za-z][A-Za-z0-9.&-]*$")):
         _, session = context
+        owner = order_owner(request, context)
         with session.lock:
-            rows = [row.copy() for row in session.lab.observations if row["symbol"] == symbol.upper()]
+            rows = [row.copy() for row in session.lab.observations if row["symbol"] == symbol.upper()
+                    and (owner is None or session.lab.owners.get(row["order_id"]) == owner)]
             monitor, revision = session.monitor, session.revision
         result = monitor.report(rows, symbol)
         with session.lock:
@@ -464,58 +552,77 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         result["open_alerts"] = sum(row["review"]["status"] == "open" for row in result["alerts"])
         return result
 
+    @app.patch("/api/exchange/watchdog/reviews/{event}")
     @app.patch("/api/lab/watchdog/reviews/{event}")
-    def review_alert(event: int, request: Review, context: SessionDependency, symbol: str = "RELIANCE", key: RequestKey = None):
+    def review_alert(event: int, review_data: Review, context: OrderBookDependency, request: Request,
+                     symbol: str = "RELIANCE", key: RequestKey = None):
         session = context[1]
-        report = lab_watchdog(context, symbol)
+        report = lab_watchdog(request, context, symbol)
         if not any(row["event"] == event for row in report["alerts"]):
             raise HTTPException(404, "flagged execution was not found in the review queue")
         def change():
             if session.revision != report["as_of_revision"]:
                 raise HTTPException(409, "Session changed. Refresh the review queue and try again.")
-            review = request.model_dump()
+            review = review_data.model_dump()
             session.reviews[str(event)] = review
             return review
-        return commit(context, change, fingerprint(f"review:{event}", request.model_dump()), key)
+        return commit(context, change, fingerprint(f"review:{event}", review_data.model_dump()),
+                      private_key(order_owner(request, context), key))
 
+    @app.post("/api/exchange/orders")
     @app.post("/api/lab/orders")
-    def lab_order(order: LabOrder, context: SessionDependency, key: RequestKey = None):
-        return commit(context, lambda: context[1].lab.place_order(order.order_id, order.symbol, order.side, order.quantity, order.price), fingerprint("place", order.model_dump()), key)
+    def lab_order(order: LabOrder, context: OrderBookDependency, request: Request, key: RequestKey = None):
+        owner = order_owner(request, context)
+        # Assign opaque IDs for the shared book; caller supplied IDs are for private sessions.
+        order_id = f"TV-{uuid4()}" if owner else order.order_id
+        return commit(context, lambda: context[1].lab.place_order(
+            order_id, order.symbol, order.side, order.quantity, order.price, owner=owner),
+            fingerprint("place", order.model_dump()), private_key(owner, key))
 
+    @app.delete("/api/exchange/orders/{order_id}")
     @app.delete("/api/lab/orders/{order_id}")
-    def cancel_lab_order(order_id: str, context: SessionDependency, key: RequestKey = None):
+    def cancel_lab_order(order_id: str, context: OrderBookDependency, request: Request, key: RequestKey = None):
         session = context[1]
+        owner = order_owner(request, context)
         def cancel():
+            if owner and session.lab.owners.get(order_id) != owner:
+                raise HTTPException(404, "order is no longer active")
             if not session.lab.cancel_order(order_id):
                 raise HTTPException(404, "order is no longer active")
             return {"canceled": order_id}
-        return commit(context, cancel, fingerprint(f"cancel:{order_id}"), key)
+        return commit(context, cancel, fingerprint(f"cancel:{order_id}"), private_key(owner, key))
 
+    @app.patch("/api/exchange/orders/{order_id}")
     @app.patch("/api/lab/orders/{order_id}")
-    def modify_lab_order(order_id: str, request: Modification, context: SessionDependency, key: RequestKey = None):
+    def modify_lab_order(order_id: str, amendment: Modification, context: OrderBookDependency, request: Request, key: RequestKey = None):
+        owner = order_owner(request, context)
         def modify():
+            if owner and context[1].lab.owners.get(order_id) != owner:
+                raise HTTPException(404, "order is no longer active")
             try:
-                return context[1].lab.modify_order(order_id, request.quantity, request.price)
+                return context[1].lab.modify_order(order_id, amendment.quantity, amendment.price)
             except KeyError as exc:
                 raise HTTPException(404, "order is no longer active") from exc
-        return commit(context, modify, fingerprint(f"modify:{order_id}", request.model_dump()), key)
+        return commit(context, modify, fingerprint(f"modify:{order_id}", amendment.model_dump()), private_key(owner, key))
 
+    @app.get("/api/exchange/trades")
     @app.get("/api/lab/trades")
-    def trade_history(context: SessionDependency, offset: int = Query(default=0, ge=0),
+    def trade_history(request: Request, context: OrderBookDependency, offset: int = Query(default=0, ge=0),
                       limit: int = Query(default=50, ge=1, le=1000), query: str = Query(default="", max_length=100)):
         _, session = context
         with session.lock:
-            trades = session.lab.engine.trades()
+            trades = trader_trades(session, order_owner(request, context))
             if query:
                 needle = query.casefold()
                 trades = [trade for trade in trades if needle in f"{trade.trade_id} {trade.symbol} {trade.buy_order_id} {trade.sell_order_id}".casefold()]
             return {"total": len(trades), "trades": jsonable_encoder(list(reversed(trades))[offset:offset + limit])}
 
+    @app.get("/api/exchange/trades/export")
     @app.get("/api/lab/trades/export")
-    def export_trades(context: SessionDependency):
+    def export_trades(request: Request, context: OrderBookDependency):
         _, session = context
         with session.lock:
-            return jsonable_encoder(session.lab.engine.trades())
+            return jsonable_encoder(trader_trades(session, order_owner(request, context)))
 
     @app.post("/api/lab/reset")
     def reset_lab(context: SessionDependency, key: RequestKey = None):

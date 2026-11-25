@@ -123,7 +123,7 @@ class MatchingEngine:
 
     @staticmethod
     def _validate(symbol: str, side: Side | str, quantity: int, price: Decimal | str | int | None):
-        if not isinstance(symbol, str) or not re.fullmatch(r"[A-Z][A-Z0-9.]{0,15}", symbol.upper()):
+        if not isinstance(symbol, str) or not re.fullmatch(r"[A-Z][A-Z0-9.&-]{0,15}", symbol.upper()):
             raise ValueError("symbol must be 1-16 letters, digits, or dots, starting with a letter")
         try:
             parsed_side = Side(side.upper() if isinstance(side, str) else side)

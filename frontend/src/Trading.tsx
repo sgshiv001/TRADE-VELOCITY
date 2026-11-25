@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Moon, Sun, Play, RefreshCw, ShieldCheck, Download } from "lucide-react";
-import { api, download, inr, number } from "./api";
-import type { Measurement, Lab, Order } from "./types";
+import { api, ApiError, download, inr, number } from "./api";
+import type { Measurement, Lab, Order, Quote } from "./types";
 
 const message = (error: unknown) => error instanceof Error ? error.message : "Could not complete the request.";
 type OrderResult = { order_id: string; filled: number; remaining: number; resting: boolean };
@@ -14,47 +14,64 @@ export function ThemeToggle() {
   return <button className="theme-toggle" aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`} onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}<span>{theme === "light" ? "Dark" : "Light"} mode</span></button>;
 }
 
-export function OrderTicket({ symbol, lab, changed }: { symbol: string; lab: Lab; changed: () => Promise<void> }) {
-  const [side, setSide] = useState("BUY"), [quantity, setQuantity] = useState(1), [price, setPrice] = useState("");
+export function MarketPrice({ quote, compact = false }: { quote: Quote | null; compact?: boolean }) {
+  const date = quote?.as_of
+    ? quote.kind === "close" ? quote.as_of : new Date(quote.as_of).toLocaleString("en-IN", {timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short"}) + " IST"
+    : "";
+  return <div className={compact ? "ticket-quote" : "order-quote"} aria-label={compact ? "Order market price" : "Market price"}>
+    <span>{quote?.kind === "close" ? "Market price · daily close" : "Market price"}</span>
+    <strong>{quote?.price != null ? inr(quote.price) : quote ? "Unavailable" : "Loading…"}</strong>
+    {date && <small>{date} · {quote?.kind === "intraday" ? "Yahoo Finance · may be delayed" : "Yahoo Finance historical close"}</small>}
+  </div>;
+}
+
+export function OrderTicket({ symbol, lab, changed, quote, shared }: {
+  symbol: string; lab: Lab; changed: () => Promise<void>; quote: Quote | null; shared: boolean;
+}) {
+  const [side, setSide] = useState("BUY"), [quantity, setQuantity] = useState(""), [price, setPrice] = useState("");
   const [kind, setKind] = useState("limit"), [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Order | null>(null);
-  const [editQuantity, setEditQuantity] = useState(1), [editPrice, setEditPrice] = useState("");
+  const [editQuantity, setEditQuantity] = useState(""), [editPrice, setEditPrice] = useState("");
   const pending = useRef<{intent: string; body: string; key: string} | null>(null);
+  const orderPath = shared ? "/exchange/orders" : "/lab/orders";
   const describe = (result: OrderResult) => `${result.order_id}: ${result.filled} shares filled · ${result.remaining} unfilled · ${result.resting ? "resting on book" : "not resting"}`;
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      const intent = JSON.stringify({symbol, side, quantity, price: kind === "market" ? null : price});
+      const intent = JSON.stringify({symbol, side, quantity: Number(quantity), price: kind === "market" ? null : price});
       if (pending.current && pending.current.intent !== intent) throw new Error("The previous order is not confirmed. Restore its inputs and retry it before submitting a different order.");
       pending.current ??= {intent, body: JSON.stringify({order_id: `TV-${crypto.randomUUID()}`, ...JSON.parse(intent)}), key: crypto.randomUUID()};
-      const result = await api<OrderResult>("/lab/orders", { method: "POST", body: pending.current.body, requestKey: pending.current.key });
-      pending.current = null; setNotice(describe(result)); await changed();
+      const result = await api<OrderResult>(orderPath, { method: "POST", body: pending.current.body, requestKey: pending.current.key });
+      pending.current = null; setQuantity(""); setNotice(describe(result)); await changed();
     }
-    catch (cause) { setError(message(cause)); } finally { setBusy(false); }
+    catch (cause) {
+      if (cause instanceof ApiError && [400, 409, 422].includes(cause.status)) pending.current = null;
+      setError(message(cause));
+    } finally { setBusy(false); }
   }
   async function cancel(id: string) {
     setBusy(true); setError("");
-    try { await api(`/lab/orders/${encodeURIComponent(id)}`, { method: "DELETE" }); setNotice(`Cancelled ${id}`); if (editing?.order_id === id) setEditing(null); await changed(); }
+    try { await api(`${orderPath}/${encodeURIComponent(id)}`, { method: "DELETE" }); setNotice(`Cancelled ${id}`); if (editing?.order_id === id) setEditing(null); await changed(); }
     catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   async function amend(event: FormEvent) {
     event.preventDefault(); if (!editing) return; setBusy(true); setError("");
-    try { const result = await api<OrderResult>(`/lab/orders/${encodeURIComponent(editing.order_id)}`, { method: "PATCH", body: JSON.stringify({ quantity: editQuantity, price: editPrice }) }); setNotice(`Amended ${describe(result)}`); setEditing(null); await changed(); }
+    try { const result = await api<OrderResult>(`${orderPath}/${encodeURIComponent(editing.order_id)}`, { method: "PATCH", body: JSON.stringify({ quantity: Number(editQuantity), price: editPrice }) }); setNotice(`Amended ${describe(result)}`); setEditing(null); await changed(); }
     catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   const orders = lab.orders.filter(order => order.symbol === symbol);
-  return <section className="panel"><div className="panel-heading"><div><div className="eyebrow">LOCAL ORDER ENTRY</div><h2>Place an order · {symbol}</h2></div><span className="venue-label">OWN MATCHING ENGINE</span></div>
+  return <section className="panel"><div className="panel-heading"><h2>Place an order · {symbol}</h2><MarketPrice quote={quote} compact /></div>
     <form onSubmit={submit}><fieldset className="ticket-grid" disabled={busy}>
       <label>Side<select value={side} onChange={event => setSide(event.target.value)}><option>BUY</option><option>SELL</option></select></label>
       <label>Type<select value={kind} onChange={event => setKind(event.target.value)}><option value="limit">Limit</option><option value="market">Market</option></select></label>
-      <label>Shares<input type="number" required min="1" max="1000000" step="1" value={quantity} onChange={event => setQuantity(Number(event.target.value))} /></label>
+      <label>Shares<input type="number" inputMode="numeric" required min="1" max="1000000" step="1" placeholder="Enter quantity" value={quantity} onChange={event => setQuantity(event.target.value)} /></label>
       <label>Limit price<input aria-label="Limit price" type="number" required={kind === "limit"} disabled={kind === "market"} min="0.01" step="0.01" placeholder="Enter a price" value={price} onChange={event => setPrice(event.target.value)} /></label>
       <button className="primary-button" type="submit">{busy ? "Processing…" : `Submit ${side.toLowerCase()}`}</button>
-    </fieldset></form>
+    </fieldset>{kind === "limit" && quote?.price != null && <button className="text-button quote-fill" type="button" disabled={busy} onClick={() => setPrice(Number(quote.price).toFixed(2))}>Use market price as limit</button>}</form>
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="notice error" role="alert">{error}</p>}
-    {editing && <form onSubmit={amend} className="order-amend"><h3>Amend {editing.order_id}</h3><p className="fine-print">This sets the new remaining quantity and price, resets time priority, and may match immediately.</p><fieldset className="ticket-grid" disabled={busy}><label>New remaining shares<input aria-label="New remaining shares" type="number" required min="1" max="1000000" step="1" value={editQuantity} onChange={event => setEditQuantity(Number(event.target.value))} /></label><label>New limit price<input aria-label="New limit price" type="number" required min="0.01" step="0.01" value={editPrice} onChange={event => setEditPrice(event.target.value)} /></label><button className="primary-button" type="submit">Save amendment</button><button className="secondary-button" type="button" onClick={() => setEditing(null)}>Keep current order</button></fieldset></form>}
-    <h3>Active orders · {orders.length}</h3>{orders.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>ORDER</th><th>SIDE</th><th>PRICE</th><th>REMAINING</th><th>ACTIONS</th></tr></thead><tbody>{orders.map(order => <tr key={order.order_id}><td>{order.order_id}</td><td>{order.side}</td><td>{inr(order.price)}</td><td>{number(order.remaining)}</td><td><div className="title-actions"><button className="secondary-button" disabled={busy} onClick={() => { setEditing(order); setEditQuantity(order.remaining); setEditPrice(order.price); }}>Amend</button><button className="secondary-button" disabled={busy} onClick={() => void cancel(order.order_id)}>Cancel order</button></div></td></tr>)}</tbody></table></div> : <p className="workspace-copy">No active orders for this symbol.</p>}
+    {editing && <form onSubmit={amend} className="order-amend"><h3>Amend {editing.order_id}</h3><p className="fine-print">This sets the new remaining quantity and price, resets time priority, and may match immediately.</p><fieldset className="ticket-grid" disabled={busy}><label>New remaining shares<input aria-label="New remaining shares" type="number" required min="1" max="1000000" step="1" value={editQuantity} onChange={event => setEditQuantity(event.target.value)} /></label><label>New limit price<input aria-label="New limit price" type="number" required min="0.01" step="0.01" value={editPrice} onChange={event => setEditPrice(event.target.value)} /></label><button className="primary-button" type="submit">Save amendment</button><button className="secondary-button" type="button" onClick={() => setEditing(null)}>Keep current order</button></fieldset></form>}
+    <h3>Active orders · {orders.length}</h3>{orders.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>ORDER</th><th>SIDE</th><th>PRICE</th><th>REMAINING</th><th>ACTIONS</th></tr></thead><tbody>{orders.map(order => <tr key={order.order_id}><td>{order.order_id}</td><td>{order.side}</td><td>{inr(order.price)}</td><td>{number(order.remaining)}</td><td><div className="title-actions"><button className="secondary-button" disabled={busy} onClick={() => { setEditing(order); setEditQuantity(String(order.remaining)); setEditPrice(order.price); }}>Amend</button><button className="secondary-button" disabled={busy} onClick={() => void cancel(order.order_id)}>Cancel order</button></div></td></tr>)}</tbody></table></div> : <p className="workspace-copy">No active orders for this symbol.</p>}
     <p className="fine-print">No automatic counterparties or broker execution. Market orders need opposite-side orders in this book; any unfilled quantity expires.</p>
   </section>;
 }
@@ -81,7 +98,8 @@ export function SessionTools({ changed }: { changed: () => Promise<void> }) {
   </section>;
 }
 
-export function Watchdog({ symbol }: { symbol: string }) {
+export function Watchdog({ symbol, shared }: { symbol: string; shared: boolean }) {
+  const watchdogPath = shared ? "/exchange/watchdog" : "/lab/watchdog";
   const [report, setReport] = useState<WatchdogReport | null>(null), [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [reviewEvent, setReviewEvent] = useState<number | null>(null);
@@ -91,14 +109,14 @@ export function Watchdog({ symbol }: { symbol: string }) {
   const generation = useRef(0);
   async function refresh() {
     const current = ++generation.current; setBusy(true);
-    try { const result = await api<WatchdogReport>(`/lab/watchdog?symbol=${encodeURIComponent(symbol)}`); if (current === generation.current) { setReport(result); setError(""); setLastUpdate(new Date().toLocaleTimeString()); } }
+    try { const result = await api<WatchdogReport>(`${watchdogPath}?symbol=${encodeURIComponent(symbol)}`); if (current === generation.current) { setReport(result); setError(""); setLastUpdate(new Date().toLocaleTimeString()); } }
     catch (cause) { if (current === generation.current) setError(message(cause)); }
     finally { if (current === generation.current) setBusy(false); }
   }
   useEffect(() => { setReport(null); setReviewEvent(null); setLastUpdate(null); void refresh(); const timer = window.setInterval(refresh, 10000); return () => { window.clearInterval(timer); generation.current++; }; }, [symbol]);
   async function saveReview(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError("");
-    try { await api(`/lab/watchdog/reviews/${reviewEvent}?symbol=${encodeURIComponent(symbol)}`, {method: "PATCH", body: JSON.stringify(review)}); setReviewEvent(null); await refresh(); }
+    try { await api(`${watchdogPath}/reviews/${reviewEvent}?symbol=${encodeURIComponent(symbol)}`, {method: "PATCH", body: JSON.stringify(review)}); setReviewEvent(null); await refresh(); }
     catch (cause) { setError(message(cause)); } finally { setSaving(false); }
   }
   return <>

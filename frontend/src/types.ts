@@ -25,6 +25,13 @@ export interface Market {
   losers: number;
   basket_change: number | null;
 }
+export interface Quote {
+  symbol: string;
+  price: number | null;
+  kind: "intraday" | "close" | "unavailable";
+  source: string | null;
+  as_of: string | null;
+}
 export interface Bar {
   date: string;
   open: number;

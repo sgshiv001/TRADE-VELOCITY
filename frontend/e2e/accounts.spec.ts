@@ -47,3 +47,49 @@ test("register, skip and reopen the tutorial, then sign back into the saved work
   await guide.getByRole("button", {name: "Finish tutorial"}).click();
   await expect(guide).toBeHidden();
 });
+
+test("two traders see the same bid and a partial fill updates both accounts", async ({browser, baseURL}) => {
+  const id = randomUUID().replaceAll("-", "").slice(0, 12);
+  const symbol = `DEMO${id.toUpperCase()}`;
+  const first = await browser.newContext({baseURL, ignoreHTTPSErrors: process.env.TRADEVELOCITY_E2E_ALLOW_SELF_SIGNED === "1"});
+  const second = await browser.newContext({baseURL, ignoreHTTPSErrors: process.env.TRADEVELOCITY_E2E_ALLOW_SELF_SIGNED === "1"});
+  try {
+    const buyer = await first.newPage();
+    const seller = await second.newPage();
+    for (const [page, role] of [[buyer, "buy"], [seller, "sell"]] as const) {
+      await page.goto("/signup");
+      await page.getByLabel("Username").fill(`qa_${role}_${id}`);
+      await page.getByLabel("Password").fill(`QA-${randomUUID()}`);
+      await page.getByRole("button", {name: "Create account"}).click();
+      await page.getByRole("button", {name: "Skip tutorial"}).click();
+      await page.getByRole("button", {name: "Orders & depth", exact: true}).click();
+      await page.getByLabel("Custom engine symbol").fill(symbol);
+      await page.getByRole("button", {name: "Use symbol"}).click();
+      await expect(page.getByRole("heading", {name: `Place an order · ${symbol}`})).toBeVisible();
+      await expect(page.getByRole("spinbutton", {name: "Shares", exact: true})).toHaveValue("");
+    }
+    const bidLevels = seller.locator(".depth-row.bid");
+    await buyer.getByRole("spinbutton", {name: "Shares", exact: true}).fill("10");
+    await buyer.getByRole("spinbutton", {name: "Limit price"}).fill("1800");
+    await buyer.getByRole("button", {name: "Submit buy"}).click();
+    await expect(bidLevels.locator("span").nth(1)).toHaveText("₹1,800.00");
+    await expect(bidLevels.locator("span").nth(2)).toHaveText("10");
+    await seller.getByRole("combobox", {name: "Side", exact: true}).selectOption("SELL");
+    await seller.getByRole("spinbutton", {name: "Shares", exact: true}).fill("5");
+    await seller.getByRole("spinbutton", {name: "Limit price"}).fill("1800");
+    await seller.getByRole("button", {name: "Submit sell"}).click();
+    await expect(bidLevels.locator("span").nth(2)).toHaveText("5");
+    await expect(buyer.getByRole("row").filter({hasText: "BUY"}).getByRole("cell").nth(3)).toHaveText("5");
+    await buyer.getByRole("button", {name: "Cancel order"}).click();
+    await expect(bidLevels).toHaveCount(0);
+    for (const page of [buyer, seller]) {
+      await page.getByRole("button", {name: "Trade history", exact: true}).click();
+      const trade = page.getByRole("row").filter({hasText: symbol});
+      await expect(trade).toContainText("₹1,800.00");
+      await expect(trade.getByRole("cell").nth(3)).toHaveText("5");
+    }
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});

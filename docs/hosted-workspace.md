@@ -2,8 +2,10 @@
 
 The hosted app serves the React interface, FastAPI and WebSocket updates
 over the same HTTPS origin. Traders create a username and password at
-`/signup` and sign in at `/login`. Every account has its own saved order book
-and trades. The first visit offers a tutorial with **Skip tutorial**, and
+`/signup` and sign in at `/login`. Hosted accounts see a shared simulated
+order book, their own resting orders and their own fills. Prior private
+practice records are available under **Trade history → Private practice archive**.
+The first visit offers a tutorial with **Skip tutorial**, and
 **Open tutorial** in the workspace footer lets traders run it again.
 
 Use one backend replica and a private PostgreSQL service. A single replica
@@ -49,9 +51,19 @@ orders and tutorial status are stored in PostgreSQL. Run with one replica.
 [Railway PostgreSQL](https://docs.railway.com/databases/postgresql)
 
 After deploying, check `/api/ready` for `{"status":"ready","storage":"postgresql"}`.
-Create two test accounts. Place orders in one, sign in to the other and confirm
-it has its own empty book. Check that Skip persists after reloading and that
-orders survive a backend restart. Use fresh credentials for the live service.
+In a test deployment, open two accounts on a fresh practice symbol. Place a
+10-share bid at ₹1,800 in the first account. Verify that it appears in the
+second account, then sell 5 at ₹1,800. Check both trade histories and the
+5-share resting bid. Check that the book survives a backend restart.
+
+### Admin activity
+
+Set `TRADEVELOCITY_ADMIN_USERNAME` to the verified username of an existing
+operator account. Sign back in and open **Admin activity**. The page shows
+registered accounts, distinct accounts seen in the last 24 hours, and users
+whose app signaled activity in the last 90 seconds. It also shows each account's
+most recent signal and shared-book order and fill counts. The app sends signals
+from visible workspaces on opening and while there is recent interaction.
 
 ## Self-hosted HTTPS
 

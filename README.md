@@ -2,7 +2,7 @@
 
 We built TradeVelocity for our Advanced Data Structures and Algorithms project at Bennett University. It is a practice order book you can use: place a buy or sell order, see which order gets matched first, and inspect the trade that follows.
 
-The app does **not** connect to a broker or move money or shares. Its order book contains only orders placed in your own practice workspace. The market-history screen uses dated daily data and is separate from that book.
+Hosted web and Android traders share a simulated order book. Each trader manages their own orders and sees their own executions. The app does **not** connect to a broker or move real money or shares.
 
 [Open the live app](https://gettradevelocity.onrender.com) · [See the GitHub project page](https://sgshiv001.github.io/TRADE-VELOCITY/) · [Read the code](src/stock_engine/)
 
@@ -12,7 +12,7 @@ The app does **not** connect to a broker or move money or shares. Its order book
 
 Create a trader account on the [web app](https://gettradevelocity.onrender.com), then open **Orders & depth**. The first-run guide explains the main screens; you can skip it and reopen it later.
 
-For a quick example, place a sell limit order for **5 shares at ₹100**. Then place a buy limit order for **3 shares at ₹101**. The engine matches 3 shares at the resting sell order's ₹100 price. The other 2 sell shares stay on the book. You can check both the remaining order and the trade record in the app.
+Choose a fresh practice symbol for the demo. In one account, place a buy limit for **10 shares at ₹1,800**. In a second account, check that bid and submit a sell limit for **5 shares at ₹1,800**. Both traders see the execution, and the other 5 shares stay on the bid. Orders & depth also shows dated provider prices for supported NSE symbols.
 
 ## What is inside
 
@@ -32,7 +32,7 @@ The matching engine uses heaps to reach the best price, AVL trees for ordered de
 | --- | --- | --- |
 | Web | [Open TradeVelocity](https://gettradevelocity.onrender.com) | Trader accounts and saved workspaces backed by PostgreSQL. The free host may take a moment to wake up. |
 | Windows | [Download the complete portable ZIP](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v0.3.4/TradeVelocity-Windows-x64.zip) | Extract the whole ZIP and open `Launch_Desktop.vbs`. This unsigned build keeps its session on your PC. |
-| Android | [Download the test APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v1.0.1-android-test/TradeVelocity-Android-test.apk) | Debug-signed test build that opens the hosted app and needs internet access. |
+| Android | [Download the test APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v1.1.0-android-test/TradeVelocity-Android-test.apk) | Debug-signed test build that opens the hosted app and needs internet access. |
 
 The Windows ZIP passed a packaged smoke test on Windows 11. The Android APK was built with Android Studio and checked on an emulator. We have not yet checked the Windows ZIP on a second PC or the APK on a physical phone. Use the links above: the files attached to the older v1.0.0 release are incomplete or configured for a local server.
 
