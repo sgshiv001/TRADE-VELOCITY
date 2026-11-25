@@ -117,7 +117,7 @@ def test_shared_depth_updates_both_traders_and_survives_restart(backend, monkeyp
     assert buyer.post("/api/exchange/orders", headers=buyer_headers, json=order).json() == placed.json()
     order_id = placed.json()["order_id"]
     state = seller.get(f"/api/exchange?symbol={symbol}", headers=seller_headers).json()
-    assert state["book"]["bids"] == [{"price": "1800.00", "quantity": 10, "orders": 1}]
+    assert state["book"]["bids"] == [{"price": "1800", "quantity": 10, "orders": 1}]
     assert state["orders"] == []
     assert seller.delete(f"/api/exchange/orders/{order_id}", headers=seller_headers).status_code == 404
     assert seller.patch(f"/api/exchange/orders/{order_id}", headers=seller_headers,
