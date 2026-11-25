@@ -319,6 +319,13 @@
   .tv2-preview-quote { padding-inline: 10px; }
   .tv2-preview-quote select { font-size: 12px; }
   .tv2-forecast { padding-inline: 7px; }
+  .tv2-market-table { min-width: 0; }
+  .tv2-market-table th, .tv2-market-table td { padding: 8px 4px; font-size: 12px; }
+  .tv2-market-table :is(th, td):nth-child(2),
+  .tv2-market-table :is(th, td):nth-child(5) { display: none; }
+  .tv2-market-table .tv2-symbol-glyph { display: none; }
+  .tv2-market-table .tv2-symbol-link { white-space: normal; }
+  .tv2-market-table .tv2-symbol-link small { line-height: 1.25; }
 }
 @media (prefers-reduced-motion: reduce) {
   .tv2 *, .tv2 *::before, .tv2 *::after { transition-duration: 0s !important; animation-duration: 0s !important; }

@@ -16,7 +16,7 @@ export function PriceChange({value}: {value: number | null}) {
 function Instruments({companies, trade, watched, toggle}: {
   companies: Company[]; trade(symbol: string): void; watched?: string[]; toggle?(symbol: string): void;
 }) {
-  return <div className="tv2-table-scroll"><table className="tv2-table">
+  return <div className="tv2-table-scroll"><table className="tv2-table tv2-market-table">
     <thead><tr><th>Instrument</th><th>Sector</th><th>Daily close</th><th>Day change</th><th>Volume</th>{toggle && <th>Watchlist</th>}</tr></thead>
     <tbody>{companies.map(company => <tr key={company.symbol}>
       <td><button className="tv2-symbol-link" onClick={() => trade(company.symbol)}>

@@ -50,14 +50,15 @@ try {
   const seeded = await page.request.post(`${origin}/api/paper/liquidity/RELIANCE`, {
     headers: { ...headers, Origin: origin, "Idempotency-Key": randomUUID() },
   });
-  assert.equal(seeded.status(), 200, "Staging must have a recent reference price for simulated depth");
+  assert.ok(seeded.ok() || seeded.status() === 503, `Unexpected liquidity status ${seeded.status()}`);
 
   for (const side of ["buy", "sell"]) {
     const { book } = await page.request.get(`${origin}/api/paper?symbol=RELIANCE`, { headers }).then(response => response.json());
-    const price = (side === "buy" ? book.asks : book.bids)[0].price;
+    const level = (side === "buy" ? book.asks : book.bids)[0];
+    assert.ok(level, "Staging needs a recent provider quote or a previously seeded order book");
     await page.getByLabel("Order side", { exact: true }).selectOption(side.toUpperCase());
     await page.getByLabel("Shares", { exact: true }).fill("1");
-    await page.getByLabel("Limit price", { exact: true }).fill(String(price));
+    await page.getByLabel("Limit price", { exact: true }).fill(String(level.price));
     await page.getByRole("button", { name: `Review ${side}` }).click();
     await page.getByRole("button", { name: "Confirm order" }).click();
     await expect(page.getByText(/1 shares filled · 0 unfilled/)).toBeVisible();
@@ -94,6 +95,7 @@ try {
   await mobile.setViewportSize({ width: 390, height: 844 });
   await mobile.goto(`${origin}/app?view=markets`);
   await expect(mobile.locator(".tv2-table tbody tr").first()).toBeVisible();
+  await expect(mobile.getByRole("columnheader", { name: "Daily close" })).toBeInViewport();
   assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   if (screenshots) await mobile.screenshot({ path: join(screenshots, "markets-mobile.png") });
   await mobile.getByRole("button", { name: "Open navigation" }).click();
