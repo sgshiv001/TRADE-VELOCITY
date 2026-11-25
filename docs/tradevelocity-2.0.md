@@ -44,9 +44,19 @@ python -m uvicorn stock_engine.api:app --host 127.0.0.1 --port 8443 --loop stock
 
 Supply a local certificate and key for the configured origin. Keep both out of version control. Run the migrations against the disposable database first. Revision `0001_persistent_books` adopts the existing schema and `0002_admin_activity_index` adds an index. The account, session, command and receipt rows stay intact. The baseline intentionally has no data-dropping downgrade.
 
-The Windows preview configuration uses its own application ID and profile, points to the local staging service, and accepts its configured certificate fingerprint. Build it with a SHA-256 fingerprint from the same local certificate. For Android, use Expo prebuild and the generated Gradle wrapper. On Windows, use a short checkout path without spaces for the Android build. The native package uses `com.tradevelocity.nativeapp` and supports an `EXPO_PUBLIC_API_URL` HTTPS origin at build time. An APK signed with the debug key is suitable for emulator and local testing.
+The Windows preview configuration uses its own application ID and profile, points to the local staging service, and accepts its configured certificate fingerprint. Build it with a SHA-256 fingerprint from the same local certificate.
+
+On Windows, prepare the Android build in a short checkout path without spaces. Set `node-linker=hoisted` in the build checkout's `.npmrc` before running `pnpm install --frozen-lockfile`. Run Expo prebuild and use the generated Gradle wrapper. The Expo config plugin shortens generated Android object file paths for the Windows compiler. The native package uses `com.tradevelocity.nativeapp` and accepts an `EXPO_PUBLIC_API_URL` HTTPS origin at build time. An APK signed with the debug key is suitable for emulator and local testing.
 
 Run `node frontend/scripts/smoke-v2.mjs` while the local staging service is up. The smoke test creates a test trader, confirms a buy and sell, checks the same balance through device authentication, and exercises the watchlist, research screens and mobile browser navigation. Pass a directory as the first argument to capture screenshots.
+
+## Verification
+
+- The browser smoke test completed a confirmed paper buy and sell on PostgreSQL staging. It checked the wallet and execution history, saved a watchlist change, and confirmed that device authentication returned the same balance.
+- The Windows preview EXE installed and the installed app reached a funded trading account on the same staging server. The MSI extracted successfully and contained the same app executable.
+- Android built for ARM64 and x86-64. The APK signature verified, and Android's `bundletool validate` accepted the AAB. Both use a debug signing key. The APK installed and displayed its sign-in and account creation screens on the API 29 emulator. System UI errors interrupted the API 36 emulator check. The Android preview is configured for the existing hosted API. Android sign-in and trading against the 2.0 staging server still need device verification.
+- The migration rehearsal restored an isolated PostgreSQL backup and preserved the account, session, command and receipt row counts.
+- The iOS JavaScript export completed. A signed native iOS build requires macOS and Apple signing credentials.
 
 ## Release work remaining
 
