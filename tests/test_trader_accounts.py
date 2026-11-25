@@ -208,10 +208,11 @@ def test_market_follow_keeps_resting_orders_and_discards_older_quotes(backend, m
     first = client.get(book, headers=headers).json()
     assert client.post(endpoint, headers=headers).json()["updated"] is False
     assert client.get(book, headers=headers).json()["revision"] == first["revision"]
-    result = client.post("/api/paper/orders", headers=headers, json={
+    result = client.post("/api/paper/orders", headers={**headers, "Idempotency-Key": "follow-resting"}, json={
         "order_id": "resting", "symbol": "TCS", "side": "BUY", "quantity": 2, "price": "75", "confirmed": True,
     })
-    assert result.is_success and result.json()["remaining"] == 2
+    assert result.is_success, result.text
+    assert result.json()["remaining"] == 2
     snapshot.update(price=110, as_of=(observed_at + timedelta(minutes=1)).isoformat())
     assert client.post(endpoint, headers=headers).json()["updated"] is True
     second = client.get(book, headers=headers).json()

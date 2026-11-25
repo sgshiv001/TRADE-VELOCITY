@@ -19,7 +19,7 @@ export const fundedTutorialSteps = [
   {page: "funded", title: "Start with your demo demat account",
     text: "Your account starts with ₹10 lakh in virtual cash. Choose a supported NSE stock to see its latest available provider price and the simulated order book."},
   {page: "funded", title: "Place a demo buy or sell",
-    text: "Once bids and asks appear, enter a quantity and try a market or limit buy. After a fill adds shares to your holdings, you can sell them. A limit order with no match can stay open."},
+    text: "To try an immediate demo buy, use the best ask as your limit price. Once shares appear in your holdings, you can try selling at the best bid. Any unfilled balance can stay open."},
   {page: "portfolio", title: "Check your holdings",
     text: "Portfolio shows your positions, virtual cash, and profit or loss. The order journal records fills and any quantity still open."},
 ] as const;
