@@ -20,6 +20,13 @@ COOKIE = "__Host-tradevelocity-access"
 MAX_BODY = 8 * 1024 * 1024
 
 
+def account_token(headers, cookies):
+    authorization = headers.get("authorization", "")
+    if authorization.startswith("Bearer "):
+        return authorization[7:]
+    return cookies.get(COOKIE, "")
+
+
 @dataclass(frozen=True)
 class SecuritySettings:
     mode: str = "local"
@@ -143,7 +150,8 @@ class SecurityGuard:
             response = JSONResponse({"detail":"Cross-origin access is not allowed"},status_code=403)
         else:
             response = None
-            public = path in ("/api/health", "/api/ready", "/api/auth/status", "/api/auth/login", "/api/auth/register")
+            public = path in ("/api/health", "/api/ready", "/api/auth/status", "/api/auth/login", "/api/auth/register",
+                              "/api/auth/device/login", "/api/auth/device/register")
             is_api = path.startswith("/api/")
             client = request.client.host if request.client else "unknown"
             if is_api and self.limited(client, "requests", 3000 if self.accounts else
@@ -151,7 +159,7 @@ class SecurityGuard:
                 response = JSONResponse({"detail":"Request limit reached; retry after one minute"},status_code=429,headers={"Retry-After":"60"})
             elif is_api and not public and self.accounts:
                 try:
-                    request.state.trader = await run_in_threadpool(self.accounts.identity, request.cookies.get(COOKIE, ""))
+                    request.state.trader = await run_in_threadpool(self.accounts.identity, account_token(request.headers, request.cookies))
                 except StorageError:
                     response = JSONResponse({"detail": "Workspace storage is unavailable."}, status_code=503)
             if response is not None:

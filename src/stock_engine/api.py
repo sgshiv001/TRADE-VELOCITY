@@ -10,6 +10,8 @@ import os
 import re
 import sys
 import sqlite3
+from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from threading import RLock
 from typing import Annotated, Literal
@@ -26,14 +28,18 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from .companies import COMPANIES
+from .account_summary import account_portfolio, order_journal
+from .funded import refresh_virtual_depth, validate_limit
+from .web_assets import app_pages, inline_script_hashes
 from .analysis import analyze_history
+from .analyst import stock_analysis
 from .anomaly import detect_anomalies
 from .experiments import compare_workload
 from .market_data import SNAPSHOT_PATH, MarketData, MarketQuotes, download_market_data, history_metrics, indicators, load_market_data, market_rows, period_history, save_snapshot
 from .session import ExchangeSession
 from .storage import PostgresSessionStore, StorageError, create_store
 from .watchdog import ExecutionMonitor
-from .security import COOKIE, SecurityGuard, SecuritySettings
+from .security import COOKIE, SecurityGuard, SecuritySettings, account_token
 
 PROJECT_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
 
@@ -47,11 +53,13 @@ class OrderRequest(BaseModel):
 class LabOrder(OrderRequest):
     order_id: str = Field(min_length=1, max_length=100)
     price: str | None = None
+    confirmed: bool = False
 
 
 class Modification(BaseModel):
     quantity: int = Field(gt=0, le=1_000_000, strict=True)
     price: str
+    confirmed: bool = False
 
 
 class Comparison(BaseModel):
@@ -73,6 +81,21 @@ class Credentials(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class Watchlist(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    symbols: list[Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9.&-]{0,15}$")]] = Field(max_length=50)
+
+
+class ProfileUpdate(BaseModel):
+    revision: int = Field(ge=0, strict=True)
+    name: str = Field(max_length=80)
+    watchlists: list[Watchlist] = Field(min_length=1, max_length=12)
+
+
+class PaperCredit(BaseModel):
+    amount: int = Field(ge=1000, le=1000000, strict=True)
+
+
 RequestKey = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=100, pattern=r"^[A-Za-z0-9.:_-]+$")]
 
 
@@ -87,11 +110,12 @@ class Session:
     monitor: ExecutionMonitor = field(default_factory=ExecutionMonitor)
     listeners: list = field(default_factory=list)
     needs_reload: bool = False
+    account_data: dict = field(default_factory=dict)
 
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
                security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="TradeVelocity", version="0.5.0", docs_url=None, redoc_url=None, openapi_url=None)
     settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
@@ -99,7 +123,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     if settings.mode == "accounts":
         if not isinstance(store, PostgresSessionStore):
             raise ValueError("Hosted trader accounts require a PostgreSQL database")
-        from .accounts import ACTIVE_SECONDS, SHARED_BOOK, Accounts
+        from .accounts import ACTIVE_SECONDS, FUNDED_BOOK, SHARED_BOOK, Accounts
         accounts = Accounts(store)
     app.state.accounts = accounts
     app.state.security = guard = SecurityGuard(settings, accounts=accounts)
@@ -111,6 +135,9 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     app.state.market_lock = RLock()
     quotes = MarketQuotes()
     admin_username = os.environ.get("TRADEVELOCITY_ADMIN_USERNAME", "").strip().lower()
+    frontend = Path(os.environ.get("TRADEVELOCITY_WEB_DIR") or PROJECT_ROOT / "frontend" / "dist")
+    pages = app_pages(frontend) if serve_frontend else {}
+    script_hashes = inline_script_hashes(frontend, pages) if serve_frontend else {}
 
     def is_admin(trader):
         return bool(trader and admin_username and trader.username == admin_username)
@@ -118,8 +145,13 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     @app.middleware("http")
     async def fresh_application_state(request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith("/api/") or request.url.path in ("/", "/index.html", "/app", "/login", "/signup"):
+        path = request.url.path
+        if path.startswith("/api/") or path in pages or path.endswith(".html"):
             response.headers["Cache-Control"] = "no-store"
+        hashes = script_hashes.get(path)
+        policy = response.headers.get("Content-Security-Policy")
+        if hashes and policy and response.headers.get("Content-Type", "").startswith("text/html"):
+            response.headers["Content-Security-Policy"] = policy.replace("script-src 'self';", f"script-src 'self' {hashes};")
         return response
 
     @app.exception_handler(ValueError)
@@ -128,12 +160,12 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request: Request, exc: RequestValidationError):
-        if request.url.path in ("/api/auth/login", "/api/auth/register"):
+        if request.url.path in ("/api/auth/login", "/api/auth/register", "/api/auth/device/login", "/api/auth/device/register"):
             return JSONResponse(status_code=422, content={"detail": "Check your sign-in details and try again"})
         return await request_validation_exception_handler(request, exc)
 
     def metadata(session: Session):
-        payload = {"reviews": session.reviews}
+        payload = {"reviews": session.reviews, "account_data": session.account_data}
         if session.legacy_account is not None:
             payload["broker"] = session.legacy_account
         return payload
@@ -165,7 +197,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                         raise HTTPException(409, "This request key was already used for different inputs.")
                     return prior[1]
             before, count = session.lab, len(session.lab.events)
-            reviews, monitor = session.reviews.copy(), session.monitor
+            reviews, monitor, account_data = session.reviews.copy(), session.monitor, session.account_data
             try:
                 response = jsonable_encoder(operation())
                 app.state.store.save(session_id, session.lab.events, metadata(session), session.revision + 1,
@@ -175,6 +207,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                 # No reader sees uncommitted work: all session reads use this lock.
                 session.lab = ExchangeSession.from_dict({"version": 2, "events": before.events[:count]}) if session.lab is before else before
                 session.reviews, session.monitor = reviews, monitor
+                session.account_data = account_data
                 if isinstance(exc, (sqlite3.Error, OSError, StorageError)):
                     # A disconnected database can have committed before its acknowledgement was lost.
                     session.needs_reload = True
@@ -198,6 +231,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         session.lab = lab
         session.legacy_account = payload.get("broker")
         session.reviews = payload.get("reviews", {})
+        session.account_data = payload.get("account_data", {})
         session.revision = payload.get("revision", 0)
         session.monitor = ExecutionMonitor()
         session.needs_reload = False
@@ -230,10 +264,20 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             raise HTTPException(404, "Shared trading is available in the hosted app")
         return load_session(SHARED_BOOK)
 
+    def funded_context():
+        if not accounts:
+            raise HTTPException(404, "Funded trading is available in the hosted app")
+        return load_session(FUNDED_BOOK)
+
+    def is_funded(context):
+        return bool(accounts and context[0] == FUNDED_BOOK)
+
     def order_owner(request: Request, context):
-        return request.state.trader.workspace_id if accounts and context[0] == SHARED_BOOK else None
+        return request.state.trader.workspace_id if accounts and context[0] in (SHARED_BOOK, FUNDED_BOOK) else None
 
     def session_for_orders(request: Request, private: SessionDependency):
+        if request.url.path.startswith("/api/paper"):
+            return funded_context()
         return shared_context() if request.url.path.startswith("/api/exchange") else private
 
     OrderBookDependency = Annotated[tuple[str, Session], Depends(session_for_orders)]
@@ -248,6 +292,98 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     def private_key(owner, key):
         return f"{owner}:{key}" if owner and key else key
 
+    def account_profile(session):
+        return session.account_data.get("profile", {
+            "revision": 0, "name": "", "watchlists": [{"name": "Watchlist", "symbols": []}],
+        })
+
+    @app.get("/api/account/profile")
+    def profile(context: SessionDependency):
+        with context[1].lock:
+            return account_profile(context[1])
+
+    @app.put("/api/account/profile")
+    def update_profile(payload: ProfileUpdate, context: SessionDependency, key: RequestKey = None):
+        names = [row.name.strip() for row in payload.watchlists]
+        if any(not name for name in names) or len(set(name.casefold() for name in names)) != len(names):
+            raise HTTPException(422, "Watchlist names must be nonempty and unique")
+        watchlists = [{"name": name, "symbols": list(dict.fromkeys(row.symbols))}
+                      for name, row in zip(names, payload.watchlists)]
+        session = context[1]
+
+        def update():
+            if payload.revision != account_profile(session)["revision"]:
+                raise HTTPException(409, "Your profile changed on another device. Reload before saving.")
+            updated = {"revision": payload.revision + 1, "name": payload.name.strip(),
+                       "watchlists": watchlists}
+            session.account_data = {**session.account_data, "profile": updated}
+            return updated
+
+        return commit(context, update, fingerprint("profile", payload.model_dump()), key)
+
+    @app.get("/api/account/portfolio")
+    def portfolio(context: SessionDependency):
+        owner, _ = context
+        _, funded = funded_context()
+        market = app.state.market
+        with funded.lock:
+            data = account_portfolio(funded.lab, owner, market.marks(), funded_credits(funded, owner))
+        return {**data, "market_as_of": market.as_of, "market_source": market.source}
+
+    def funded_credits(session, owner):
+        return session.account_data.get("credits", {}).get(owner, [])
+
+    @app.post("/api/account/funds")
+    def add_funds(payload: PaperCredit, context: SessionDependency, key: RequestKey = None):
+        if not accounts:
+            raise HTTPException(404, "The virtual wallet is available in the hosted app")
+        if not key:
+            raise HTTPException(400, "A request key is required to add virtual funds")
+        owner, _ = context
+        funded = funded_context()
+        session = funded[1]
+
+        def credit():
+            previous = funded_credits(session, owner)
+            if len(previous) >= 100:
+                raise HTTPException(409, "The practice wallet has reached its top-up limit")
+            entry = {"id": str(uuid4()), "amount": str(payload.amount),
+                     "timestamp": datetime.now(timezone.utc).isoformat(), "description": "Virtual funds added"}
+            credits = {**session.account_data.get("credits", {}), owner: [*previous, entry]}
+            session.account_data = {**session.account_data, "credits": credits}
+            return entry
+
+        return commit(funded, credit, fingerprint("add-funds", payload.model_dump()), private_key(owner, key))
+
+    @app.get("/api/account/notifications")
+    def notifications(context: SessionDependency):
+        owner, private = context
+        _, shared = funded_context()
+        with private.lock:
+            read_through = private.account_data.get("notifications_read_through", 0)
+        with shared.lock:
+            fills = trader_trades(shared, owner)
+        return {"unread": sum(trade.trade_id > read_through for trade in fills),
+                "items": [{"id": trade.trade_id, "symbol": trade.symbol, "quantity": trade.quantity,
+                           "price": float(trade.price), "timestamp": trade.timestamp,
+                           "read": trade.trade_id <= read_through} for trade in reversed(fills[-100:])]}
+
+    @app.post("/api/account/notifications/read")
+    def read_notifications(context: SessionDependency, key: RequestKey = None):
+        owner, private = context
+        _, shared = funded_context()
+        with shared.lock:
+            fills = trader_trades(shared, owner)
+            read_through = fills[-1].trade_id if fills else 0
+
+        def mark():
+            previous = private.account_data.get("notifications_read_through", 0)
+            private.account_data = {**private.account_data,
+                                    "notifications_read_through": max(previous, read_through)}
+            return {"read_through": private.account_data["notifications_read_through"]}
+
+        return commit(context, mark, fingerprint("read-notifications"), key)
+
     @app.get("/api/health")
     def health():
         return {"status": "ok", "application": "trade-velocity", "version": app.version, "execution": "local_matching_engine", "real_money": False, "storage": app.state.store.kind, "live_updates": True}
@@ -260,12 +396,12 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     @app.get("/api/auth/status")
     def auth_status(request: Request):
         if accounts:
-            trader = accounts.identity(request.cookies.get(COOKIE, ""))
+            trader = accounts.identity(account_token(request.headers, request.cookies))
             return {"required": True, "mode": "accounts", "authenticated": trader is not None,
                     "trader": {**asdict(trader), "admin": is_admin(trader)} if trader else None}
         return {"required":guard.settings.mode == "private", "authenticated":guard.authorized(request.headers,request.cookies)}
 
-    def sign_in_account(payload: Credentials, request: Request, *, register: bool):
+    def sign_in_account(payload: Credentials, request: Request, *, register: bool, device: bool = False):
         from .accounts import SESSION_LIFETIME
 
         if register and len(payload.password) < 12:
@@ -276,11 +412,13 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         if guard.limited(client, action, 30) or guard.limited(username, "account-" + action, 8):
             raise HTTPException(429, "Too many attempts. Try again in one minute.", headers={"Retry-After": "60"})
         authenticate = accounts.register if register else accounts.login
-        token = authenticate(username, payload.password, request.cookies.get(COOKIE, ""))
+        token = authenticate(username, payload.password, account_token(request.headers, request.cookies))
         if token is None:
             if register:
                 raise HTTPException(409, "Choose a different username")
             raise HTTPException(401, "Incorrect username or password")
+        if device:
+            return JSONResponse({"token": token, "expires_in": SESSION_LIFETIME}, status_code=201 if register else 200)
         response = JSONResponse({"authenticated": True}, status_code=201 if register else 200)
         response.set_cookie(COOKIE, token, max_age=SESSION_LIFETIME, secure=True, httponly=True, samesite="strict", path="/")
         return response
@@ -290,6 +428,14 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         if not accounts:
             raise HTTPException(404, "Account creation is available in the hosted app")
         return sign_in_account(payload, request, register=True)
+
+    @app.post("/api/auth/device/{action}")
+    def device_sign_in(action: Literal["login", "register"], payload: Credentials, request: Request):
+        if not accounts:
+            raise HTTPException(404, "Device sign-in requires a hosted workspace")
+        if "origin" in request.headers or any(key.startswith("sec-fetch-") for key in request.headers):
+            raise HTTPException(403, "Use the browser sign-in form")
+        return sign_in_account(payload, request, register=action == "register", device=True)
 
     @app.post("/api/auth/tutorial")
     def finish_tutorial(request: Request):
@@ -310,14 +456,14 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         if not accounts or not is_admin(request.state.trader):
             raise HTTPException(403, "Administrator access required")
         rows = accounts.activity()
-        _, session = shared_context()
         submitted, executions = {}, {}
-        with session.lock:
-            for owner in session.lab.owners.values():
-                submitted[owner] = submitted.get(owner, 0) + 1
-            for trade in session.lab.engine.trades():
-                for owner in {session.lab.owners.get(trade.buy_order_id), session.lab.owners.get(trade.sell_order_id)}:
-                    executions[owner] = executions.get(owner, 0) + 1
+        for _, session in (shared_context(), funded_context()):
+            with session.lock:
+                for owner in session.lab.owners.values():
+                    submitted[owner] = submitted.get(owner, 0) + 1
+                for trade in session.lab.engine.trades():
+                    for owner in {session.lab.owners.get(trade.buy_order_id), session.lab.owners.get(trade.sell_order_id)}:
+                        executions[owner] = executions.get(owner, 0) + 1
         return {"active_seconds": ACTIVE_SECONDS, "registered": len(rows),
                 "active": sum(row[3] for row in rows), "active_today": sum(row[4] for row in rows),
                 "users": [{"username": username, "last_active_at": last_active, "active": active,
@@ -346,7 +492,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     @app.post("/api/auth/logout")
     def logout(request: Request):
         if accounts:
-            accounts.logout(request.cookies.get(COOKIE, ""))
+            accounts.logout(account_token(request.headers, request.cookies))
         else:
             guard.revoke(request.cookies)
         response = JSONResponse({"authenticated":False})
@@ -370,7 +516,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             if not accounts:
                 return guard.authorized(websocket.headers, websocket.cookies)
             try:
-                trader = await run_in_threadpool(accounts.identity, websocket.cookies.get(COOKIE, ""))
+                trader = await run_in_threadpool(accounts.identity, account_token(websocket.headers, websocket.cookies))
             except StorageError:
                 return False
             return trader is not None and trader.workspace_id == session_id
@@ -383,7 +529,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             return
         try:
             _, session = await run_in_threadpool(load_session, session_id)
-            shared = (await run_in_threadpool(shared_context))[1] if accounts else None
+            books = [(await run_in_threadpool(context))[1] for context in (shared_context, funded_context)] if accounts else []
         except (HTTPException, ValueError, sqlite3.Error, OSError, StorageError):
             await websocket.close(code=1008)
             return
@@ -395,12 +541,12 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         with session.lock:
             session.listeners.append(listener)
             revision = session.revision
-        if shared:
-            with shared.lock:
-                shared.listeners.append(shared_listener)
+        for book in books:
+            with book.lock:
+                book.listeners.append(shared_listener)
         incoming = asyncio.create_task(websocket.receive_text())
         outgoing = asyncio.create_task(queue.get())
-        shared_update = asyncio.create_task(shared_queue.get()) if shared else None
+        shared_update = asyncio.create_task(shared_queue.get()) if books else None
         try:
             await websocket.send_json({"type": "connected", "revision": revision})
             while True:
@@ -425,9 +571,9 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         finally:
             with session.lock:
                 session.listeners.remove(listener)
-            if shared:
-                with shared.lock:
-                    shared.listeners.remove(shared_listener)
+            for book in books:
+                with book.lock:
+                    book.listeners.remove(shared_listener)
             tasks = [incoming, outgoing] + ([shared_update] if shared_update else [])
             for task in tasks:
                 task.cancel()
@@ -464,6 +610,29 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         client = request.state.trader.username if accounts else "local"
         fetch_allowed = not guard.limited(client, "quotes", 30)
         return quotes.lookup(symbol, app.state.market, fetch_allowed=fetch_allowed)
+
+    @app.post("/api/paper/liquidity/{symbol}")
+    def paper_liquidity(symbol: str, request: Request, context: OrderBookDependency, key: RequestKey = None):
+        symbol = symbol.upper()
+        if symbol not in COMPANIES:
+            raise HTTPException(404, "Simulated liquidity is available for supported market symbols")
+        owner = order_owner(request, context)
+        if guard.limited(owner, "paper-liquidity", 8):
+            raise HTTPException(429, "Wait one minute before refreshing simulated liquidity")
+        quote = quotes.lookup(symbol, app.state.market, fetch_allowed=True)
+        if not quote["price"] or not quote["as_of"]:
+            raise HTTPException(503, "A market reference price is unavailable")
+        age = (datetime.now(timezone.utc).date() - datetime.fromisoformat(quote["as_of"]).date()).days
+        if not 0 <= age <= 7:
+            raise HTTPException(503, "Refresh market data before generating simulated depth")
+        session = context[1]
+
+        def update():
+            refresh_virtual_depth(session.lab, symbol, Decimal(str(quote["price"])).quantize(Decimal("0.01")))
+            return {"symbol": symbol, "simulated": True, "reference_price": quote["price"],
+                    "as_of": quote["as_of"], "source": quote["source"]}
+
+        return commit(context, update, fingerprint("liquidity", symbol), private_key(owner, key))
 
     @app.post("/api/market/refresh")
     def refresh_market():
@@ -509,6 +678,13 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
 
+    @app.get("/api/analyst/{symbol}")
+    def analyst(symbol: str):
+        try:
+            return stock_analysis(app.state.market, symbol)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
     @app.get("/api/ai/anomalies/{symbol}")
     def anomaly_report(symbol: str, period: Literal["1M", "3M", "6M", "1Y", "5Y"] = "1Y"):
         """Analyze dated observations; scores are not fraud probabilities."""
@@ -520,6 +696,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
 
+    @app.get("/api/paper")
     @app.get("/api/exchange")
     @app.get("/api/lab")
     def lab_state(request: Request, context: OrderBookDependency, symbol: str = "RELIANCE"):
@@ -534,6 +711,15 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                     "book": session.lab.engine.order_book(symbol, 30), "stats": session.lab.engine.symbol_stats(symbol),
                     "trades": jsonable_encoder(trades[-100:]), "events": len(session.lab.events),
                     "total_trades": len(trades), "revision": session.revision}
+
+    @app.get("/api/paper/order-history")
+    @app.get("/api/exchange/order-history")
+    @app.get("/api/lab/order-history")
+    def orders_history(request: Request, context: OrderBookDependency, offset: int = Query(0, ge=0)):
+        session = context[1]
+        with session.lock:
+            rows = order_journal(session.lab, order_owner(request, context))
+        return {"total": len(rows), "orders": rows[offset:offset + 50]}
 
     @app.get("/api/exchange/watchdog")
     @app.get("/api/lab/watchdog")
@@ -569,16 +755,25 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         return commit(context, change, fingerprint(f"review:{event}", review_data.model_dump()),
                       private_key(order_owner(request, context), key))
 
+    @app.post("/api/paper/orders")
     @app.post("/api/exchange/orders")
     @app.post("/api/lab/orders")
     def lab_order(order: LabOrder, context: OrderBookDependency, request: Request, key: RequestKey = None):
         owner = order_owner(request, context)
         # Assign opaque IDs for the shared book; caller supplied IDs are for private sessions.
         order_id = f"TV-{uuid4()}" if owner else order.order_id
-        return commit(context, lambda: context[1].lab.place_order(
-            order_id, order.symbol, order.side, order.quantity, order.price, owner=owner),
-            fingerprint("place", order.model_dump()), private_key(owner, key))
+        session = context[1]
+        def place():
+            if is_funded(context):
+                if not order.confirmed or not order.price or not key:
+                    raise HTTPException(400, "Confirm a limit order before submitting it")
+                validate_limit(session.lab, owner, order.symbol, order.side, order.quantity,
+                               order.price, funded_credits(session, owner))
+            return session.lab.place_order(order_id, order.symbol, order.side, order.quantity, order.price, owner=owner)
+        payload = order.model_dump(exclude={"confirmed"} if not is_funded(context) else None)
+        return commit(context, place, fingerprint("place", payload), private_key(owner, key))
 
+    @app.delete("/api/paper/orders/{order_id}")
     @app.delete("/api/exchange/orders/{order_id}")
     @app.delete("/api/lab/orders/{order_id}")
     def cancel_lab_order(order_id: str, context: OrderBookDependency, request: Request, key: RequestKey = None):
@@ -592,6 +787,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             return {"canceled": order_id}
         return commit(context, cancel, fingerprint(f"cancel:{order_id}"), private_key(owner, key))
 
+    @app.patch("/api/paper/orders/{order_id}")
     @app.patch("/api/exchange/orders/{order_id}")
     @app.patch("/api/lab/orders/{order_id}")
     def modify_lab_order(order_id: str, amendment: Modification, context: OrderBookDependency, request: Request, key: RequestKey = None):
@@ -599,12 +795,22 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         def modify():
             if owner and context[1].lab.owners.get(order_id) != owner:
                 raise HTTPException(404, "order is no longer active")
+            if is_funded(context):
+                previous = context[1].lab.engine.get_order(order_id)
+                if previous is None:
+                    raise HTTPException(404, "order is no longer active")
+                if not amendment.confirmed or not key:
+                    raise HTTPException(400, "Confirm the amended order before submitting it")
+                validate_limit(context[1].lab, owner, previous["symbol"], previous["side"], amendment.quantity,
+                               amendment.price, funded_credits(context[1], owner), replacing=previous)
             try:
                 return context[1].lab.modify_order(order_id, amendment.quantity, amendment.price)
             except KeyError as exc:
                 raise HTTPException(404, "order is no longer active") from exc
-        return commit(context, modify, fingerprint(f"modify:{order_id}", amendment.model_dump()), private_key(owner, key))
+        payload = amendment.model_dump(exclude={"confirmed"} if not is_funded(context) else None)
+        return commit(context, modify, fingerprint(f"modify:{order_id}", payload), private_key(owner, key))
 
+    @app.get("/api/paper/trades")
     @app.get("/api/exchange/trades")
     @app.get("/api/lab/trades")
     def trade_history(request: Request, context: OrderBookDependency, offset: int = Query(default=0, ge=0),
@@ -617,6 +823,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                 trades = [trade for trade in trades if needle in f"{trade.trade_id} {trade.symbol} {trade.buy_order_id} {trade.sell_order_id}".casefold()]
             return {"total": len(trades), "trades": jsonable_encoder(list(reversed(trades))[offset:offset + limit])}
 
+    @app.get("/api/paper/trades/export")
     @app.get("/api/exchange/trades/export")
     @app.get("/api/lab/trades/export")
     def export_trades(request: Request, context: OrderBookDependency):
@@ -669,16 +876,13 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     def run_experiment(request: Comparison):
         return compare_workload(request.workload, request.count)
 
-    if serve_frontend:
-        frontend = PROJECT_ROOT / "frontend" / "dist"
-        if frontend.exists():
-            if accounts:
-                @app.get("/app")
-                @app.get("/login")
-                @app.get("/signup")
-                def account_page():
-                    return FileResponse(frontend / "index.html")
-            app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
+    if serve_frontend and frontend.exists():
+        @app.get("/app")
+        @app.get("/login")
+        @app.get("/signup")
+        def account_page(request: Request):
+            return FileResponse(pages[request.url.path])
+        app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
     return app
 
 

@@ -145,3 +145,69 @@ def test_shared_depth_updates_both_traders_and_survives_restart(backend, monkeyp
     row = next(user for user in report["users"] if user["username"] == seller_trader["username"])
     assert row["active"] and row["orders"] == row["executions"] == 1
     assert set(row) == {"username", "active", "last_active_at", "orders", "executions"}
+
+
+def test_funded_wallet_commits_reserves_fills_and_credits_once(backend, monkeypatch):
+    from datetime import datetime, timezone
+    from stock_engine.market_data import MarketQuotes
+
+    monkeypatch.setattr(MarketQuotes, "lookup", lambda self, symbol, market, **kwargs: {
+        "price": 100, "as_of": datetime.now(timezone.utc).isoformat(), "source": "Test fixture",
+    })
+    app = backend()
+    buyer = TestClient(app, base_url=ORIGIN)
+    trader = register(buyer)
+    base = {"X-Session-ID": trader["workspace_id"]}
+    order = {"order_id": "buy", "symbol": "RELIANCE", "side": "BUY", "quantity": 5, "price": "101"}
+    url = "/api/paper/orders"
+    headers = {**base, "Idempotency-Key": "fill-1"}
+    assert buyer.post(url, headers=headers, json=order).status_code == 400
+    assert buyer.post(url, headers=headers, json={**order, "side": "SELL", "confirmed": True}).status_code == 400
+    assert buyer.post(url, headers=headers, json={**order, "quantity": 10_000, "confirmed": True}).status_code == 400
+    seeded = buyer.post("/api/paper/liquidity/RELIANCE", headers={**base, "Idempotency-Key": "seed-1"})
+    assert seeded.is_success and seeded.json()["simulated"]
+    accepted = buyer.post(url, headers=headers, json={**order, "confirmed": True})
+    assert accepted.is_success, accepted.text
+    assert accepted.json()["filled"] == 5
+    assert buyer.post(url, headers=headers, json={**order, "confirmed": True}).json() == accepted.json()
+
+    credit_headers = {**base, "Idempotency-Key": "credit-1"}
+    credit = buyer.post("/api/account/funds", headers=credit_headers, json={"amount": 1000}).json()
+    assert buyer.post("/api/account/funds", headers=credit_headers, json={"amount": 1000}).json() == credit
+    resting = buyer.post(url, headers={**base, "Idempotency-Key": "reserve-1"},
+                         json={**order, "order_id": "reserve", "quantity": 3, "price": "80", "confirmed": True}).json()
+    assert resting["remaining"] == 3
+
+    restarted = TestClient(backend(), base_url=ORIGIN, cookies={COOKIE: buyer.cookies.get(COOKIE)})
+    wallet = restarted.get("/api/account/portfolio", headers=base).json()
+    assert wallet["cash"] == "1000499.25"
+    assert wallet["reserved"] == "240.00"
+    assert wallet["available_cash"] == "1000259.25"
+    assert wallet["holdings"][0]["quantity"] == 5
+    assert restarted.get("/api/account/notifications", headers=base).json()["unread"] == 1
+    assert restarted.post("/api/account/notifications/read", headers=base).is_success
+    assert restarted.get("/api/account/notifications", headers=base).json()["unread"] == 0
+    assert restarted.delete(f"/api/paper/orders/{resting['order_id']}", headers=base).is_success
+    assert restarted.get("/api/account/portfolio", headers=base).json()["reserved"] == "0.00"
+    statuses = [row["status"] for row in restarted.get("/api/paper/order-history", headers=base).json()["orders"]]
+    assert statuses == ["cancelled", "filled"]
+
+
+def test_native_sign_in_shares_profile_and_rejects_browser_token_requests(backend):
+    app = backend()
+    browser = TestClient(app, base_url=ORIGIN)
+    native = TestClient(app, base_url=ORIGIN)
+    trader = register(browser)
+    credentials = {"username": trader["username"], "password": PASSWORD}
+    endpoint = "/api/auth/device/login"
+    assert native.post(endpoint, headers={"Origin": ORIGIN}, json=credentials).status_code == 403
+    token = native.post(endpoint, json=credentials).json()["token"]
+    headers = {"Authorization": f"Bearer {token}", "X-Session-ID": trader["workspace_id"]}
+    assert native.get("/api/auth/status", headers=headers).json()["trader"]["workspace_id"] == trader["workspace_id"]
+    profile = {"revision": 0, "name": "Test Trader", "watchlists": [{"name": "Favorites", "symbols": ["TCS"]}]}
+    saved = native.put("/api/account/profile", headers=headers, json=profile)
+    assert saved.is_success, saved.text
+    assert browser.get("/api/account/profile", headers={"X-Session-ID": trader["workspace_id"]}).json() == saved.json()
+    assert native.put("/api/account/profile", headers=headers, json=profile).status_code == 409
+    assert native.post("/api/auth/logout", headers=headers).is_success
+    assert native.get("/api/account/profile", headers=headers).status_code == 401

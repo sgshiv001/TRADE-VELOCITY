@@ -10,5 +10,17 @@ frontend/node_modules
 frontend/dist
 frontend/test-results
 frontend/playwright-report
+**/node_modules
+**/.next
+**/.expo
+apps/web/public
+apps/web/out
+apps/desktop/dist
+apps/desktop/build
+apps/mobile/android
+apps/mobile/ios
+submission_files
+report_revision_work
+TradeVelocity_All_Submission_Files.zip
 **/__pycache__
 Lab_Assignments

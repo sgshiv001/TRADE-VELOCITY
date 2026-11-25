@@ -51,7 +51,7 @@ export async function api<T>(
 ): Promise<T> {
   const id = await sessionId();
   const { timeoutMs = path === "/market/refresh" ? 120000 : path === "/experiments" ? 60000 : 15000, requestKey, ...request } = options;
-  const mutation = request.method && request.method !== "GET" && (path.startsWith("/lab/") || path.startsWith("/exchange/"));
+  const mutation = request.method && request.method !== "GET" && ["/lab/", "/exchange/", "/paper/", "/account/"].some(prefix => path.startsWith(prefix));
   const key = mutation ? requestKey ?? crypto.randomUUID() : undefined;
   const headers = new Headers(request.headers);
   headers.set("Content-Type", "application/json"); headers.set("X-Session-ID", id);
