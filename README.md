@@ -65,16 +65,16 @@ Our [latest complete GitHub Actions run](https://github.com/sgshiv001/TRADE-VELO
 
 ## Team
 
-We are **Hash Syndicate**: Shivanshu Gupta, Aditya Verma, Sourabh Gupta, and Harshit Sharma. We developed and integrated the course project together. In our group presentation, we divided the explanation this way:
+We are **Hash Syndicate**. We built TradeVelocity together and focused on these areas of the project.
 
-| Member | Presentation area |
+| Member | Project contribution |
 | --- | --- |
-| Shivanshu Gupta | Matching rules, fills, cancellations, and correctness checks |
-| Aditya Verma | React interface, themes, order entry, and market views |
-| Sourabh Gupta | Backend integration, saved sessions, workloads, and performance comparison |
-| Harshit Sharma | AI monitoring, validation, tests, and documentation |
+| Shivanshu Gupta | Project concept, application design, core order-matching engine, and admin dashboard |
+| Aditya Verma | Backend development, database integration, and support for app operations |
+| Sourabh Gupta | Trading frontend development and testing of order placement and execution |
+| Harshit Sharma | AI feature development and model training for the in-app assistant |
 
-These are the areas recorded in our project report. They describe what each member presented, not exclusive ownership of files or commits. The [team page](docs/team.md) and [three-minute demo guide](docs/adsa-demo.md) have the short version for visitors and reviewers.
+See the [team page](docs/team.md) and [three-minute demo guide](docs/adsa-demo.md).
 
 ## More detail
 
