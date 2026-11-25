@@ -2,17 +2,18 @@ import { useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { formatINR } from "@tradevelocity/client";
-import { Action, Screen, theme } from "../src/workspace";
+import { Action, Screen, useMobileTheme } from "../src/workspace";
 import { useData, type MarketOverview } from "../src/data";
 
 export default function Markets() {
+  const {theme, colors} = useMobileTheme();
   const [search, setSearch] = useState("");
   const market = useData<MarketOverview>("/market");
   const query = search.trim().toLowerCase();
   const rows = market.data?.companies.filter(row => `${row.name} ${row.symbol}`.toLowerCase().includes(query)) ?? [];
-  return <Screen title="Explore markets">
+  return <Screen title="Explore markets" refresh={market.refresh}>
     <TextInput style={theme.field} accessibilityLabel="Search stocks" placeholder="Search stocks"
-      placeholderTextColor="#94a3b8" value={search} onChangeText={setSearch} />
+      placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} />
     {market.error && <Text style={theme.error}>{market.error}</Text>}
     {market.data && <Text style={theme.subtle}>{market.data.source}</Text>}
     {market.data && !rows.length && <Text style={theme.subtle}>No symbols match your search.</Text>}

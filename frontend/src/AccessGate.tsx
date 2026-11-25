@@ -6,7 +6,10 @@ import { desktopView, workspaceRoute } from "./desktopView";
 export type Trader = { username: string; workspace_id: string; tutorial_seen: boolean; admin?: boolean };
 type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null };
 
-export default function AccessGate({children}: {children: (trader: Trader | null) => ReactNode}) {
+export default function AccessGate({children, redesigned = false}: {
+  children: (trader: Trader | null, signOut: () => Promise<void>) => ReactNode;
+  redesigned?: boolean;
+}) {
   const [access, setAccess] = useState<Access | null>(null);
   const [key, setKey] = useState("");
   const [username, setUsername] = useState("");
@@ -57,26 +60,30 @@ export default function AccessGate({children}: {children: (trader: Trader | null
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Sign-in failed."); }
     finally { setBusy(false); }
   }
+  async function signOut() {
+    try {
+      const response = await fetch("/api/auth/logout", {method: "POST"});
+      if (!response.ok) throw new Error();
+      setAccountWorkspace(null);
+      if (access?.mode === "accounts") window.history.replaceState(null, "", workspaceRoute("/login"));
+      setAccess(previous => previous ? {...previous, authenticated: false, trader: null} : previous);
+      setError("");
+    } catch { setError("Sign-out failed. Retry or close the browser."); }
+  }
   if (access?.mode === "accounts" && window.location.pathname === "/") {
     return <ProductPage signedIn={access.authenticated} />;
   }
   if (access?.authenticated) return <>
-    {access.required && <div className="access-strip"><span>{access.trader ? `Signed in as ${access.trader.username}` : "Private single-operator workspace"}</span><button className="secondary-button" onClick={async () => {
-      try {
-        const response = await fetch("/api/auth/logout", {method: "POST"});
-        if (!response.ok) throw new Error();
-        setAccountWorkspace(null);
-        if (access.mode === "accounts") window.history.replaceState(null, "", workspaceRoute("/login"));
-        setAccess({...access, authenticated: false, trader: null});
-        setError("");
-      }
-      catch { setError("Sign-out failed. Retry or close the browser."); }
-    }}>Sign out</button>{error && <span role="alert">{error}</span>}</div>}
-    {children(access.trader ?? null)}
+    {access.required && (!redesigned || desktopAdmin) && <div className="access-strip"><span>{access.trader ? `Signed in as ${access.trader.username}` : "Private single-operator workspace"}</span><button className="secondary-button" onClick={() => void signOut()}>Sign out</button>{error && <span role="alert">{error}</span>}</div>}
+    {redesigned && !desktopAdmin && error && <p className="notice error" role="alert">{error}</p>}
+    {children(access.trader ?? null, signOut)}
   </>;
-  if (access?.mode === "accounts") return <main className="access-page">
+  if (access?.mode === "accounts") return <main className={redesigned ? "tv2 tv2-access" : "access-page"}>
+    {redesigned && <aside className="tv2-auth-intro"><a className="tv2-brand" href="/"><img src="/tv-mark.svg" alt="" width={36} height={36} /><span>TradeVelocity</span></a>
+      <h2>{desktopAdmin ? "TradeVelocity administration" : "Intelligence behind every trade."}</h2>
+      <p>{desktopAdmin ? "Monitor active accounts and service status." : "Research markets and practise trading with a virtual portfolio."}</p></aside>}
     <section className="panel access-panel trader-access" aria-labelledby="access-heading">
-      <div className="trader-access-brand"><img src="/favicon.svg" alt="" /><span>TRADEVELOCITY</span></div>
+      {!redesigned && <div className="trader-access-brand"><img src="/favicon.svg" alt="" /><span>TRADEVELOCITY</span></div>}
       <h1 id="access-heading">{desktopAdmin ? "Admin sign in" : signup ? "Create your account" : "Sign in"}</h1>
       <p>{desktopAdmin ? "Sign in with the authorized TradeVelocity administrator account." : "Use your demo demat account to trade with virtual cash and shares."}</p>
       {error && <p className="notice error" role="alert">{error}</p>}

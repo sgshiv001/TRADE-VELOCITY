@@ -5,9 +5,10 @@
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#080C14",
-  "theme_color": "#101d37",
+  "background_color": "#090c10",
+  "theme_color": "#090c10",
   "icons": [
+    {"src": "/tv-mark.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any"},
     {"src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any"},
     {"src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any"}
   ]

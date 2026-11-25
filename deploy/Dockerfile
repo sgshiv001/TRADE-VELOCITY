@@ -11,6 +11,7 @@ RUN npm install -g pnpm@11.25.0 && pnpm --filter @tradevelocity/web... install -
 COPY apps/web/ apps/web/
 COPY frontend/ frontend/
 COPY packages/client/ packages/client/
+COPY src/stock_engine/data/market-history.json src/stock_engine/data/market-history.json
 RUN pnpm --filter @tradevelocity/web build
 
 FROM python:3.13-slim-bookworm

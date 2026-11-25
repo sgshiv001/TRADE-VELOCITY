@@ -1,0 +1,17 @@
+extends: ./electron-builder.yml
+appId: com.tradevelocity.preview
+productName: TradeVelocity Preview
+directories:
+  output: build/preview
+win:
+  signAndEditExecutable: false
+  target:
+    - nsis
+    - msi
+artifactName: TradeVelocity-2.0-Preview-${arch}.${ext}
+extraMetadata:
+  tradevelocityDesktopView: trader
+  tradevelocityPreview: true
+  tradevelocityOrigin: https://localhost:8443
+nsis:
+  createDesktopShortcut: false

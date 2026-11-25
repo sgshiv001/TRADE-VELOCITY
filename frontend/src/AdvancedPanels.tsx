@@ -13,7 +13,7 @@ export function PaperAccountStrip({symbol, revision}: {symbol: string; revision:
   </section>;
 }
 
-type Wallet = {
+export type Wallet = {
   cash: string; available_cash: string; reserved: string; equity: string; invested: string;
   realized: string; unrealized: string; contributed: string; holdings_value: string; market_as_of: string; market_source: string;
   holdings: {symbol: string; quantity: number; average_cost: string; mark: string; mark_source: string; mark_as_of?: string | null; value: string; pnl: string}[];
@@ -21,12 +21,12 @@ type Wallet = {
 };
 
 export type Profile = {revision: number; name: string; watchlists: {name: string; symbols: string[]}[]};
-type Executions = {unread: number; items: {id: number; symbol: string; price: number; quantity: number; timestamp: string | null; read: boolean}[]};
+export type Executions = {unread: number; items: {id: number; symbol: string; price: number; quantity: number; timestamp: string | null; read: boolean}[]};
 type Journal = {total: number; orders: {
   order_id: string; symbol: string; side: string; order_type: string; requested_price: string | null;
   filled_quantity: number; remaining_quantity: number; average_fill_price: string | null; timestamp: string | null; status: string;
 }[]};
-type Analyst = {
+export type Analyst = {
   symbol: string; company: string; as_of: string; source: string; stale: boolean; signal: string;
   recommendation: string; recommendation_reason: string; evidence: string[]; risk_flags: string[]; macd_histogram: number;
   forecast: {horizon: string; method: string; reference_price: number; point: number; lower: number; upper: number;
@@ -36,18 +36,19 @@ type Analyst = {
 const errorText = (error: unknown) => error instanceof Error ? error.message : "The request could not be completed.";
 const statusLabels: Record<string, string> = {open: "Open", filled: "Filled", cancelled: "Cancelled", expired: "Expired", partially_filled: "Partially filled"};
 
-function useResource<T>(path: string, revision = 0) {
+export function useResource<T>(path: string | null, revision = 0) {
   const [result, setResult] = useState<{path: string; data: T}>();
   const [error, setError] = useState("");
   const [refreshCount, retry] = useState(0);
   useEffect(() => {
+    if (!path) return;
     const controller = new AbortController();
     api<T>(path, {signal: controller.signal}).then(data => {
       if (!controller.signal.aborted) { setResult({path, data}); setError(""); }
     }).catch(cause => { if (!controller.signal.aborted) setError(errorText(cause)); });
     return () => controller.abort();
   }, [path, revision, refreshCount]);
-  return {data: result?.path === path ? result.data : undefined, error, reload: () => retry(value => value + 1)};
+  return {data: result?.path === path ? result.data : undefined, error: path ? error : "", reload: () => retry(value => value + 1)};
 }
 
 function Header({title, children}: {title: string; children?: ReactNode}) {

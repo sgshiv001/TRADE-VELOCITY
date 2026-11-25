@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { Action, Screen, theme, useWorkspace } from "../src/workspace";
+import { Action, Screen, useMobileTheme, useWorkspace } from "../src/workspace";
 import { formatINR, type ExecutionInbox, type Portfolio } from "@tradevelocity/client";
 import { useData } from "../src/data";
 
 export default function Home() {
+  const {theme} = useMobileTheme();
   const {trader, signOut, enableLock, request} = useWorkspace();
   const portfolio = useData<Portfolio>("/account/portfolio");
   const inbox = useData<ExecutionInbox>("/account/notifications");
@@ -12,7 +13,7 @@ export default function Home() {
   function action(operation: () => Promise<unknown>, success: string) {
     void operation().then(() => setNotice(success)).catch(error => setNotice(String(error)));
   }
-  return <Screen title="Overview">
+  return <Screen title="Overview" refresh={() => { portfolio.refresh(); inbox.refresh(); }}>
     <Text style={theme.subtle}>Signed in as {trader.username} · INR paper trading</Text>
     {portfolio.error && <Text style={theme.error}>{portfolio.error}</Text>}
     {portfolio.data && <View style={theme.panel}>

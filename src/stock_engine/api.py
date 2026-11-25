@@ -115,7 +115,7 @@ class Session:
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
                security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="0.5.1", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="TradeVelocity", version="2.0.0-beta.1", docs_url=None, redoc_url=None, openapi_url=None)
     settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
@@ -905,6 +905,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         @app.get("/app")
         @app.get("/login")
         @app.get("/signup")
+        @app.get("/download")
         def account_page(request: Request):
             return FileResponse(pages[request.url.path])
         app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")

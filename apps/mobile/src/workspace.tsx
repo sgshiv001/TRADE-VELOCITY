@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState, Button, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import { createClient, TradeVelocityApiError, type Trader } from "@tradevelocity/client";
@@ -17,26 +17,41 @@ export function useWorkspace() {
   return session;
 }
 
-export const theme = StyleSheet.create({
-  screen: {flex: 1, backgroundColor: "#080c14"},
-  section: {padding: 18, gap: 12},
-  panel: {backgroundColor: "#111827", borderRadius: 14, padding: 14, gap: 8, borderWidth: 1, borderColor: "#28354b"},
-  title: {color: "#f8fafc", fontSize: 27, fontWeight: "700"},
-  text: {color: "#f8fafc", fontSize: 16},
-  subtle: {color: "#bdc9db", fontSize: 14},
-  error: {color: "#fda4af", fontSize: 14},
-  field: {backgroundColor: "#111827", borderWidth: 1, borderColor: "#566580", borderRadius: 10, color: "#f8fafc", minHeight: 48, paddingHorizontal: 12},
-  action: {backgroundColor: "#4338ca", borderRadius: 10, padding: 12, alignItems: "center"},
-  actionText: {color: "#fff", fontSize: 16, fontWeight: "700"},
-});
+const palettes = {
+  dark: {background: "#090c10", panel: "#11171d", line: "#26303a", text: "#eff5f4", muted: "#a2b0bc", action: "#35d69e", onAction: "#09271e", error: "#f99099"},
+  light: {background: "#f3f6f5", panel: "#ffffff", line: "#d9e3e0", text: "#15211f", muted: "#4e605b", action: "#056349", onAction: "#ffffff", error: "#ad2b3b"},
+};
+function createTheme(colors: typeof palettes.dark) {
+  return StyleSheet.create({
+    screen: {flex: 1, backgroundColor: colors.background},
+    section: {padding: 18, gap: 13},
+    panel: {backgroundColor: colors.panel, borderRadius: 10, padding: 15, gap: 8, borderWidth: 1, borderColor: colors.line},
+    title: {color: colors.text, fontSize: 31, fontWeight: "700", letterSpacing: -1.1},
+    text: {color: colors.text, fontSize: 16},
+    subtle: {color: colors.muted, fontSize: 14},
+    error: {color: colors.error, fontSize: 14},
+    field: {backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line, borderRadius: 8, color: colors.text, minHeight: 48, paddingHorizontal: 12},
+    action: {backgroundColor: colors.action, borderRadius: 8, padding: 13, alignItems: "center"},
+    actionText: {color: colors.onAction, fontSize: 16, fontWeight: "700"},
+    link: {color: colors.action, fontSize: 15, paddingVertical: 8, fontWeight: "600"},
+  });
+}
+const themes = {light: createTheme(palettes.light), dark: createTheme(palettes.dark)};
+export function useMobileTheme() {
+  const mode = useColorScheme() === "light" ? "light" : "dark";
+  return {theme: themes[mode], colors: palettes[mode], mode};
+}
 
-export function Screen({title, children}: {title: string; children: ReactNode}) {
-  return <ScrollView style={theme.screen} contentContainerStyle={theme.section} keyboardShouldPersistTaps="handled">
+export function Screen({title, children, refresh}: {title: string; children: ReactNode; refresh?: () => void}) {
+  const {theme, colors} = useMobileTheme();
+  return <ScrollView style={theme.screen} contentContainerStyle={theme.section} keyboardShouldPersistTaps="handled"
+    refreshControl={refresh ? <RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.action} /> : undefined}>
     <Text style={theme.title} accessibilityRole="header">{title}</Text>{children}
   </ScrollView>;
 }
 
 export function Action({title, onPress, disabled = false}: {title: string; onPress(): void; disabled?: boolean}) {
+  const {theme} = useMobileTheme();
   return <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled}
     style={[theme.action, disabled && {opacity: 0.6}]} onPress={onPress}><Text style={theme.actionText}>{title}</Text></Pressable>;
 }
@@ -46,6 +61,7 @@ function reason(error: unknown) {
 }
 
 export function MobileSession({children}: {children: ReactNode}) {
+  const {theme, colors} = useMobileTheme();
   const [session, setSession] = useState<Session | null>(null);
   const [locked, setLocked] = useState(false);
   const [restoring, setRestoring] = useState(true);
@@ -172,11 +188,13 @@ export function MobileSession({children}: {children: ReactNode}) {
     {locked ? <Action title="Unlock your session" onPress={() => void unlock()} /> : <View style={theme.panel}>
       <Text style={theme.text}>{register ? "Create your account" : "Sign in to your paper trading account"}</Text>
       <TextInput accessibilityLabel="Username" style={theme.field} autoCapitalize="none" autoCorrect={false} autoComplete="username"
-        placeholder="Username" placeholderTextColor="#94a3b8" value={username} onChangeText={setUsername} />
+        placeholder="Username" placeholderTextColor={colors.muted} value={username} onChangeText={setUsername} />
       <TextInput accessibilityLabel="Password" style={theme.field} secureTextEntry autoComplete={register ? "new-password" : "current-password"}
-        placeholder="Password" placeholderTextColor="#94a3b8" value={password} onChangeText={setPassword} />
+        placeholder="Password" placeholderTextColor={colors.muted} value={password} onChangeText={setPassword} />
       <Action title={register ? "Create account" : "Sign in"} disabled={busy || !username || !password} onPress={() => void submit()} />
-      <Button title={register ? "Use existing account" : "Create an account"} onPress={() => setRegister(!register)} />
+      <Pressable accessibilityRole="button" onPress={() => setRegister(!register)}>
+        <Text style={theme.link}>{register ? "Use existing account" : "Create an account"}</Text>
+      </Pressable>
     </View>}
   </Screen>;
 }

@@ -6,6 +6,11 @@ export function desktopView(): DesktopView | null {
 }
 
 export function workspaceRoute(path: "/app" | "/login" | "/signup") {
-  const view = desktopView();
-  return view ? `${path}?desktopView=${view}` : path;
+  const current = new URLSearchParams(window.location.search);
+  const query = new URLSearchParams();
+  for (const name of ["desktopView", "view", "symbol"]) {
+    const value = current.get(name);
+    if (value) query.set(name, value);
+  }
+  return query.size ? `${path}?${query}` : path;
 }

@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Alert, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { formatINR, limitOrderSchema, symbolSchema, TradeVelocityApiError, type Depth, type LimitOrder, type Quote } from "@tradevelocity/client";
-import { Action, Screen, theme, useWorkspace } from "../src/workspace";
+import { Action, Screen, useMobileTheme, useWorkspace } from "../src/workspace";
 import { useData } from "../src/data";
 
 export default function Trade() {
+  const {theme, colors} = useMobileTheme();
   const link = useLocalSearchParams<{symbol?: string}>();
   const [symbol, setSymbol] = useState("RELIANCE"), [input, setInput] = useState("RELIANCE");
   const [shares, setShares] = useState(""), [price, setPrice] = useState("");
@@ -49,7 +50,7 @@ export default function Trade() {
     ]);
   }
 
-  return <Screen title="Paper trading">
+  return <Screen title="Paper trading" refresh={() => { depth.refresh(); quote.refresh(); }}>
     <Text style={theme.subtle}>Funded simulation · Limit orders</Text>
     <TextInput accessibilityLabel="Symbol" autoCapitalize="characters" style={theme.field} value={input} onChangeText={setInput} />
     <Action title="Show symbol" onPress={choose} />
@@ -64,8 +65,8 @@ export default function Trade() {
       }} />
     </View>
     {depth.error && <Text style={theme.error}>{depth.error}</Text>}
-    <TextInput style={theme.field} accessibilityLabel="Shares" placeholder="Shares" placeholderTextColor="#94a3b8" keyboardType="number-pad" value={shares} onChangeText={setShares} />
-    <TextInput style={theme.field} accessibilityLabel="Limit price" placeholder="Limit price" placeholderTextColor="#94a3b8" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
+    <TextInput style={theme.field} accessibilityLabel="Shares" placeholder="Shares" placeholderTextColor={colors.muted} keyboardType="number-pad" value={shares} onChangeText={setShares} />
+    <TextInput style={theme.field} accessibilityLabel="Limit price" placeholder="Limit price" placeholderTextColor={colors.muted} keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
     <Action title="Review buy" disabled={busy || Boolean(pending)} onPress={() => review("BUY")} />
     <Action title="Review sell" disabled={busy || Boolean(pending)} onPress={() => review("SELL")} />
     {pending && <Action title="Retry confirmed order" disabled={busy} onPress={() => void submit(pending)} />}
