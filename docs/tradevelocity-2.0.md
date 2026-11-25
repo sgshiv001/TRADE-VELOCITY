@@ -44,7 +44,9 @@ python -m uvicorn stock_engine.api:app --host 127.0.0.1 --port 8443 --loop stock
 
 Supply a local certificate and key for the configured origin. Keep both out of version control. Run the migrations against the disposable database first. Revision `0001_persistent_books` adopts the existing schema and `0002_admin_activity_index` adds an index. The account, session, command and receipt rows stay intact. The baseline intentionally has no data-dropping downgrade.
 
-The Windows preview configuration uses its own application ID and profile, points to the local staging service, and accepts its configured certificate fingerprint. Build it with a SHA-256 fingerprint from the same local certificate. For Android, use Expo prebuild and the generated Gradle wrapper. The native package uses `com.tradevelocity.nativeapp` and supports an `EXPO_PUBLIC_API_URL` HTTPS origin at build time. An APK signed with the debug key is suitable for emulator and local testing.
+The Windows preview configuration uses its own application ID and profile, points to the local staging service, and accepts its configured certificate fingerprint. Build it with a SHA-256 fingerprint from the same local certificate. For Android, use Expo prebuild and the generated Gradle wrapper. On Windows, use a short checkout path without spaces for the Android build. The native package uses `com.tradevelocity.nativeapp` and supports an `EXPO_PUBLIC_API_URL` HTTPS origin at build time. An APK signed with the debug key is suitable for emulator and local testing.
+
+Run `node frontend/scripts/smoke-v2.mjs` while the local staging service is up. The smoke test creates a test trader, confirms a buy and sell, checks the same balance through device authentication, and exercises the watchlist, research screens and mobile browser navigation. Pass a directory as the first argument to capture screenshots.
 
 ## Release work remaining
 

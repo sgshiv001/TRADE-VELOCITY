@@ -213,14 +213,19 @@ def test_market_follow_keeps_resting_orders_and_discards_older_quotes(backend, m
     })
     assert result.is_success, result.text
     assert result.json()["remaining"] == 2
+    order_id = result.json()["order_id"]
     snapshot.update(price=110, as_of=(observed_at + timedelta(minutes=1)).isoformat())
     assert client.post(endpoint, headers=headers).json()["updated"] is True
     second = client.get(book, headers=headers).json()
     assert float(second["book"]["asks"][0]["price"]) == 110.16
-    assert any(float(bid["price"]) == 75 and bid["quantity"] == 2 for bid in second["book"]["bids"])
+    resting = next(order for order in second["orders"] if order["order_id"] == order_id)
+    assert float(resting["price"]) == 75
+    assert resting["remaining"] == 2
+    assert any(float(bid["price"]) == 75 and bid["quantity"] >= 2 for bid in second["book"]["bids"])
     snapshot.update(price=90, as_of=observed_at.isoformat())
     assert client.post(endpoint, headers=headers).json()["updated"] is False
     assert client.get(book, headers=headers).json()["revision"] == second["revision"]
+    assert client.delete(f"/api/paper/orders/{order_id}", headers=headers).is_success
 
 
 def test_native_sign_in_shares_profile_and_rejects_browser_token_requests(backend):
