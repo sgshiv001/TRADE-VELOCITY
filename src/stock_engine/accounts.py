@@ -14,6 +14,7 @@ from .storage import PostgresSessionStore
 
 SESSION_LIFETIME = 7 * 24 * 60 * 60
 SHARED_BOOK = "00000000-0000-0000-0000-000000000001"
+FUNDED_BOOK = "00000000-0000-0000-0000-000000000002"
 ACTIVE_SECONDS = 90
 
 
@@ -59,9 +60,10 @@ class Accounts:
                 """)
                 connection.execute("CREATE INDEX IF NOT EXISTS trader_logins_expiration ON trader_logins(expires_at)")
                 connection.execute("ALTER TABLE trader_accounts ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ")
-                connection.execute(
-                    "INSERT INTO sessions VALUES (%s, %s, 0, %s) ON CONFLICT (session_id) DO NOTHING",
-                    (SHARED_BOOK, '{"reviews":{}}', datetime.now(timezone.utc).isoformat()))
+                for book_id in (SHARED_BOOK, FUNDED_BOOK):
+                    connection.execute(
+                        "INSERT INTO sessions VALUES (%s, %s, 0, %s) ON CONFLICT (session_id) DO NOTHING",
+                        (book_id, '{"reviews":{}}', datetime.now(timezone.utc).isoformat()))
             self.initialized = True
 
     def register(self, username: str, password: str, previous_token: str = "") -> str | None:

@@ -25,25 +25,27 @@ export function MarketPrice({ quote, compact = false }: { quote: Quote | null; c
   </div>;
 }
 
-export function OrderTicket({ symbol, lab, changed, quote, shared }: {
-  symbol: string; lab: Lab; changed: () => Promise<void>; quote: Quote | null; shared: boolean;
+export function OrderTicket({ symbol, lab, changed, quote, shared, funded = false }: {
+  symbol: string; lab: Lab; changed: () => Promise<void>; quote: Quote | null; shared: boolean; funded?: boolean;
 }) {
   const [side, setSide] = useState("BUY"), [quantity, setQuantity] = useState(""), [price, setPrice] = useState("");
   const [kind, setKind] = useState("limit"), [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [reviewing, setReviewing] = useState(false);
   const [editing, setEditing] = useState<Order | null>(null);
   const [editQuantity, setEditQuantity] = useState(""), [editPrice, setEditPrice] = useState("");
   const pending = useRef<{intent: string; body: string; key: string} | null>(null);
-  const orderPath = shared ? "/exchange/orders" : "/lab/orders";
+  const orderPath = funded ? "/paper/orders" : shared ? "/exchange/orders" : "/lab/orders";
   const describe = (result: OrderResult) => `${result.order_id}: ${result.filled} shares filled · ${result.remaining} unfilled · ${result.resting ? "resting on book" : "not resting"}`;
-  async function submit(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+  async function submit() {
+    if (!navigator.onLine) { setError("Reconnect before submitting a paper order."); return; }
+    setBusy(true); setError(""); setNotice("");
     try {
-      const intent = JSON.stringify({symbol, side, quantity: Number(quantity), price: kind === "market" ? null : price});
+      const intent = JSON.stringify({symbol, side, quantity: Number(quantity), price: kind === "market" ? null : price, ...(funded ? {confirmed: true} : {})});
       if (pending.current && pending.current.intent !== intent) throw new Error("The previous order is not confirmed. Restore its inputs and retry it before submitting a different order.");
       pending.current ??= {intent, body: JSON.stringify({order_id: `TV-${crypto.randomUUID()}`, ...JSON.parse(intent)}), key: crypto.randomUUID()};
       const result = await api<OrderResult>(orderPath, { method: "POST", body: pending.current.body, requestKey: pending.current.key });
-      pending.current = null; setQuantity(""); setNotice(describe(result)); await changed();
+      pending.current = null; setQuantity(""); setReviewing(false); setNotice(describe(result)); await changed();
     }
     catch (cause) {
       if (cause instanceof ApiError && [400, 409, 422].includes(cause.status)) pending.current = null;
@@ -56,23 +58,30 @@ export function OrderTicket({ symbol, lab, changed, quote, shared }: {
     catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   async function amend(event: FormEvent) {
-    event.preventDefault(); if (!editing) return; setBusy(true); setError("");
-    try { const result = await api<OrderResult>(`${orderPath}/${encodeURIComponent(editing.order_id)}`, { method: "PATCH", body: JSON.stringify({ quantity: Number(editQuantity), price: editPrice }) }); setNotice(`Amended ${describe(result)}`); setEditing(null); await changed(); }
+    event.preventDefault(); if (!editing) return;
+    if (funded && !window.confirm(`Set the remaining quantity to ${editQuantity} shares at ${inr(editPrice)}?`)) return;
+    setBusy(true); setError("");
+    try { const result = await api<OrderResult>(`${orderPath}/${encodeURIComponent(editing.order_id)}`, { method: "PATCH", body: JSON.stringify({ quantity: Number(editQuantity), price: editPrice, ...(funded ? {confirmed: true} : {}) }) }); setNotice(`Amended ${describe(result)}`); setEditing(null); await changed(); }
     catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   const orders = lab.orders.filter(order => order.symbol === symbol);
   return <section className="panel"><div className="panel-heading"><h2>Place an order · {symbol}</h2><MarketPrice quote={quote} compact /></div>
-    <form onSubmit={submit}><fieldset className="ticket-grid" disabled={busy}>
+    <form onSubmit={event => { event.preventDefault(); if (funded) setReviewing(true); else void submit(); }}><fieldset className="ticket-grid" disabled={busy || reviewing}>
       <label>Side<select value={side} onChange={event => setSide(event.target.value)}><option>BUY</option><option>SELL</option></select></label>
-      <label>Type<select value={kind} onChange={event => setKind(event.target.value)}><option value="limit">Limit</option><option value="market">Market</option></select></label>
+      <label>Type<select value={kind} onChange={event => setKind(event.target.value)}><option value="limit">Limit</option>{!funded && <option value="market">Market</option>}</select></label>
       <label>Shares<input type="number" inputMode="numeric" required min="1" max="1000000" step="1" placeholder="Enter quantity" value={quantity} onChange={event => setQuantity(event.target.value)} /></label>
       <label>Limit price<input aria-label="Limit price" type="number" required={kind === "limit"} disabled={kind === "market"} min="0.01" step="0.01" placeholder="Enter a price" value={price} onChange={event => setPrice(event.target.value)} /></label>
-      <button className="primary-button" type="submit">{busy ? "Processing…" : `Submit ${side.toLowerCase()}`}</button>
-    </fieldset>{kind === "limit" && quote?.price != null && <button className="text-button quote-fill" type="button" disabled={busy} onClick={() => setPrice(Number(quote.price).toFixed(2))}>Use market price as limit</button>}</form>
+      <button className="primary-button" type="submit">{busy ? "Processing…" : `${funded ? "Review" : "Submit"} ${side.toLowerCase()}`}</button>
+    </fieldset>{kind === "limit" && quote?.price != null && <button className="text-button quote-fill" type="button" disabled={busy || reviewing} onClick={() => setPrice(Number(quote.price).toFixed(2))}>Use market price as limit</button>}</form>
+    {reviewing && <div className="confirmation" aria-label="Review paper order">
+      <p>{side} {quantity} {symbol} at a limit of {inr(price)}. Limit value {inr(Number(quantity) * Number(price))}.</p>
+      <button className="primary-button" disabled={busy} onClick={() => void submit()}>{pending.current ? "Retry confirmed order" : "Confirm order"}</button>
+      <button className="secondary-button" disabled={busy || Boolean(pending.current)} onClick={() => setReviewing(false)}>Back</button>
+    </div>}
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="notice error" role="alert">{error}</p>}
     {editing && <form onSubmit={amend} className="order-amend"><h3>Amend {editing.order_id}</h3><p className="fine-print">This sets the new remaining quantity and price, resets time priority, and may match immediately.</p><fieldset className="ticket-grid" disabled={busy}><label>New remaining shares<input aria-label="New remaining shares" type="number" required min="1" max="1000000" step="1" value={editQuantity} onChange={event => setEditQuantity(event.target.value)} /></label><label>New limit price<input aria-label="New limit price" type="number" required min="0.01" step="0.01" value={editPrice} onChange={event => setEditPrice(event.target.value)} /></label><button className="primary-button" type="submit">Save amendment</button><button className="secondary-button" type="button" onClick={() => setEditing(null)}>Keep current order</button></fieldset></form>}
     <h3>Active orders · {orders.length}</h3>{orders.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>ORDER</th><th>SIDE</th><th>PRICE</th><th>REMAINING</th><th>ACTIONS</th></tr></thead><tbody>{orders.map(order => <tr key={order.order_id}><td>{order.order_id}</td><td>{order.side}</td><td>{inr(order.price)}</td><td>{number(order.remaining)}</td><td><div className="title-actions"><button className="secondary-button" disabled={busy} onClick={() => { setEditing(order); setEditQuantity(String(order.remaining)); setEditPrice(order.price); }}>Amend</button><button className="secondary-button" disabled={busy} onClick={() => void cancel(order.order_id)}>Cancel order</button></div></td></tr>)}</tbody></table></div> : <p className="workspace-copy">No active orders for this symbol.</p>}
-    <p className="fine-print">No automatic counterparties or broker execution. Market orders need opposite-side orders in this book; any unfilled quantity expires.</p>
+    <p className="fine-print">{funded ? "Funded paper orders reserve virtual cash or shares. Open limit orders retain their price until filled, amended, or cancelled." : "Market orders need opposite-side practice orders. Any unfilled market quantity expires."}</p>
   </section>;
 }
 

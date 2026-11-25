@@ -1,5 +1,7 @@
 # TradeVelocity
 
+The **0.5.0 release** starts the V1 migration. The hosted web app uses Next.js and adds funded paper trading with virtual cash and holdings, a portfolio, account watchlists, an execution inbox, and the AI Analyst. See the [release and build guide](docs/v1-foundation.md) for supported clients and remaining release work.
+
 We built TradeVelocity for our Advanced Data Structures and Algorithms project at Bennett University. It is a practice order book you can use: place a buy or sell order, see which order gets matched first, and inspect the trade that follows.
 
 Hosted web and Android traders share a simulated order book. Each trader manages their own orders and sees their own executions. The app does **not** connect to a broker or move real money or shares.

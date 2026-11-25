@@ -1,0 +1,24 @@
+appId: com.tradevelocity.desktop
+productName: TradeVelocity
+directories:
+  output: build
+files:
+  - dist/**
+  - package.json
+win:
+  target:
+    - nsis
+    - msi
+mac:
+  target: dmg
+  category: public.app-category.finance
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Finance
+nsis:
+  oneClick: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+publish: null

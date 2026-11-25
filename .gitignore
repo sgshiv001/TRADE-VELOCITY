@@ -8,6 +8,15 @@ dist/
 build/
 benchmarks/results.csv
 node_modules/
+.next/
+.expo/
+/apps/web/out/
+/apps/web/public/
+/apps/web/next-env.d.ts
+/apps/mobile/android/
+/apps/mobile/ios/
+*.jks
+*.keystore
 .marketlab/
 *.tsbuildinfo
 *.log

@@ -1,4 +1,13 @@
 {
+  "name": "tradevelocity-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "build:web": "pnpm --filter @tradevelocity/web build",
+    "build:desktop": "pnpm --filter @tradevelocity/desktop build",
+    "check:mobile": "pnpm --filter @tradevelocity/mobile typecheck",
+    "test:shared": "pnpm --filter @tradevelocity/client test"
+  },
   "dependencies": {
     "@capacitor/android": "^8.6.2",
     "@capacitor/cli": "^8.6.2"

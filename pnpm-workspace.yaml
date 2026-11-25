@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - frontend
+  - packages/*
+allowBuilds:
+  electron: true
+  esbuild: true
+  sharp: true
+  electron-winstaller: false
+  '@electron/rebuild': false
+minimumReleaseAgeExclude:
+  - electron@45.5.0
