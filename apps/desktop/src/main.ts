@@ -1,4 +1,16 @@
 import { app, BrowserWindow, Menu, session, shell } from "electron";
+import { mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const metadata = JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf-8"));
+const view = (app.isPackaged ? metadata.tradevelocityDesktopView : process.env.TRADEVELOCITY_DESKTOP_VIEW) === "admin"
+  ? "admin" : "trader";
+const title = view === "admin" ? "TradeVelocity Admin Dashboard" : "TradeVelocity Trader";
+app.setName(title);
+const profile = join(app.getPath("appData"), title);
+mkdirSync(profile, {recursive: true});
+app.setPath("userData", profile);
+app.setPath("sessionData", profile);
 
 const origin = (() => {
   const url = new URL(!app.isPackaged && process.env.TRADEVELOCITY_URL
@@ -9,6 +21,7 @@ const origin = (() => {
   if (url.username || url.password) throw new Error("The workspace address cannot contain credentials");
   return url.origin;
 })();
+const workspace = `${origin}/app?desktopView=${view}`;
 
 function isWorkspace(address: string) {
   try { return new URL(address).origin === origin; } catch { return false; }
@@ -26,7 +39,7 @@ function openDownload(address: string) {
 function openWindow() {
   const window = new BrowserWindow({
     width: 1440, height: 1000, minWidth: 420, minHeight: 620,
-    show: false, backgroundColor: "#080C14", title: "TradeVelocity",
+    show: false, backgroundColor: "#080C14", title,
     webPreferences: {sandbox: true, contextIsolation: true, nodeIntegration: false, webviewTag: false},
   });
   window.webContents.on("will-navigate", event => {
@@ -42,7 +55,7 @@ function openWindow() {
   });
   window.webContents.on("will-attach-webview", event => event.preventDefault());
   window.once("ready-to-show", () => window.show());
-  void window.loadURL(`${origin}/app`).catch(() => {
+  void window.loadURL(workspace).catch(() => {
     void window.loadURL("data:text/html,<title>TradeVelocity offline</title><main><h1>TradeVelocity is offline</h1><p>Reconnect and choose Workspace from the View menu.</p></main>");
     window.show();
   });
@@ -56,7 +69,7 @@ void app.whenReady().then(() => {
     {label: "Edit", submenu: [{role: "copy"}, {role: "paste"}, {role: "selectAll"}]},
     {label: "View", submenu: [
       {label: "Workspace", accelerator: "CmdOrCtrl+R", click: () => {
-        void BrowserWindow.getFocusedWindow()?.loadURL(`${origin}/app`);
+        void BrowserWindow.getFocusedWindow()?.loadURL(workspace);
       }},
       {role: "togglefullscreen"}, {role: "zoomIn"}, {role: "zoomOut"}, {role: "resetZoom"},
     ]},

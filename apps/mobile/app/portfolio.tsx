@@ -20,7 +20,7 @@ export default function Portfolio() {
       {data.holdings.map(row => <View key={row.symbol} style={theme.panel}>
         <Text style={theme.text}>{row.symbol} · {row.quantity} shares</Text>
         <Text style={theme.subtle}>Average cost {formatINR(row.average_cost)} · Value {formatINR(row.value)}</Text>
-        <Text style={theme.subtle}>{row.mark_source === "last_simulated_fill" ? "Last simulated fill" : "Daily close"} {formatINR(row.mark)}</Text>
+        <Text style={theme.subtle}>{row.mark_source === "provider_quote" ? "Provider quote" : row.mark_source === "last_simulated_fill" ? "Last simulated fill" : "Daily close"} {formatINR(row.mark)}</Text>
       </View>)}
     </>}
   </Screen>;

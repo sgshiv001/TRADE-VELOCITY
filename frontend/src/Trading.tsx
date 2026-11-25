@@ -21,7 +21,7 @@ export function MarketPrice({ quote, compact = false }: { quote: Quote | null; c
   return <div className={compact ? "ticket-quote" : "order-quote"} aria-label={compact ? "Order market price" : "Market price"}>
     <span>{quote?.kind === "close" ? "Market price · daily close" : "Market price"}</span>
     <strong>{quote?.price != null ? inr(quote.price) : quote ? "Unavailable" : "Loading…"}</strong>
-    {date && <small>{date} · {quote?.kind === "intraday" ? "Yahoo Finance · may be delayed" : "Yahoo Finance historical close"}</small>}
+    {date && <small>{date} · {quote?.source}{quote?.kind === "intraday" && " · may be delayed"}</small>}
   </div>;
 }
 

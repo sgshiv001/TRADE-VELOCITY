@@ -26,6 +26,7 @@ export interface Market {
   basket_change: number | null;
 }
 export interface Quote {
+  simulation_supported?: boolean;
   symbol: string;
   price: number | null;
   kind: "intraday" | "close" | "unavailable";

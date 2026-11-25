@@ -1,0 +1,11 @@
+extends: ./electron-builder.yml
+appId: com.tradevelocity.trader
+productName: TradeVelocity Trader
+artifactName: TradeVelocity-Trader.exe
+directories:
+  output: build/trader
+extraMetadata:
+  tradevelocityDesktopView: trader
+win:
+  signAndEditExecutable: false
+  target: portable

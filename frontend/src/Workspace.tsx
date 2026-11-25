@@ -6,9 +6,10 @@ import { useLiveSession } from "./useLiveSession";
 import { ThemeToggle, Watchdog, RealBenchmark, OrderTicket, SessionTools, MarketPrice } from "./Trading";
 import type { Analysis, AnomalyReport, History, Lab, Market, Quote, Trade } from "./types";
 import type { Trader } from "./AccessGate";
-import Tutorial, { tutorialSteps } from "./Tutorial";
+import Tutorial, { fundedTutorialSteps, tutorialSteps } from "./Tutorial";
 import AdminActivity, { useTraderActivity } from "./AdminActivity";
-import { AnalystPage, EditLists, Inbox, Ledger, PaperPortfolio, type Profile } from "./AdvancedPanels";
+import { AnalystPage, EditLists, Inbox, Ledger, PaperAccountStrip, PaperPortfolio, type Profile } from "./AdvancedPanels";
+import { desktopView } from "./desktopView";
 
 type Page = "dashboard" | "orders" | "markets" | "watchdog" | "history" | "performance" | "admin"
   | "funded" | "portfolio" | "funds" | "ledger" | "analyst" | "inbox" | "watchlists";
@@ -83,22 +84,37 @@ function Dashboard({ lab, symbol, openOrders, shared }: { lab: Lab; symbol: stri
   </>;
 }
 
-function Orders({ lab, symbol, changed, selectSymbol, shared, funded = false, Chart }: {
+function Orders({ lab, symbol, changed, selectSymbol, shared, funded, followByDefault, accountRevision, Chart }: {
   lab: Lab; symbol: string; changed: () => Promise<void>; selectSymbol: (symbol: string) => void;
-  shared: boolean; funded?: boolean; Chart?: ComponentType<{symbol: string}>;
+  shared: boolean; funded: boolean; followByDefault: boolean; accountRevision: number; Chart?: ComponentType<{symbol: string}>;
 }) {
   const [customSymbol, setCustomSymbol] = useState("");
   const [depthNote, setDepthNote] = useState("");
   const [depthBusy, setDepthBusy] = useState(false);
+  const [follow, setFollow] = useState(followByDefault);
+  const [followError, setFollowError] = useState("");
   const [fetchedQuote, setQuote] = useState<Quote | null>(null);
   const quote = fetchedQuote?.symbol === symbol ? fetchedQuote : null;
+  const refreshBook = useRef(changed);
+  useEffect(() => { refreshBook.current = changed; }, [changed]);
   useEffect(() => {
     const controller = new AbortController();
     let timer = 0;
     async function refresh() {
       try {
         const next = await api<Quote>(`/quote/${encodeURIComponent(symbol)}`, {signal: controller.signal, timeoutMs: 20_000});
-        if (!controller.signal.aborted) setQuote(next);
+        if (controller.signal.aborted) return;
+        setQuote(next);
+        setFollowError("");
+        if (funded && follow && next.simulation_supported && next.price != null) {
+          try {
+            const result = await api<{updated: boolean}>(`/paper/liquidity/${encodeURIComponent(symbol)}?follow=true`,
+              {method: "POST", signal: controller.signal, timeoutMs: 20_000});
+            if (!controller.signal.aborted && result.updated) await refreshBook.current();
+          } catch (cause) {
+            if (!controller.signal.aborted) setFollowError(errorMessage(cause));
+          }
+        }
       } catch {
         if (!controller.signal.aborted) setQuote({symbol, price: null, kind: "unavailable", source: null, as_of: null});
       } finally {
@@ -107,22 +123,32 @@ function Orders({ lab, symbol, changed, selectSymbol, shared, funded = false, Ch
     }
     void refresh();
     return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [symbol]);
+  }, [symbol, funded, follow]);
   const max = Math.max(1, ...[...lab.book.bids, ...lab.book.asks].map(level => level.quantity));
   const bid = lab.book.bids[0], ask = lab.book.asks[0];
   async function loadDepth() {
     setDepthBusy(true);
     try {
-      const result = await api<{as_of: string; source: string}>(`/paper/liquidity/${encodeURIComponent(symbol)}`, {method: "POST"});
-      setDepthNote(`Simulated depth loaded from ${result.source} · ${result.as_of}`); await changed();
+      const result = await api<{as_of: string; source: string; updated: boolean}>(`/paper/liquidity/${encodeURIComponent(symbol)}`, {method: "POST"});
+      setDepthNote(result.updated ? `Simulated depth loaded from ${result.source} · ${result.as_of}` : "The book already uses a newer market quote.");
+      if (result.updated) await changed();
     } catch (error) { setDepthNote(errorMessage(error)); }
     finally { setDepthBusy(false); }
   }
   return <>
     <div className="section-title"><div><h1>{funded ? "Funded terminal" : "Orders & depth"}</h1><p>{symbol} · {funded ? "Shared paper book with virtual cash and holdings." : shared ? "Trade practice shares with other signed-in traders." : "Place and manage orders in your local book."}</p></div><MarketPrice quote={quote} /></div>
     <form className="custom-symbol-form" onSubmit={event => { event.preventDefault(); selectSymbol(customSymbol.toUpperCase()); setCustomSymbol(""); }}><label>NSE or custom symbol<input aria-label="Custom engine symbol" required maxLength={16} pattern={String.raw`[A-Za-z][A-Za-z0-9.&\-]*`} placeholder="For example, SBIN" value={customSymbol} onChange={event => setCustomSymbol(event.target.value)} /></label><button className="secondary-button" type="submit">Use symbol</button><span className="fine-print">Provider prices are shown when available. You can also use a practice symbol.</span></form>
-    {funded && <div className="v1-inline"><button className="secondary-button" disabled={depthBusy || quote?.price == null} onClick={() => void loadDepth()}>Load simulated depth</button>
-      {depthNote && <p role="status">{depthNote}</p>}</div>}
+    {funded && <>
+      <PaperAccountStrip symbol={symbol} revision={accountRevision} />
+      <div className="v1-inline">
+        <button className="secondary-button" disabled={depthBusy || !quote?.simulation_supported || quote.price == null} onClick={() => void loadDepth()}>Load simulated depth</button>
+        <label><input type="checkbox" checked={follow} onChange={event => setFollow(event.target.checked)} /> Follow market prices</label>
+        <span className="fine-print">{quote?.price != null && !quote.simulation_supported
+          ? "Automatic depth is available for supported NSE symbols."
+          : "While open, the terminal checks for provider updates about once a minute."}</span>
+        {(depthNote || followError) && <p role="status">{followError || depthNote}</p>}
+      </div>
+    </>}
     {funded && Chart && <Chart symbol={symbol} />}
     <OrderTicket key={symbol} symbol={symbol} lab={lab} changed={changed} quote={quote} shared={shared} funded={funded} />
     <div className="metric-grid four"><Metric label="Best bid" value={bid ? inr(bid.price) : "—"} note="Highest resting buy price" /><Metric label="Best ask" value={ask ? inr(ask.price) : "—"} note="Lowest resting sell price" /><Metric label="Spread" value={bid && ask ? inr(Number(ask.price) - Number(bid.price)) : "—"} note="Requires both sides of the book" /><Metric label="Resting shares" value={number([...lab.book.bids, ...lab.book.asks].reduce((sum, level) => sum + level.quantity, 0))} note="Top 30 levels on each side" /></div>
@@ -214,10 +240,12 @@ function TradeHistory({ revision, changed, shared }: { revision: number; changed
 
 export default function Workspace({trader, Chart}: {trader: Trader | null; Chart?: ComponentType<{symbol: string}>}) {
   const shared = Boolean(trader);
+  const traderDesktop = shared && desktopView() === "trader";
+  const steps = traderDesktop ? fundedTutorialSteps : tutorialSteps;
   const links = [...navigation.filter(item => !shared || !Chart || item.id !== "watchdog"), ...(shared ? accountNavigation : []), ...(trader?.admin ? [{id: "admin" as const, label: "Admin activity", icon: Users}] : [])];
   useTraderActivity(shared);
   const desktopLaunch = new URLSearchParams(window.location.search).get("desktop") === "1";
-  const [page, setPage] = useState<Page>("dashboard");
+  const [page, setPage] = useState<Page>(traderDesktop ? "funded" : "dashboard");
   const [navOpen, setNavOpen] = useState(false);
   const [symbol, setSymbol] = useState("RELIANCE");
   const [lab, setLab] = useState<Lab | null>(null);
@@ -294,7 +322,7 @@ export default function Workspace({trader, Chart}: {trader: Trader | null; Chart
   const selectSymbol = (next: string) => { if (next !== symbol) { setLab(null); setSymbol(next); } };
   const navigate = (next: Page) => { if ((next === "funded") !== (page === "funded")) setLab(null); setPage(next); setNavOpen(false); window.scrollTo({ top: 0 }); };
   function showTutorialStep(step: number) {
-    navigate(tutorialSteps[step].page);
+    navigate(steps[step].page);
     setTutorialStep(step);
   }
   async function dismissTutorial() {
@@ -308,7 +336,7 @@ export default function Workspace({trader, Chart}: {trader: Trader | null; Chart
     }
   }
   return <div className="app-shell">
-    {tutorialStep !== null && lab && <Tutorial step={tutorialStep} onStep={showTutorialStep}
+    {tutorialStep !== null && lab && <Tutorial step={tutorialStep} steps={steps} onStep={showTutorialStep}
       onDismiss={() => void dismissTutorial()} />}
     {launchPhase !== "hidden" && <div className={`launch-splash${launchPhase === "leaving" ? " is-leaving" : ""}`} data-testid="desktop-launch-splash" role="status" aria-live="polite" aria-label="TradeVelocity is launching">
       <div className="launch-splash-grid" />
@@ -339,7 +367,7 @@ export default function Workspace({trader, Chart}: {trader: Trader | null; Chart
             : page === "watchlists" ? profile ? <EditLists profile={profile} save={saveProfile} select={next => { selectSymbol(next); navigate("markets"); }} /> : <p role="status">{profileError || "Loading account watchlists…"}</p>
             : page === "analyst" ? <AnalystPage symbol={symbol} />
             : page === "history" ? <TradeHistory revision={revision + accountRevision} changed={async () => {await loadLab(); setRevision(value => value + 1);}} shared={shared} />
-            : lab ? page === "orders" || page === "funded" ? <Orders key={`${page}-${symbol}`} lab={lab} symbol={symbol} changed={loadLab} selectSymbol={selectSymbol} shared={shared} funded={page === "funded"} Chart={Chart} />
+            : lab ? page === "orders" || page === "funded" ? <Orders key={`${page}-${symbol}`} lab={lab} symbol={symbol} changed={async () => { await loadLab(); if (shared) setAccountRevision(value => value + 1); }} selectSymbol={selectSymbol} shared={shared} funded={page === "funded"} followByDefault={traderDesktop} accountRevision={accountRevision} Chart={Chart} />
             : <Dashboard lab={lab} symbol={symbol} shared={shared} openOrders={() => navigate("orders")} />
             : !error && <div className="loading-screen" role="status"><RefreshCw className="spin" size={22} /> Connecting to matching engine…</div>}
         </div>

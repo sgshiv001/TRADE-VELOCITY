@@ -9,7 +9,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "pnpm build && electron .",
-    "package": "pnpm build && electron-builder"
+    "package": "pnpm build && electron-builder",
+    "package:windows:admin": "electron-builder --config electron-admin.yml --win portable --x64",
+    "package:windows:trader": "electron-builder --config electron-trader.yml --win portable --x64"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
