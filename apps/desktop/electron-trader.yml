@@ -7,5 +7,5 @@ directories:
 extraMetadata:
   tradevelocityDesktopView: trader
 win:
-  signAndEditExecutable: false
+  signExecutable: false
   target: portable

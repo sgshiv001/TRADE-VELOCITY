@@ -28,7 +28,7 @@ try {
   await expect(page.getByRole("img", { name: /TCS historical price/ })).toBeVisible();
   await page.goto(`${origin}/download`);
   await expect(page.getByRole("heading", { name: "Download TradeVelocity" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Download Windows EXE" })).toHaveAttribute("href", /\/releases\/download\//);
+  await expect(page.getByRole("link", { name: "Download Windows setup" })).toHaveAttribute("href", /\/releases\/download\/windows-v.*\/TradeVelocity-Setup-.*\.exe$/);
 
   await page.goto(`${origin}/signup?view=trade&symbol=RELIANCE`);
   await page.emulateMedia({colorScheme: "light"});

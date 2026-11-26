@@ -2,7 +2,7 @@
 
 TradeVelocity is a paper trading simulator we built for our Advanced Data Structures and Algorithms project at Bennett University. In the 2.0.2 demo release, you can start with ₹10 lakh in virtual funds, place limit orders, and see how the shared order book handles each fill. PostgreSQL saves accounts, orders, and portfolio records across supported devices. All trading is simulated.
 
-[Open the live app](https://gettradevelocity.onrender.com) · [Download v2.0.2](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.2) · [Project website](https://sgshiv001.github.io/TRADE-VELOCITY/) · [Presentation demo](docs/adsa-demo.md)
+[Open the live app](https://gettradevelocity.onrender.com) · [Downloads](#downloads) · [Project website](https://sgshiv001.github.io/TRADE-VELOCITY/) · [Presentation demo](docs/adsa-demo.md)
 
 ![Historical price chart from the TradeVelocity 2.0 public preview](docs/assets/trading-preview.webp)
 
@@ -31,14 +31,14 @@ The [matching engine](src/stock_engine/) uses heaps for best-price lookup, AVL t
 | Device | Open or download | Preview details |
 | --- | --- | --- |
 | Web | [Open TradeVelocity](https://gettradevelocity.onrender.com) | The free host may take a moment to wake up. |
-| Windows x64 | [Download the portable EXE](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-Trader.exe) | Unsigned preview connected to the hosted app. |
+| Windows x64 | [Download setup](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/windows-v2.0.3/TradeVelocity-Setup-2.0.3.exe) · [Portable EXE](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/windows-v2.0.3/TradeVelocity-Trader.exe) | Desktop version 2.0.3. Both builds are unsigned. |
 | macOS | [Apple silicon](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-macOS-arm64.zip) · [Intel](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-macOS-x64.zip) | Desktop ZIP previews with Apple notarization pending. |
 | Android | [Download the APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-Android.apk) | Debug-signed test build for Android 7 and later. |
 | iPhone and iPad | [Safari installation guide](https://gettradevelocity.onrender.com/download) | Install the web app through Safari. |
 
-See the [2.0.2 release notes](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.2) and the [downloads page](https://gettradevelocity.onrender.com/download) for installation details and file checksums. Android launch was checked on an emulator, and both Mac packages were validated on build runners. Live email-code signup is pending email delivery setup.
+See the [downloads page](https://gettradevelocity.onrender.com/download) for installation details and checksums. Android launch was checked on an emulator, and both Mac packages were validated on build runners. Live email-code signup is pending email delivery setup.
 
-On Windows, open the EXE and choose **Continue in browser**. Sign in, enter the code shown by the desktop app, and return to TradeVelocity. The app opens your saved workspace after you approve.
+On Windows, run Setup and open **TradeVelocity** from the Start menu. Choose **Continue in browser** and enter the code shown in the desktop window. When you approve, TradeVelocity brings its window forward and opens your saved workspace. See the [Windows 2.0.3 release notes](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/windows-v2.0.3).
 
 ## Run it locally
 

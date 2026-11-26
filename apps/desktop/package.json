@@ -1,6 +1,6 @@
 {
   "name": "@tradevelocity/desktop",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": true,
   "description": "TradeVelocity desktop paper trading client",
   "author": "TradeVelocity",
@@ -11,7 +11,8 @@
     "dev": "pnpm build && electron .",
     "package": "pnpm build && electron-builder",
     "package:windows:admin": "electron-builder --config electron-admin.yml --win portable --x64",
-    "package:windows:trader": "electron-builder --config electron-trader.yml --win portable --x64"
+    "package:windows:trader": "electron-builder --config electron-trader.yml --win portable --x64",
+    "package:windows:setup": "electron-builder --config electron-trader-setup.yml --win nsis --x64"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -18,10 +18,10 @@ export function browserSignIn(window: BrowserWindow, origin: string, workspace: 
     localPage = undefined;
   }
 
-  async function display(code?: string) {
+  async function display(code?: string, message?: string) {
     const instructions = code
       ? "Enter this code in your browser, then return here. The workspace opens after you approve."
-      : "Check your internet connection, then start a new browser sign-in.";
+      : message ?? "Check your internet connection, then start a new browser sign-in.";
     const formattedCode = code ? code.slice(0, 4) + " " + code.slice(4) : "";
     const markup = `<!doctype html><html lang="en"><head><meta charset="utf-8">
       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'">
@@ -87,7 +87,22 @@ export function browserSignIn(window: BrowserWindow, origin: string, workspace: 
         });
         attempt.signal.throwIfAborted();
         cancel();
-        await window.loadURL(workspace);
+        try {
+          await window.loadURL(workspace);
+        } catch {
+          if (window.isDestroyed()) return;
+          void display(undefined, "You’re signed in. Reconnect, then choose Workspace from the View menu.").catch(() => {});
+        }
+        if (!window.isDestroyed()) {
+          if (window.isMinimized()) window.restore();
+          window.show();
+          if (process.platform === "win32") window.moveTop();
+          window.focus();
+          if (process.platform === "win32" && !window.isFocused()) {
+            window.flashFrame(true);
+            window.once("focus", () => window.flashFrame(false));
+          }
+        }
         return;
       }
       throw new Error("Desktop sign-in expired");

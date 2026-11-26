@@ -1,0 +1,10 @@
+extends: ./electron-trader.yml
+artifactName: TradeVelocity-Setup-${version}.${ext}
+directories:
+  output: build/trader-setup
+win:
+  target: nsis
+nsis:
+  perMachine: false
+  shortcutName: TradeVelocity
+  runAfterFinish: false

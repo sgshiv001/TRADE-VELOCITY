@@ -1,5 +1,11 @@
 # Change log
 
+## 2026-11-26 — Windows desktop 2.0.3
+
+- Add a Windows setup EXE with Start menu and desktop shortcuts alongside the portable build.
+- Restore and bring the TradeVelocity window forward after browser sign-in.
+- Publish both x64 builds and their checksums in the [Windows release](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/windows-v2.0.3).
+
 ## 2026-11-26 — TradeVelocity 2.0.2 demo release
 
 - Publish the shared paper-trading terminal, virtual portfolio, market research, and AI Analyst as version 2.0.2.

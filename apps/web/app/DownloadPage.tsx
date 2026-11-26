@@ -1,13 +1,13 @@
 import { Brand } from "./Brand";
-import { releaseChecksums, releaseNotes, releases, releaseVersion } from "./releases";
+import { releaseChecksums, releaseNotes, releases, releaseVersion, windowsChecksums, windowsVersion } from "./releases";
 
 export default function DownloadPage() {
   return <div className="tv2 tv2-site">
     <header className="tv2-site-header"><div className="tv2-site-width tv2-site-nav"><Brand /><a href="/app">Open workspace</a></div></header>
     <main className="tv2-site-width tv2-download">
       <h1>Download TradeVelocity</h1>
-      <p>Version {releaseVersion} connects to the live paper-trading workspace.</p>
-      <p><a href={releaseNotes}>Release notes</a> · <a href={releaseChecksums}>SHA-256 checksums</a></p>
+      <p>Windows {windowsVersion} and the {releaseVersion} clients connect to the same paper-trading workspace.</p>
+      <p><a href={releaseNotes}>Demo release notes</a> · <a href={windowsChecksums}>Windows checksums</a> · <a href={releaseChecksums}>macOS and Android checksums</a></p>
       <div className="tv2-release-grid">
         {releases.map(release => <article className="tv2-surface" key={release.platform}>
           <h2>{release.platform}</h2>

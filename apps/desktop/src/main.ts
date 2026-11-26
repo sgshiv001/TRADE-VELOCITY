@@ -10,6 +10,10 @@ const view = (app.isPackaged ? metadata.tradevelocityDesktopView : process.env.T
 const preview = app.isPackaged && metadata.tradevelocityPreview === true;
 const title = preview ? "TradeVelocity 2.0 Preview" : view === "admin" ? "TradeVelocity Admin Dashboard" : "TradeVelocity Trader";
 app.setName(title);
+if (process.platform === "win32" && app.isPackaged && !preview) {
+  app.setAppUserModelId(view === "admin" ? "com.tradevelocity.admin"
+    : metadata.tradevelocityDesktopView === "trader" ? "com.tradevelocity.trader" : "com.tradevelocity.desktop");
+}
 const profile = join(app.getPath("appData"), title);
 mkdirSync(profile, {recursive: true});
 app.setPath("userData", profile);
@@ -57,6 +61,7 @@ function openWindow() {
     show: false, backgroundColor: "#090C10", title,
     webPreferences: {sandbox: true, contextIsolation: true, nodeIntegration: false, webviewTag: false},
   });
+  window.on("page-title-updated", event => event.preventDefault());
   const signIn = browserLogin ? browserSignIn(window, origin, workspace, view) : null;
   window.webContents.on("will-navigate", event => {
     if (signIn?.handle(event.url, window.webContents.getURL())) {

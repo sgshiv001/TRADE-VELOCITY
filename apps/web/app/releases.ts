@@ -3,15 +3,22 @@ export const releaseVersion = "2.0.2";
 export const releaseNotes = `${release}/tag/v${releaseVersion}`;
 const downloads = `${release}/download/v${releaseVersion}`;
 export const releaseChecksums = `${downloads}/SHA256SUMS.txt`;
+export const windowsVersion = "2.0.3";
+const windowsDownloads = `${release}/download/windows-v${windowsVersion}`;
+export const windowsChecksums = `${windowsDownloads}/SHA256SUMS.txt`;
 
 export const releases = [
   {
     platform: "Windows",
-    description: "Run the portable app to open the live trading workspace.",
+    description: "Install TradeVelocity and open it from Start. After browser approval, the desktop window comes forward and opens the workspace.",
     files: [{
-      label: "Download Windows EXE",
-      requirements: "Windows x64 · Unsigned preview",
-      href: `${downloads}/TradeVelocity-Trader.exe`,
+      label: "Download Windows setup",
+      requirements: "Windows x64 · Unsigned installer",
+      href: `${windowsDownloads}/TradeVelocity-Setup-${windowsVersion}.exe`,
+    }, {
+      label: "Download portable EXE",
+      requirements: "Windows x64 · Unsigned portable app",
+      href: `${windowsDownloads}/TradeVelocity-Trader.exe`,
     }],
   },
   {
