@@ -7,11 +7,12 @@ export type Trader = { username: string; workspace_id: string; tutorial_seen: bo
 type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null;
   signup_verification_required?: boolean };
 
-export default function AccessGate({children, redesigned = false, theme, themeControl}: {
+export default function AccessGate({children, redesigned = false, theme, themeControl, inDesktop = false}: {
   children: (trader: Trader | null, signOut: () => Promise<void>) => ReactNode;
   redesigned?: boolean;
   theme?: "light" | "dark";
   themeControl?: ReactNode;
+  inDesktop?: boolean;
 }) {
   const [access, setAccess] = useState<Access | null>(null);
   const [key, setKey] = useState("");
@@ -23,6 +24,7 @@ export default function AccessGate({children, redesigned = false, theme, themeCo
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const desktopAdmin = desktopView() === "admin";
+  const desktopApproval = redesigned && window.location.pathname === "/desktop-sign-in";
   const signup = !desktopAdmin && access?.mode === "accounts" && window.location.pathname === "/signup";
   const verifySignup = signup && access?.signup_verification_required;
   const enteringCodes = verifySignup && Boolean(verificationToken);
@@ -93,7 +95,7 @@ export default function AccessGate({children, redesigned = false, theme, themeCo
       const response = await fetch("/api/auth/logout", {method: "POST"});
       if (!response.ok) throw new Error();
       setAccountWorkspace(null);
-      if (access?.mode === "accounts") window.history.replaceState(null, "", workspaceRoute("/login"));
+      if (access?.mode === "accounts" && !desktopApproval) window.history.replaceState(null, "", workspaceRoute("/login"));
       setAccess(previous => previous ? {...previous, authenticated: false, trader: null} : previous);
       setError("");
     } catch { setError("Sign-out failed. Retry or close the browser."); }
@@ -113,10 +115,12 @@ export default function AccessGate({children, redesigned = false, theme, themeCo
     <section className="panel access-panel trader-access" aria-labelledby="access-heading">
       {!redesigned && <div className="trader-access-brand"><img src="/favicon.svg" alt="" /><span>TRADEVELOCITY</span></div>}
       <h1 id="access-heading">{desktopAdmin ? "Admin sign in" : signup ? "Create your account" : "Sign in"}</h1>
-      <p>{desktopAdmin ? "Sign in with the authorized TradeVelocity administrator account." : "Use your demo demat account to trade with virtual cash and shares."}</p>
+      <p>{desktopApproval ? "Sign in to approve the request from your desktop app."
+        : desktopAdmin ? "Sign in with the authorized TradeVelocity administrator account." : "Use your demo demat account to trade with virtual cash and shares."}</p>
       {themeControl}
       {error && <p className="notice error" role="alert">{error}</p>}
-      <form onSubmit={event => { event.preventDefault(); void signIn(); }}>
+      {inDesktop ? <p><a className="tv2-button" href="tradevelocity-local:signin">Continue in browser</a></p>
+        : <form onSubmit={event => { event.preventDefault(); void signIn(); }}>
         {enteringCodes ? <>
           <p role="status">Enter the code sent to your email. It expires after 10 minutes.</p>
           <label>Email code<input inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{6}" maxLength={6}
@@ -142,11 +146,15 @@ export default function AccessGate({children, redesigned = false, theme, themeCo
             setVerificationToken(""); setEmailCode(""); setError("");
           }}>Edit email</button>
         </>}
-      </form>
-      {!desktopAdmin && <p>{signup ? "Already have an account? " : "New to TradeVelocity? "}
+      </form>}
+      {!desktopAdmin && !desktopApproval && !inDesktop && <p>{signup ? "Already have an account? " : "New to TradeVelocity? "}
         <a href={workspaceRoute(signup ? "/login" : "/signup")}>{signup ? "Sign in" : "Create an account"}</a>
       </p>}
     </section>
+  </main>;
+  if (redesigned && !access) return <main className="tv2 tv2-boot" data-tv-theme={theme}>
+    {error ? <><p role="alert">{error}</p><button className="tv2-button" onClick={() => void status()}>Retry connection</button></>
+      : <p role="status">Connecting to TradeVelocity…</p>}
   </main>;
   return <main className="access-page"><section className="panel access-panel">
     <div className="eyebrow">TRADEVELOCITY · PRIVATE ACCESS</div><h1>{access ? "Unlock your workspace" : "Connecting to workspace"}</h1>

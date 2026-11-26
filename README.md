@@ -1,6 +1,6 @@
 # TradeVelocity
 
-TradeVelocity is a paper trading simulator we built for our Advanced Data Structures and Algorithms project at Bennett University. In the 2.0.1 demo release, you can start with ₹10 lakh in virtual funds, place limit orders, and see how the shared order book handles each fill. PostgreSQL saves accounts, orders, and portfolio records across supported devices. All trading is simulated.
+TradeVelocity is a paper trading simulator we built for our Advanced Data Structures and Algorithms project at Bennett University. In the 2.0.2 demo release, you can start with ₹10 lakh in virtual funds, place limit orders, and see how the shared order book handles each fill. PostgreSQL saves accounts, orders, and portfolio records across supported devices. All trading is simulated.
 
 [Open the live app](https://gettradevelocity.onrender.com) · [Download v2.0.1](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.1) · [Project website](https://sgshiv001.github.io/TRADE-VELOCITY/) · [Presentation demo](docs/adsa-demo.md)
 
@@ -36,7 +36,9 @@ The [matching engine](src/stock_engine/) uses heaps for best-price lookup, AVL t
 | Android | [Download the APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.1/TradeVelocity-Android.apk) | Debug-signed test build for Android 7 and later. |
 | iPhone and iPad | [Safari installation guide](https://gettradevelocity.onrender.com/download) | Install the web app through Safari. |
 
-See the [2.0.1 release notes](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.1) and the [downloads page](https://gettradevelocity.onrender.com/download) for installation details and file checksums. Android launch was checked on an emulator, and both Mac packages were validated on build runners. Live email-code signup is pending email delivery setup.
+See the [2.0.2 release notes](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.1) and the [downloads page](https://gettradevelocity.onrender.com/download) for installation details and file checksums. Android launch was checked on an emulator, and both Mac packages were validated on build runners. Live email-code signup is pending email delivery setup.
+
+On Windows, open the EXE and choose **Continue in browser**. Sign in, enter the code shown by the desktop app, and return to TradeVelocity. The app opens your saved workspace after you approve.
 
 ## Run it locally
 

@@ -1,5 +1,5 @@
 const release = "https://github.com/sgshiv001/TRADE-VELOCITY/releases";
-export const releaseVersion = "2.0.1";
+export const releaseVersion = "2.0.2";
 export const releaseNotes = `${release}/tag/v${releaseVersion}`;
 const downloads = `${release}/download/v${releaseVersion}`;
 export const releaseChecksums = `${downloads}/SHA256SUMS.txt`;

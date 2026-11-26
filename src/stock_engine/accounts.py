@@ -137,6 +137,18 @@ class Accounts:
             INSERT INTO trader_logins VALUES (%s, %s, now() + %s * interval '1 second')
         """, (token_digest(token), username, SESSION_LIFETIME))
 
+    def desktop_session(self, approved_login: str, previous_token: str = "") -> str | None:
+        token = secrets.token_urlsafe(32)
+        with self.store.connect() as connection:
+            row = connection.execute("""
+                SELECT username FROM trader_logins WHERE token_digest=%s AND expires_at > now()
+                FOR UPDATE
+            """, (approved_login,)).fetchone()
+            if row is None:
+                return None
+            self._issue(connection, row[0], token, previous_token)
+        return token
+
     def identity(self, token: str) -> Trader | None:
         if not token or len(token) != 43:
             return None

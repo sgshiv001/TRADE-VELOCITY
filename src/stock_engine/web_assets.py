@@ -13,6 +13,9 @@ def app_pages(frontend: Path) -> dict[str, Path]:
     for name in ("app", "login", "signup", "download"):
         page = frontend / f"{name}.html"
         pages[f"/{name}"] = page if page.is_file() else pages["/"]
+    desktop_page = frontend / "desktop-sign-in.html"
+    if desktop_page.is_file():
+        pages["/desktop-sign-in"] = desktop_page
     return pages
 
 

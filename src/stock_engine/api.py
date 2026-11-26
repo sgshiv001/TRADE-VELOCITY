@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from .companies import COMPANIES
+from .desktop_signin import DesktopSignIn
 from .account_summary import account_portfolio, order_journal
 from .funded import refresh_virtual_depth, validate_limit
 from .web_assets import app_pages, inline_script_hashes
@@ -92,6 +93,20 @@ class Registration(Credentials):
     verification_token: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{43}$")
     email_code: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
 
+class DesktopStart(BaseModel):
+    challenge: str = Field(pattern=r"^[a-f0-9]{64}$")
+    view: Literal["trader", "admin"]
+
+
+class DesktopApproval(BaseModel):
+    request_id: str = Field(pattern=r"^[A-Za-z0-9_-]{32}$")
+    code: str = Field(pattern=r"^[0-9]{8}$")
+
+
+class DesktopExchange(BaseModel):
+    request_id: str = Field(pattern=r"^[A-Za-z0-9_-]{32}$")
+    verifier: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+
 
 class Watchlist(BaseModel):
     name: str = Field(min_length=1, max_length=50)
@@ -127,7 +142,7 @@ class Session:
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
                security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="2.0.1", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="TradeVelocity", version="2.0.2", docs_url=None, redoc_url=None, openapi_url=None)
     settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
@@ -142,6 +157,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
                                                      os.getenv("TRADEVELOCITY_SIGNUP_OTP_SECRET", "").encode())
         accounts = Accounts(store, signup_verification)
     app.state.accounts = accounts
+    desktop_signin = DesktopSignIn()
     app.state.security = guard = SecurityGuard(settings, accounts=accounts)
     app.middleware("http")(guard.protect)
     cached_market = app.state.data_dir.parent / "market-history.json"
@@ -179,7 +195,8 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request: Request, exc: RequestValidationError):
         if request.url.path in ("/api/auth/login", "/api/auth/register", "/api/auth/device/login",
-                                "/api/auth/device/register", "/api/auth/signup/start"):
+                                "/api/auth/device/register", "/api/auth/signup/start",
+                                "/api/auth/desktop/start", "/api/auth/desktop/approve", "/api/auth/desktop/exchange"):
             return JSONResponse(status_code=422, content={"detail": "Check your sign-in details and try again"})
         return await request_validation_exception_handler(request, exc)
 
@@ -483,6 +500,43 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         if not accounts:
             raise HTTPException(404, "Account creation is available in the hosted app")
         return sign_in_account(payload, request, register=True)
+
+    @app.post("/api/auth/desktop/start", status_code=201)
+    def start_desktop_signin(payload: DesktopStart, request: Request):
+        if not accounts:
+            raise HTTPException(404, "Desktop sign-in requires a hosted workspace.")
+        client = request.client.host if request.client else "unknown"
+        if guard.limited(client, "desktop-signin-start", 12):
+            raise HTTPException(429, "Wait a minute before trying desktop sign-in again.")
+        return desktop_signin.start(payload.challenge, payload.view)
+
+    @app.post("/api/auth/desktop/approve")
+    def approve_desktop_signin(payload: DesktopApproval, request: Request):
+        if not accounts:
+            raise HTTPException(404, "Desktop sign-in requires a hosted workspace.")
+        browser_token = request.cookies.get(COOKIE, "")
+        if (not browser_token or account_token(request.headers, request.cookies) != browser_token
+                or request.headers.get("origin") != settings.origin):
+            raise HTTPException(403, "Approve this sign-in from the TradeVelocity website.")
+        desktop_signin.approve(payload.request_id, payload.code, browser_token, is_admin(request.state.trader))
+        return {"approved": True}
+
+    @app.post("/api/auth/desktop/exchange")
+    def finish_desktop_signin(payload: DesktopExchange, request: Request):
+        from .accounts import SESSION_LIFETIME
+
+        if not accounts:
+            raise HTTPException(404, "Desktop sign-in requires a hosted workspace.")
+        client = request.client.host if request.client else "unknown"
+        if guard.limited(client, "desktop-signin-exchange", 300):
+            raise HTTPException(429, "Wait a minute before checking desktop sign-in again.")
+        approval = desktop_signin.take_approval(payload.request_id, payload.verifier)
+        if approval is None:
+            return JSONResponse({"pending": True}, status_code=202)
+        token = accounts.desktop_session(approval)
+        if token is None:
+            raise HTTPException(401, "The browser session expired. Start a new desktop sign-in.")
+        return {"token": token, "expires_in": SESSION_LIFETIME}
 
     @app.post("/api/auth/device/{action}")
     def device_sign_in(action: Literal["login", "register"], payload: Registration, request: Request):

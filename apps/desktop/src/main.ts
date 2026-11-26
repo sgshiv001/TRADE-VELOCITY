@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, session, shell } from "electron";
 import { X509Certificate } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { browserSignIn } from "./browser-signin.js";
 
 const metadata = JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf-8"));
 const view = (app.isPackaged ? metadata.tradevelocityDesktopView : process.env.TRADEVELOCITY_DESKTOP_VIEW) === "admin"
@@ -23,7 +24,8 @@ const origin = (() => {
   if (url.username || url.password) throw new Error("The workspace address cannot contain credentials");
   return url.origin;
 })();
-const workspace = `${origin}/app?desktopView=${view}`;
+const browserLogin = !preview && origin.startsWith("https://");
+const workspace = `${origin}/app?desktopView=${view}${browserLogin ? "&desktopBrowser=1" : ""}`;
 
 if (preview && origin === "https://localhost:8443" && /^[0-9A-F:]{95}$/.test(metadata.tradevelocityPreviewFingerprint)) {
   // Desktop staging uses a pinned, short-lived certificate for this loopback origin.
@@ -55,7 +57,12 @@ function openWindow() {
     show: false, backgroundColor: "#090C10", title,
     webPreferences: {sandbox: true, contextIsolation: true, nodeIntegration: false, webviewTag: false},
   });
+  const signIn = browserLogin ? browserSignIn(window, origin, workspace, view) : null;
   window.webContents.on("will-navigate", event => {
+    if (signIn?.handle(event.url, window.webContents.getURL())) {
+      event.preventDefault();
+      return;
+    }
     if (!isWorkspace(event.url)) { event.preventDefault(); openDownload(event.url); }
   });
   window.webContents.on("will-redirect", event => {
@@ -68,6 +75,9 @@ function openWindow() {
   });
   window.webContents.on("will-attach-webview", event => event.preventDefault());
   window.once("ready-to-show", () => window.show());
+  window.webContents.on("did-start-navigation", event => {
+    if (event.isMainFrame && isWorkspace(event.url)) signIn?.cancel();
+  });
   void window.loadURL(workspace).catch(() => {
     void window.loadURL("data:text/html,<title>TradeVelocity offline</title><main><h1>TradeVelocity is offline</h1><p>Reconnect and choose Workspace from the View menu.</p></main>");
     window.show();

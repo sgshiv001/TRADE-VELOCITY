@@ -8,7 +8,7 @@ export function desktopView(): DesktopView | null {
 export function workspaceRoute(path: "/app" | "/login" | "/signup") {
   const current = new URLSearchParams(window.location.search);
   const query = new URLSearchParams();
-  for (const name of ["desktopView", "view", "symbol"]) {
+  for (const name of ["desktopView", "desktopBrowser", "view", "symbol"]) {
     const value = current.get(name);
     if (value) query.set(name, value);
   }

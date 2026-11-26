@@ -1,5 +1,7 @@
+from hashlib import sha256
 import os
 from pathlib import Path
+from secrets import token_urlsafe
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -37,6 +39,52 @@ def register(client):
     assert trader["username"] == username
     assert trader["tutorial_seen"] is False
     return trader
+
+
+def test_browser_approved_desktop_session_is_separate_and_single_use(backend):
+    app = backend()
+    desktop = TestClient(app, base_url=ORIGIN)
+    browser = TestClient(app, base_url=ORIGIN)
+    trader = register(browser)
+    verifier = token_urlsafe(32)
+    response = desktop.post("/api/auth/desktop/start", json={
+        "challenge": sha256(verifier.encode()).hexdigest(), "view": "trader",
+    })
+    assert response.status_code == 201
+    grant = response.json()
+    approval = {"request_id": grant["request_id"], "code": grant["code"]}
+    exchange = {"request_id": grant["request_id"], "verifier": verifier}
+    assert desktop.post("/api/auth/desktop/exchange", json=exchange).status_code == 202
+    assert desktop.post("/api/auth/desktop/approve", json=approval).status_code == 401
+    assert browser.post("/api/auth/desktop/approve", json=approval).status_code == 403
+    assert browser.post("/api/auth/desktop/approve", headers={"Origin": ORIGIN}, json=approval).is_success
+    assert desktop.post("/api/auth/desktop/exchange", json={**exchange, "verifier": token_urlsafe(32)}).status_code == 404
+    approved = desktop.post("/api/auth/desktop/exchange", json=exchange)
+    assert approved.is_success
+    desktop_token = approved.json()["token"]
+    assert desktop_token != browser.cookies.get(COOKIE)
+    desktop.cookies.set(COOKIE, desktop_token)
+    assert desktop.get("/api/auth/status").json()["trader"] == trader
+    assert desktop.post("/api/auth/desktop/exchange", json=exchange).status_code == 404
+    assert desktop.post("/api/auth/logout").is_success
+    assert browser.get("/api/auth/status").json()["authenticated"]
+
+
+def test_trader_cannot_approve_an_admin_desktop_signin(backend):
+    app = backend()
+    browser = TestClient(app, base_url=ORIGIN)
+    register(browser)
+    desktop = TestClient(app, base_url=ORIGIN)
+    verifier = token_urlsafe(32)
+    response = desktop.post("/api/auth/desktop/start", json={
+        "challenge": sha256(verifier.encode()).hexdigest(), "view": "admin",
+    })
+    grant = response.json()
+    approval = {"request_id": grant["request_id"], "code": grant["code"]}
+    assert browser.post("/api/auth/desktop/approve", headers={"Origin": ORIGIN}, json=approval).status_code == 403
+    assert desktop.post("/api/auth/desktop/exchange", json={
+        "request_id": grant["request_id"], "verifier": verifier,
+    }).status_code == 202
 
 
 def test_trader_data_and_tutorial_persist_across_server_restart(backend):
