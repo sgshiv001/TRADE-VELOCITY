@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? siteOrigin),
   title: {default: "TradeVelocity | Intelligence Behind Every Trade", template: "%s · TradeVelocity"},
   description: "Explore stock data, practise trading, and track a virtual portfolio with TradeVelocity AI Analyst.",
-  icons: "/tv-mark.svg",
+  icons: {icon: "/tv-mark.svg", apple: "/icon-192.png"},
   openGraph: {title: "TradeVelocity", description: "Paper trading and market intelligence for your next decision.", type: "website", images: ["/icon-512.png"]},
   manifest: "/manifest.webmanifest",
 };

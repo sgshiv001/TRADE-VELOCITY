@@ -6,17 +6,29 @@ export default function DownloadPage() {
     <header className="tv2-site-header"><div className="tv2-site-width tv2-site-nav"><Brand /><a href="/app">Open workspace</a></div></header>
     <main className="tv2-site-width tv2-download">
       <h1>Download TradeVelocity</h1>
-      <p>Use the web workspace for the current build. The files below are prior published releases.</p>
+      <p>TradeVelocity 2.0 beta downloads connect to the live paper-trading workspace.</p>
       <div className="tv2-release-grid">
         {releases.map(release => <article className="tv2-surface" key={release.platform}>
-          <span className="tv2-kicker">{release.kind}</span><h2>{release.platform}</h2>
-          <p>Version {release.version} · {release.date}</p><p>{release.requirements} · {(release.bytes / 1e6).toFixed(1)} MB</p>
-          <a className="tv2-button" href={release.href}>Download {release.format}</a>
+          <h2>{release.platform}</h2>
+          <p>{release.description}</p>
+          {release.files.map(file => <div className="tv2-download-file" key={file.href}>
+            <a className="tv2-button" href={file.href}>{file.label}</a>
+            <p>{file.requirements} · {(file.bytes / 1e6).toFixed(1)} MB</p>
+            <details><summary>SHA-256 checksum</summary><code>{file.checksum}</code></details>
+          </div>)}
           <a className="tv2-release-notes" href={release.notes}>Release notes</a>
-          <details><summary>SHA-256 checksum</summary><code>{release.checksum}</code></details>
         </article>)}
-        <article className="tv2-surface"><h2>Web and PWA</h2><p>Open the trading workspace in a supported browser. Use the browser’s install option to add it to your device.</p><a className="tv2-button" href="/app">Open app</a></article>
-        {["iOS", "macOS", "Linux"].map(platform => <article className="tv2-surface" key={platform}><h2>{platform}</h2><p>A published installer is unavailable. Open TradeVelocity in your browser.</p></article>)}
+        <article className="tv2-surface">
+          <h2>iOS and iPadOS</h2>
+          <p>Open TradeVelocity in Safari. Tap Share, choose Add to Home Screen, then turn on Open as Web App.</p>
+          <a className="tv2-button" href="/app">Open iPhone and iPad web app</a>
+          <p>Native iOS distribution is pending.</p>
+        </article>
+        <article className="tv2-surface">
+          <h2>Web app</h2>
+          <p>Use the live trading workspace from a desktop or mobile browser.</p>
+          <a className="tv2-button" href="/app">Open workspace</a>
+        </article>
       </div>
     </main>
   </div>;
