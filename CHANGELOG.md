@@ -7,7 +7,7 @@
 - Apply the selected Light, Dark, or System theme across sign-in, the trading workspace, and the admin dashboard. Android also saves its theme selection and applies it to the account screens, system bars, and navigation.
 - Smooth page, dialog, and navigation transitions across the web and desktop workspaces. Respect the system’s reduced-motion preference.
 - Connect the hosted desktop client through browser sign-in with a short-lived approval code.
-- Publish the latest demo and its checksums in [GitHub Releases](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.1). iPhone and iPad use the Safari web app.
+- Publish the latest demo and its checksums in [GitHub Releases](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.2). iPhone and iPad use the Safari web app.
 - Email-code signup remains pending provider setup.
 
 ## Earlier development
