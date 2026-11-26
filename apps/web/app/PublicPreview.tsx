@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { MarketChart, type ChartBar } from "./MarketChart";
+import { ChartStyle, ExchangeChartLink, MarketChart, type ChartBar, type ChartMode } from "./MarketChart";
 import { inr } from "../../../frontend/src/api";
 
 export function PublicPreview({instruments, source}: {
   instruments: {symbol: string; name: string; bars: ChartBar[]}[]; source: string;
 }) {
   const [index, setIndex] = useState(0);
-  const [mode, setMode] = useState<"candles" | "area">("candles");
+  const [mode, setMode] = useState<ChartMode>("candles");
   const selected = instruments[index];
   if (!selected) return null;
   const close = selected.bars.at(-1);
@@ -21,11 +21,10 @@ export function PublicPreview({instruments, source}: {
         </select></div>
       <strong>{close ? inr(close.close) : "—"}</strong>
     </div>
-    <div className="tv2-chart-controls" aria-label="Chart style">
-      <button aria-pressed={mode === "candles"} onClick={() => setMode("candles")}>Candles</button>
-      <button aria-pressed={mode === "area"} onClick={() => setMode("area")}>Area</button>
+    <div className="tv2-chart-controls">
+      <ChartStyle mode={mode} setMode={setMode} />
     </div>
     <MarketChart key={selected.symbol} bars={selected.bars} symbol={selected.symbol} mode={mode} />
-    <div className="tv2-preview-source">{source} · Adjusted daily bars</div>
+    <div className="tv2-preview-source"><span>{source} · Adjusted daily bars</span><ExchangeChartLink symbol={selected.symbol} /></div>
   </section>;
 }

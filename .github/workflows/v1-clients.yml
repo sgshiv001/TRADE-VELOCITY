@@ -34,4 +34,4 @@ jobs:
       - name: Exercise the Next.js export served by FastAPI
         env:
           TRADEVELOCITY_WEB_DIR: ${{ github.workspace }}/apps/web/out
-        run: pnpm --filter tradevelocity-app exec playwright test --grep "order lifecycle|themes, dark dropdowns"
+        run: pnpm --filter tradevelocity-app exec playwright test --grep "order lifecycle|themes, dark dropdowns|intraday quote chart"

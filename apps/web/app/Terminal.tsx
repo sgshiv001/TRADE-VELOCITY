@@ -6,7 +6,10 @@ import { api, inr, number, tradeTime } from "../../../frontend/src/api";
 import { MarketPrice, OrderTicket } from "../../../frontend/src/Trading";
 import type { Company, Depth, History, Lab, Quote } from "../../../frontend/src/types";
 import type { Theme } from "./Appearance";
-import { MarketChart } from "./MarketChart";
+import { ChartStyle, ExchangeChartLink, MarketChart, type ChartMode } from "./MarketChart";
+import { QuoteChart, useQuoteSession, type QuoteChartMode } from "./QuoteChart";
+
+const quoteStyles = {baseline: "Baseline", line: "Line", area: "Area"};
 
 export function DataState({error, retry, loading}: {error: string; retry: () => void; loading: string}) {
   return <div className="tv2-data-state" role={error ? "alert" : "status"}>
@@ -30,8 +33,11 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
   refresh(): Promise<void>; holdings?: number; cash?: string;
 }) {
   const [period, setPeriod] = useState("3M");
-  const [mode, setMode] = useState<"candles" | "line" | "area">("candles");
+  const [view, setView] = useState<"history" | "intraday">("history");
+  const [mode, setMode] = useState<ChartMode>("candles");
+  const [quoteMode, setQuoteMode] = useState<QuoteChartMode>("baseline");
   const [average, setAverage] = useState(false);
+  const [showVolume, setShowVolume] = useState(true);
   const [follow, setFollow] = useState(funded);
   const [refreshingDepth, setRefreshingDepth] = useState(false);
   const [quoteCycle, setQuoteCycle] = useState(0);
@@ -40,8 +46,11 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
   const current = encodeURIComponent(symbol);
   const book = useResource<Lab>(`/${funded ? "paper" : "lab"}?symbol=${current}`, revision);
   const reference = useResource<Quote>(`/quote/${current}`, quoteCycle);
-  const chart = useResource<History>(`/companies/${current}?period=${period}`);
-  const quote = reference.data ?? null;
+  const chart = useResource<History>(view === "history" ? `/companies/${current}?period=${period}` : null);
+  const receivedQuote = reference.data ?? null;
+  const quoteSession = useQuoteSession(symbol, receivedQuote);
+  const quote = receivedQuote?.kind === "intraday" && quoteSession &&
+    Date.parse(receivedQuote.as_of ?? "") < quoteSession.points.at(-1)!.time * 1000 ? quoteSession.latest : receivedQuote;
 
   useEffect(() => {
     if (!online) return;
@@ -83,18 +92,33 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
     {!online && <p className="tv2-info" role="status">You’re offline. Reconnect to submit an order.</p>}
     <div className="tv2-terminal">
       <section className="tv2-surface tv2-terminal-chart">
-        <div className="tv2-panel-head"><h2>Price chart</h2><span className="tv2-badge">Daily bars</span></div>
-        <div className="tv2-chart-controls">
-          {["1M", "3M", "6M", "1Y", "5Y"].map(value => <button key={value} aria-pressed={period === value} onClick={() => setPeriod(value)}>{value}</button>)}
-          <select aria-label="Chart style" value={mode} onChange={event => setMode(event.target.value as typeof mode)}>
-            <option value="candles">Candles</option><option value="line">Line</option><option value="area">Area</option>
-          </select>
-          <label><input type="checkbox" checked={average} onChange={event => setAverage(event.target.checked)} /> SMA 20</label>
+        <div className="tv2-panel-head"><h2>Price chart</h2><span className="tv2-badge">NSE · {symbol}</span></div>
+        <div className="tv2-tabs" role="group" aria-label="Market chart view">
+          <button aria-pressed={view === "history"} onClick={() => setView("history")}>Daily history</button>
+          <button aria-pressed={view === "intraday"} onClick={() => setView("intraday")}>Intraday quotes</button>
         </div>
-        {chart.data?.history.length ? <>
-          <MarketChart key={symbol + period} bars={chart.data.history} symbol={symbol} mode={mode} average={average} theme={theme} />
-          <p className="tv2-source">{chart.data.source} · Adjusted prices. Hover or tap the chart to see daily OHLC and volume.</p>
-        </> : <DataState error={chart.error} retry={chart.reload} loading={chart.data ? "No bars for this period." : "Loading historical prices…"} />}
+        {view === "history" ? <>
+          <div className="tv2-chart-controls" role="group" aria-label="Daily chart options">
+            {["1M", "3M", "6M", "1Y", "5Y"].map(value => <button key={value} aria-pressed={period === value} onClick={() => setPeriod(value)}>{value}</button>)}
+            <ChartStyle mode={mode} setMode={setMode} />
+            <label><input type="checkbox" checked={showVolume} onChange={event => setShowVolume(event.target.checked)} /> Volume</label>
+            <label><input type="checkbox" checked={average} onChange={event => setAverage(event.target.checked)} /> SMA 20</label>
+          </div>
+          {chart.data?.history.length ? <>
+            <MarketChart key={symbol + period} bars={chart.data.history} symbol={symbol} mode={mode} average={average} showVolume={showVolume} theme={theme} />
+            <p className="tv2-source">{chart.data.source} · Adjusted daily prices through {chart.data.history.at(-1)?.date}.</p>
+          </> : <DataState error={chart.error} retry={chart.reload} loading={chart.data ? "No bars for this period." : "Loading historical prices…"} />}
+        </> : <>
+          <div className="tv2-chart-controls" role="group" aria-label="Intraday chart options">
+            <ChartStyle mode={quoteMode} setMode={value => setQuoteMode(value as QuoteChartMode)} styles={quoteStyles} />
+            <button disabled={!online} onClick={reference.reload}>Refresh quote</button>
+          </div>
+          {quoteSession
+            ? <QuoteChart key={`${symbol}-${quoteSession.date}-${quoteSession.source}`} session={quoteSession} symbol={symbol} mode={quoteMode} theme={theme} />
+            : <DataState error={reference.error} retry={reference.reload} loading={quote ? "No intraday quote is available. View daily history or open the exchange chart below." : "Checking for an intraday quote…"} />}
+          <p className="tv2-source">{!online ? "Quote checks paused while offline." : reference.error && quoteSession ? "Latest quote check failed. Showing the last observations." : "Checks every minute while this tab is visible. New timestamps appear as the provider updates."}</p>
+        </>}
+        {(company || quote?.simulation_supported) && <ExchangeChartLink symbol={symbol} copyOnly={navigator.userAgent.includes("Electron/")} />}
       </section>
       <div className="tv2-terminal-ticket">
         <div className="tv2-tabs" aria-label="Terminal side panel">

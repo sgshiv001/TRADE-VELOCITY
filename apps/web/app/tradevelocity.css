@@ -264,6 +264,9 @@
 .tv2-chart-controls button[aria-pressed="true"], .tv2-tabs button[aria-pressed="true"] { color: var(--tv-green); background: var(--tv-raised); }
 .tv2-chart-controls label, .tv2-liquidity label, .tv2-settings label:has(input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 6px; color: var(--tv-muted); font-size: 13px; }
 .tv2-chart-controls select { min-height: 31px; padding-block: 3px; font-size: 12px; }
+.tv2-chart-controls button:disabled { cursor: default; opacity: .55; }
+.tv2-exchange-chart { color: var(--tv-green); font-size: 12px; font-weight: 650; padding-block: 4px; }
+.tv2-preview-source { flex-wrap: wrap; gap: 6px 12px; }
 .tv2-chart { height: clamp(260px, 35vw, 420px); width: 100%; min-width: 0; overflow: hidden; }
 .tv2-ohlc { min-height: 22px; gap: 10px; font: 11px/1.4 var(--tv-mono); color: var(--tv-muted); padding: 0 0 6px; }
 .tv2-ohlc strong { color: var(--tv-text); }

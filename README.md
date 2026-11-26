@@ -19,7 +19,7 @@ For a partial-fill demo, open two trader accounts in separate browsers. Place a 
 | Area | What you can do |
 | --- | --- |
 | Trading terminal | See simulated bids and asks, place confirmed limit orders, and inspect fills and open orders. |
-| Market research | Browse supported NSE stocks, check timestamped price references, study historical charts, and save watchlists. Provider quotes may be delayed. |
+| Market research | Browse supported NSE stocks, plot timestamped intraday quote observations as they arrive, and study daily candlestick, OHLC bar, line, area, and baseline charts. Provider quotes may be delayed. |
 | Portfolio and funds | Track virtual cash, reservations, holdings, and executions. |
 | AI Analyst and Assistant | Explore technical indicators, view forecast ranges when available, and get explanations of the evidence. |
 | Admin dashboard | Authorized admins can view account activity and service status. |

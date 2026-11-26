@@ -74,7 +74,7 @@ export default async function Page() {
         <div><h2>Before you start</h2><p>TradeVelocity is an educational paper trading platform.</p><a href="/download">See supported downloads <ArrowRight size={15} /></a></div>
         <div>
           <details><summary>How do practice orders work?</summary><p>The matching engine executes orders against simulated bids and offers. A limit can fill in part or remain open.</p></details>
-          <details><summary>Where do prices come from?</summary><p>Charts use sourced historical bars. Quotes show the provider and observation time and may be delayed.</p></details>
+          <details><summary>Where do prices come from?</summary><p>The terminal charts daily history and builds an intraday view from the quotes it receives. Quotes display the provider and observation time and may be delayed.</p></details>
           <details><summary>Can I trade with real money?</summary><p>All balances and orders are virtual. TradeVelocity does not connect to a brokerage.</p></details>
           <details><summary>How should I read an AI forecast?</summary><p>Use the estimate and its uncertainty range as research inputs. Real prices can move outside the range.</p></details>
         </div>
