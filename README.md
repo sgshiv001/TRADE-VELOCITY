@@ -1,69 +1,59 @@
 # TradeVelocity
 
-The **2.0 preview** adds a redesigned product site and trading workspace, interactive price charts, the AI Analyst workspace, and updated desktop and mobile clients. This version is available for staging review. See the [2.0 audit and preview guide](docs/tradevelocity-2.0.md).
+TradeVelocity is a paper trading simulator we built for our Advanced Data Structures and Algorithms project at Bennett University. In the 2.0 beta, you can start with ₹10 lakh in virtual funds, place limit orders, and see how the shared order book handles each fill. PostgreSQL saves accounts, orders, and portfolio records across supported devices. All trading is simulated.
 
-The **0.5.0 release** starts the V1 migration. The hosted web app uses Next.js and adds funded paper trading with virtual cash and holdings, a portfolio, account watchlists, an execution inbox, and the AI Analyst. See the [release and build guide](docs/v1-foundation.md) for supported clients and remaining release work.
+[Open the live app](https://gettradevelocity.onrender.com) · [Downloads](https://gettradevelocity.onrender.com/download) · [Project website](https://sgshiv001.github.io/TRADE-VELOCITY/) · [Presentation demo](docs/adsa-demo.md)
 
-We built TradeVelocity for our Advanced Data Structures and Algorithms project at Bennett University. It is a practice order book you can use: place a buy or sell order, see which order gets matched first, and inspect the trade that follows.
+![Historical price chart from the TradeVelocity 2.0 public preview](docs/assets/trading-preview.webp)
 
-Hosted web and Android traders share a simulated order book. Each trader manages their own orders and sees their own executions. The app does **not** connect to a broker or move real money or shares.
+## Try a paper trade
 
-[Open the live app](https://gettradevelocity.onrender.com) · [See the GitHub project page](https://sgshiv001.github.io/TRADE-VELOCITY/) · [Read the code](src/stock_engine/)
+1. [Create a trader account](https://gettradevelocity.onrender.com/signup) and follow or skip the first-run tutorial. You can reopen it from **Help**.
+2. Open the **Trading terminal**, choose a supported stock, and check its reference price and **Market depth**. Enter a share quantity and limit price, then review and confirm the order.
+3. Check **Orders**, **Trade history**, and **Portfolio** to see what filled, what remains open, and how the fill changed your virtual balance.
 
-![TradeVelocity market-history screen](docs/assets/market-light.png)
+For a partial-fill demo, open two trader accounts in separate browsers. Place a resting bid for 10 shares. Then use the other account, which needs at least 5 shares of the same stock, to sell 5 at the bid price. If the resting order is first in line, 5 shares fill and the remaining 5 stay on the book. The [demo guide](docs/adsa-demo.md) walks through the setup.
 
-## Try a match
-
-Create a trader account on the [web app](https://gettradevelocity.onrender.com), then open **Orders & depth**. The first-run guide explains the main screens; you can skip it and reopen it later.
-
-Choose a fresh practice symbol for the demo. In one account, place a buy limit for **10 shares at ₹1,800**. In a second account, check that bid and submit a sell limit for **5 shares at ₹1,800**. Both traders see the execution, and the other 5 shares stay on the bid. Orders & depth also shows dated provider prices for supported NSE symbols.
-
-## What is inside
+## What you can explore
 
 | Area | What you can do |
 | --- | --- |
-| Orders & depth | Place limit and market orders, inspect the best prices and depth, amend or cancel an open order. |
-| Trade history | Search executions, export trades, and export or restore a practice session. |
-| Market history | Explore dated daily bars, charts, volatility, drawdown, and RSI for eight supported companies. These are not live quotes. |
-| AI watchdog | Review unusual patterns in your own executions. Its alerts are advisory and never block an order. |
-| Performance | Compare the indexed order book with a list-based reference on an isolated workload. |
+| Trading terminal | See simulated bids and asks, place confirmed limit orders, and inspect fills and open orders. |
+| Market research | Browse supported NSE stocks, check timestamped price references, study historical charts, and save watchlists. Provider quotes may be delayed. |
+| Portfolio and funds | Track virtual cash, reservations, holdings, and executions. |
+| AI Analyst and Assistant | Explore technical indicators, view forecast ranges when available, and get explanations of the evidence. |
+| Admin dashboard | Authorized admins can view account activity and service status. |
 
-The matching engine uses heaps to reach the best price, AVL trees for ordered depth, FIFO queues for arrival order at a price, hash tables for direct lookup, and a Fenwick tree for traded-volume queries. The [architecture notes](docs/architecture.md) explain the choices and their limits.
+The [matching engine](src/stock_engine/) uses heaps for best-price lookup, AVL trees for ordered depth, FIFO queues at each price, hash tables for order lookup, and a Fenwick tree for volume queries. The [architecture notes](docs/architecture.md) explain the trade-offs and complexity. This is an educational simulator with no brokerage connection.
 
-## Use it on your device
+## Downloads
 
-| Platform | Link | What to expect |
+| Device | Open or download | Preview details |
 | --- | --- | --- |
-| Web | [Open TradeVelocity](https://gettradevelocity.onrender.com) | Trader accounts and saved workspaces backed by PostgreSQL. The free host may take a moment to wake up. |
-| Windows | [Download the complete portable ZIP](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v0.3.4/TradeVelocity-Windows-x64.zip) | Extract the whole ZIP and open `Launch_Desktop.vbs`. This unsigned build keeps its session on your PC. |
-| Android | [Download the test APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v1.1.0-android-test/TradeVelocity-Android-test.apk) | Debug-signed test build that opens the hosted app and needs internet access. |
+| Web | [Open TradeVelocity](https://gettradevelocity.onrender.com) | The free host may take a moment to wake up. |
+| Windows x64 | [Download the portable EXE](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.0-beta.1-downloads/TradeVelocity-Trader.exe) | Unsigned preview connected to the hosted app. |
+| macOS | [Apple silicon](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.0-beta.1-downloads/TradeVelocity-macOS-arm64.zip) · [Intel](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.0-beta.1-downloads/TradeVelocity-macOS-x64.zip) | Desktop ZIP previews with Apple notarization pending. |
+| Android | [Download the APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.0-beta.1-downloads/TradeVelocity-Android.apk) | Debug-signed test build for Android 7 and later. |
+| iPhone and iPad | [Safari installation guide](https://gettradevelocity.onrender.com/download) | Install the web app through Safari. |
 
-The Windows ZIP passed a packaged smoke test on Windows 11. The Android APK was built with Android Studio and checked on an emulator. We have not yet checked the Windows ZIP on a second PC or the APK on a physical phone. Use the links above: the files attached to the older v1.0.0 release are incomplete or configured for a local server.
+See the [2.0 beta release notes](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.0-beta.1-downloads) and the [downloads page](https://gettradevelocity.onrender.com/download) for installation details and file checksums. Android launch was checked on an emulator, and both Mac packages were validated on build runners. Live email-code signup is pending email delivery setup.
 
 ## Run it locally
 
-You need Python 3.10+ and Node.js 22/npm. From the project folder in PowerShell:
+Use Python 3.10+, Node.js 22, and pnpm 11.25.0. From the repository root in PowerShell:
 
-```powershell
+~~~powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[app,test]"
-.\.venv\Scripts\python.exe app.py
-```
+.\.venv\Scripts\python.exe -m pip install -e ".[app,test,postgres,accounts]"
+pnpm install --frozen-lockfile
+pnpm build:web
+$env:TRADEVELOCITY_WEB_DIR = Join-Path (Get-Location) 'apps/web/out'
+.\.venv\Scripts\python.exe scripts/browser_test_server.py --port 8804
+~~~
 
-The launcher builds the frontend and opens a local browser workspace. The [backend guide](docs/backend.md) covers database setup and the Android connection. The [Windows release guide](docs/windows-release.md) covers building the portable desktop package.
+Open `http://127.0.0.1:8804` for the local practice workspace. See [hosted setup](docs/hosted-workspace.md) for PostgreSQL and connected accounts, and the [2.0 release guide](docs/tradevelocity-2.0.md) for staging and deployment.
 
-To run the checks:
-
-```powershell
-cd frontend
-npm ci
-npm run build
-npm run test:e2e
-cd ..
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-Our [latest complete GitHub Actions run](https://github.com/sgshiv001/TRADE-VELOCITY/actions/runs/45381187499) passed the frontend build, PostgreSQL checks, browser checks on Linux and Windows, and Python checks on both platforms. We also checked the live signup, tutorial, a partial fill, saved trade history after sign-out and sign-in, market history, AI monitor, and a small isolated benchmark on 24 November 2026.
+Run the Python tests with `.\.venv\Scripts\python.exe -m pytest -q` and the shared client tests with `pnpm test:shared`. [GitHub Actions](https://github.com/sgshiv001/TRADE-VELOCITY/actions) shows current build and test results.
 
 ## Team
 
@@ -76,14 +66,4 @@ We are **Hash Syndicate**. We built TradeVelocity together and focused on these 
 | Sourabh Gupta | Trading frontend development and testing of order placement and execution |
 | Harshit Sharma | AI feature development and model training for the in-app assistant |
 
-See the [team page](docs/team.md) and [three-minute demo guide](docs/adsa-demo.md).
-
-## More detail
-
-[How the engine works](docs/architecture.md) · [Evaluation method and results](docs/evaluation.md) · [AI calibration and limits](docs/ai-calibration-report.md) · [Hosted workspace guide](docs/hosted-workspace.md) · [Project development log](docs/development-log.md)
-
-The work is an educational simulation. It has no exchange connection, live quote feed, or certified fraud detection.
-
-## License
-
-[MIT](LICENSE)
+[Team page](docs/team.md) · [Evaluation results](docs/evaluation.md) · [AI calibration](docs/ai-calibration-report.md) · [Development log](docs/development-log.md) · [MIT license](LICENSE)
