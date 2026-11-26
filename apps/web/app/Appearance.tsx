@@ -1,0 +1,189 @@
+name: App release builds
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm --filter @tradevelocity/desktop... install --frozen-lockfile
+      - run: pnpm --filter @tradevelocity/desktop build
+      - run: pnpm --filter @tradevelocity/desktop package:windows:trader
+      - name: Verify and attach the Windows EXE
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw "The release tag must match the desktop app version" }
+          $installer = Get-Item apps/desktop/build/trader/TradeVelocity-Trader.exe
+          if ($installer.VersionInfo.ProductVersion -notin @($version, "$version.0")) {
+            throw "Unexpected Windows product version: $($installer.VersionInfo.ProductVersion)"
+          }
+          if ((gh release view $env:GITHUB_REF_NAME --json isDraft --jq '.isDraft') -ne 'true') { throw "Expected a draft release" }
+          gh release upload $env:GITHUB_REF_NAME $installer.FullName --clobber
+          exit $LASTEXITCODE
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            binary: arm64
+          - runner: macos-15-intel
+            arch: x64
+            binary: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 18
+    env:
+      TARGET_ARCH: ${{ matrix.arch }}
+      EXPECTED_BINARY: ${{ matrix.binary }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm --filter @tradevelocity/desktop... install --frozen-lockfile
+      - run: pnpm --filter @tradevelocity/desktop build
+      - name: Package the macOS preview
+        run: |
+          cat > "$RUNNER_TEMP/tradevelocity-preview.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+            </dict>
+          </plist>
+          PLIST
+          pnpm --filter @tradevelocity/desktop exec electron-builder --mac zip "--$TARGET_ARCH" \
+            -c.mac.identity=- -c.mac.notarize=false \
+            "-c.mac.entitlements=$RUNNER_TEMP/tradevelocity-preview.plist" \
+            "-c.mac.entitlementsInherit=$RUNNER_TEMP/tradevelocity-preview.plist" \
+            "-c.artifactName=TradeVelocity-macOS-$TARGET_ARCH.zip" --publish never
+      - name: Verify and attach the macOS ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="apps/desktop/build/TradeVelocity-macOS-$TARGET_ARCH.zip"
+          unpack="$RUNNER_TEMP/tradevelocity-verify"
+          ditto -x -k "$archive" "$unpack"
+          application="$unpack/TradeVelocity.app"
+          test -f "$application/Contents/Resources/app.asar"
+          test "$(lipo -archs "$application/Contents/MacOS/TradeVelocity")" = "$EXPECTED_BINARY"
+          version="$(plutil -extract CFBundleShortVersionString raw "$application/Contents/Info.plist")"
+          test "v$version" = "$GITHUB_REF_NAME"
+          codesign --verify --deep --strict "$application"
+          test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')" = true
+          gh release upload "$GITHUB_REF_NAME" "$archive" --clobber
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      EXPO_NO_TELEMETRY: "1"
+      EXPO_PUBLIC_API_URL: https://gettradevelocity.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:mobile
+      - name: Set up the Android SDK
+        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
+      - name: Generate Android project
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform android --no-install
+      - name: Assemble the Android preview
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --console=plain
+      - name: Verify and attach the APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="$RUNNER_TEMP/TradeVelocity-Android.apk"
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "$apk"
+          tools="$ANDROID_HOME/build-tools/37.0.0"
+          "$tools/apksigner" verify "$apk"
+          manifest="$("$tools/aapt" dump badging "$apk")"
+          version="$(node -p 'require("./apps/mobile/app.json").expo.version')"
+          build="$(node -p 'require("./apps/mobile/app.json").expo.android.versionCode')"
+          test "v$version" = "$GITHUB_REF_NAME"
+          grep -F "name='com.tradevelocity.nativeapp' versionCode='$build' versionName='$version'" <<< "$manifest"
+          grep -F "sdkVersion:'24'" <<< "$manifest"
+          grep '^native-code:' <<< "$manifest" | grep -F "'arm64-v8a'" | grep -F "'x86_64'"
+          test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')" = true
+          gh release upload "$GITHUB_REF_NAME" "$apk" --clobber
+"use client";
+
+import { useEffect, useState } from "react";
+
+export type Theme = "dark" | "light";
+export type Appearance = Theme | "system";
+const storageKey = "tradevelocity-appearance";
+const systemLight = "(prefers-color-scheme: light)";
+
+function readAppearance(): Appearance {
+  try {
+    const value = localStorage.getItem(storageKey);
+    if (value === "dark" || value === "light" || value === "system") return value;
+  } catch { /* The device preference still works without storage. */ }
+  return "system";
+}
+
+export function useAppearance() {
+  const [appearance, setAppearance] = useState(readAppearance);
+  const [prefersLight, setPrefersLight] = useState(() => matchMedia(systemLight).matches);
+
+  useEffect(() => {
+    const media = matchMedia(systemLight);
+    const update = () => setPrefersLight(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, appearance); }
+    catch { /* The theme stays usable in this tab. */ }
+  }, [appearance]);
+
+  const theme: Theme = appearance === "system" ? (prefersLight ? "light" : "dark") : appearance;
+  return {appearance, setAppearance, theme};
+}
+
+export function ThemeSelect({appearance, setAppearance}: {
+  appearance: Appearance;
+  setAppearance(value: Appearance): void;
+}) {
+  return <label className="tv2-theme-select">Theme
+    <select value={appearance} onChange={event => setAppearance(event.target.value as Appearance)}>
+      <option value="system">System</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </label>;
+}
