@@ -11,7 +11,7 @@ export default function DownloadPage() {
         {releases.map(release => <article className="tv2-surface" key={release.platform}>
           <span className="tv2-kicker">{release.kind}</span><h2>{release.platform}</h2>
           <p>Version {release.version} · {release.date}</p><p>{release.requirements} · {(release.bytes / 1e6).toFixed(1)} MB</p>
-          <a className="tv2-button" href={release.href}>Download {release.platform === "Windows" ? "EXE" : "APK"}</a>
+          <a className="tv2-button" href={release.href}>Download {release.format}</a>
           <a className="tv2-release-notes" href={release.notes}>Release notes</a>
           <details><summary>SHA-256 checksum</summary><code>{release.checksum}</code></details>
         </article>)}
