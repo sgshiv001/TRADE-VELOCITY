@@ -5,7 +5,7 @@ on:
     branches: ["codex/tradevelocity-platform-builds"]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows:
@@ -20,11 +20,21 @@ jobs:
       - run: pnpm --filter @tradevelocity/desktop... install --frozen-lockfile
       - run: pnpm --filter @tradevelocity/desktop build
       - run: pnpm --filter @tradevelocity/desktop package:windows:trader
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tradevelocity-windows-x64
-          path: apps/desktop/build/trader/TradeVelocity-Trader.exe
-          if-no-files-found: error
+      - name: Verify and attach Windows preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          $path = 'apps/desktop/build/trader/TradeVelocity-Trader.exe'
+          $stream = [IO.File]::OpenRead($path)
+          try {
+            if ($stream.ReadByte() -ne 0x4D -or $stream.ReadByte() -ne 0x5A) { throw 'Expected a Windows executable' }
+          } finally {
+            $stream.Dispose()
+          }
+          gh release upload v2.0.0-beta.1-downloads $path
+          exit $LASTEXITCODE
 
   macos:
     strategy:
@@ -78,8 +88,8 @@ jobs:
           test -f "$application/Contents/Resources/app.asar"
           test "$(lipo -archs "$application/Contents/MacOS/TradeVelocity")" = "$EXPECTED_BINARY"
           codesign --verify --deep --strict "$application"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tradevelocity-macos-${{ matrix.arch }}
-          path: apps/desktop/build/TradeVelocity-macOS-${{ matrix.arch }}.zip
-          if-no-files-found: error
+      - name: Attach macOS preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload v2.0.0-beta.1-downloads "apps/desktop/build/TradeVelocity-macOS-$TARGET_ARCH.zip"
