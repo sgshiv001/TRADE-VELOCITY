@@ -7,9 +7,11 @@ export type Trader = { username: string; workspace_id: string; tutorial_seen: bo
 type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null;
   signup_verification_required?: boolean };
 
-export default function AccessGate({children, redesigned = false}: {
+export default function AccessGate({children, redesigned = false, theme, themeControl}: {
   children: (trader: Trader | null, signOut: () => Promise<void>) => ReactNode;
   redesigned?: boolean;
+  theme?: "light" | "dark";
+  themeControl?: ReactNode;
 }) {
   const [access, setAccess] = useState<Access | null>(null);
   const [key, setKey] = useState("");
@@ -100,11 +102,11 @@ export default function AccessGate({children, redesigned = false}: {
     return <ProductPage signedIn={access.authenticated} />;
   }
   if (access?.authenticated) return <>
-    {access.required && (!redesigned || desktopAdmin) && <div className="access-strip"><span>{access.trader ? `Signed in as ${access.trader.username}` : "Private single-operator workspace"}</span><button className="secondary-button" onClick={() => void signOut()}>Sign out</button>{error && <span role="alert">{error}</span>}</div>}
+    {access.required && (!redesigned || desktopAdmin) && <div className="access-strip" data-access-theme={theme}><span>{access.trader ? `Signed in as ${access.trader.username}` : "Private single-operator workspace"}</span><button className="secondary-button" onClick={() => void signOut()}>Sign out</button>{error && <span role="alert">{error}</span>}</div>}
     {redesigned && !desktopAdmin && error && <p className="notice error" role="alert">{error}</p>}
     {children(access.trader ?? null, signOut)}
   </>;
-  if (access?.mode === "accounts") return <main className={redesigned ? "tv2 tv2-access" : "access-page"}>
+  if (access?.mode === "accounts") return <main className={redesigned ? "tv2 tv2-access" : "access-page"} data-tv-theme={theme}>
     {redesigned && <aside className="tv2-auth-intro"><a className="tv2-brand" href="/"><img src="/tv-mark.svg" alt="" width={36} height={36} /><span>TradeVelocity</span></a>
       <h2>{desktopAdmin ? "TradeVelocity administration" : "Intelligence behind every trade."}</h2>
       <p>{desktopAdmin ? "Monitor active accounts and service status." : "Research markets and practise trading with a virtual portfolio."}</p></aside>}
@@ -112,6 +114,7 @@ export default function AccessGate({children, redesigned = false}: {
       {!redesigned && <div className="trader-access-brand"><img src="/favicon.svg" alt="" /><span>TRADEVELOCITY</span></div>}
       <h1 id="access-heading">{desktopAdmin ? "Admin sign in" : signup ? "Create your account" : "Sign in"}</h1>
       <p>{desktopAdmin ? "Sign in with the authorized TradeVelocity administrator account." : "Use your demo demat account to trade with virtual cash and shares."}</p>
+      {themeControl}
       {error && <p className="notice error" role="alert">{error}</p>}
       <form onSubmit={event => { event.preventDefault(); void signIn(); }}>
         {enteringCodes ? <>

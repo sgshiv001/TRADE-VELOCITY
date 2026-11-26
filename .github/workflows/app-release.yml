@@ -1,4 +1,4 @@
-name: Desktop release builds
+name: App release builds
 
 on:
   push:
@@ -93,3 +93,47 @@ jobs:
           codesign --verify --deep --strict "$application"
           test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')" = true
           gh release upload "$GITHUB_REF_NAME" "$archive" --clobber
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      EXPO_NO_TELEMETRY: "1"
+      EXPO_PUBLIC_API_URL: https://gettradevelocity.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:mobile
+      - name: Set up the Android SDK
+        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
+      - name: Generate Android project
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform android --no-install
+      - name: Assemble the Android preview
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --console=plain
+      - name: Verify and attach the APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="$RUNNER_TEMP/TradeVelocity-Android.apk"
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "$apk"
+          tools="$ANDROID_HOME/build-tools/37.0.0"
+          "$tools/apksigner" verify "$apk"
+          manifest="$("$tools/aapt" dump badging "$apk")"
+          version="$(node -p 'require("./apps/mobile/app.json").expo.version')"
+          build="$(node -p 'require("./apps/mobile/app.json").expo.android.versionCode')"
+          test "v$version" = "$GITHUB_REF_NAME"
+          grep -F "name='com.tradevelocity.nativeapp' versionCode='$build' versionName='$version'" <<< "$manifest"
+          grep -F "sdkVersion:'24'" <<< "$manifest"
+          grep '^native-code:' <<< "$manifest" | grep -F "'arm64-v8a'" | grep -F "'x86_64'"
+          test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')" = true
+          gh release upload "$GITHUB_REF_NAME" "$apk" --clobber

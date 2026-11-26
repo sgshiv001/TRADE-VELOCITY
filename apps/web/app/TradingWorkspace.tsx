@@ -14,10 +14,11 @@ import { desktopView } from "../../../frontend/src/desktopView";
 import Tutorial, { fundedTutorialSteps } from "../../../frontend/src/Tutorial";
 import type { Market } from "../../../frontend/src/types";
 import { useLiveSession } from "../../../frontend/src/useLiveSession";
+import { ThemeSelect, type Appearance, type Theme } from "./Appearance";
 import { Brand } from "./Brand";
 import Intelligence from "./Intelligence";
 import { ExecutedTrades, Explore, Overview } from "./MarketViews";
-import Terminal, { DataState, type Theme } from "./Terminal";
+import Terminal, { DataState } from "./Terminal";
 
 const groups = [
   {title: "Trading", pages: [
@@ -37,7 +38,6 @@ const groups = [
 ] as const;
 
 type Page = typeof groups[number]["pages"][number]["id"];
-type Appearance = Theme | "system";
 
 const menuPages = groups.flatMap(group => [...group.pages] as {id: Page; label: string; icon: typeof Wallet; account?: boolean}[]);
 const symbolPattern = /^[A-Z][A-Z0-9.&-]{0,15}$/;
@@ -50,24 +50,16 @@ function route(account: boolean) {
   return {page: page ?? (desktopView() === "trader" ? "trade" : "overview"), symbol: symbol && symbolPattern.test(symbol) ? symbol : "RELIANCE"} as const;
 }
 
-function storedAppearance(): Appearance {
-  try {
-    const value = localStorage.getItem("tradevelocity-appearance");
-    if (value === "light" || value === "system") return value;
-  } catch { /* Theme choice is optional. */ }
-  return "dark";
-}
-
-function resolveTheme(appearance: Appearance): Theme {
-  return appearance === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : appearance;
-}
-
-export default function TradingWorkspace({trader, signOut}: {trader: Trader | null; signOut(): Promise<void>}) {
+export default function TradingWorkspace({trader, signOut, appearance, setAppearance, theme}: {
+  trader: Trader | null;
+  signOut(): Promise<void>;
+  appearance: Appearance;
+  setAppearance(value: Appearance): void;
+  theme: Theme;
+}) {
   const account = Boolean(trader);
   const [selection, setSelection] = useState(() => route(account));
   const {page, symbol} = selection;
-  const [appearance, setAppearance] = useState(storedAppearance);
-  const [theme, setTheme] = useState(() => resolveTheme(appearance));
   const [compact, setCompact] = useState(false);
   const [menu, setMenu] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -91,15 +83,6 @@ export default function TradingWorkspace({trader, signOut}: {trader: Trader | nu
     window.addEventListener("popstate", handleHistory);
     return () => window.removeEventListener("popstate", handleHistory);
   }, [account]);
-
-  useEffect(() => {
-    const media = matchMedia("(prefers-color-scheme: light)");
-    const update = () => setTheme(resolveTheme(appearance));
-    update();
-    try { localStorage.setItem("tradevelocity-appearance", appearance); } catch { /* Keep the current theme. */ }
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [appearance]);
 
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
@@ -204,9 +187,7 @@ export default function TradingWorkspace({trader, signOut}: {trader: Trader | nu
           {page === "settings" && <>
             <div className="tv2-heading"><div><h1>Settings</h1><p>{trader?.username ?? "Local workspace"}</p></div></div>
             <section className="tv2-surface tv2-settings"><h2>Appearance</h2>
-              <label>Theme<select value={appearance} onChange={event => setAppearance(event.target.value as Appearance)}>
-                <option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option>
-              </select></label>
+              <ThemeSelect appearance={appearance} setAppearance={setAppearance} />
               <label><input type="checkbox" checked={compact} onChange={event => setCompact(event.target.checked)} /> Compact sidebar</label>
             </section>
             <section className="tv2-surface tv2-settings"><h2>Account</h2>

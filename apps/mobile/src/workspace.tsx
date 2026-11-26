@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
+import { Appearance, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { createClient, TradeVelocityApiError, type Trader } from "@tradevelocity/client";
 
 const origin = process.env.EXPO_PUBLIC_API_URL ?? "https://gettradevelocity.onrender.com";
@@ -37,15 +38,66 @@ function createTheme(colors: typeof palettes.dark) {
   });
 }
 const themes = {light: createTheme(palettes.light), dark: createTheme(palettes.dark)};
+type ThemeOption = keyof typeof themes | "system";
+const themeKey = "tradevelocity-theme-v1";
+const themeOptions = [
+  {value: "system", label: "System"},
+  {value: "light", label: "Light"},
+  {value: "dark", label: "Dark"},
+] as const;
+const ThemeContext = createContext<{selection: ThemeOption; select(value: ThemeOption): void}>({
+  selection: "system", select: () => {},
+});
+
+export function MobileAppearance({children}: {children: ReactNode}) {
+  const [selection, select] = useState<ThemeOption | null>(null);
+  useEffect(() => {
+    let active = true;
+    void SecureStore.getItemAsync(themeKey).then(saved => {
+      if (!active) return;
+      const value = themeOptions.find(option => option.value === saved)?.value ?? "system";
+      select(current => current ?? value);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (selection === null) return;
+    Appearance.setColorScheme(selection === "system" ? "auto" : selection);
+    void SecureStore.setItemAsync(themeKey, selection).catch(() => {});
+  }, [selection]);
+  return <ThemeContext.Provider value={{selection: selection ?? "system", select}}>{children}</ThemeContext.Provider>;
+}
+
 export function useMobileTheme() {
-  const mode = useColorScheme() === "light" ? "light" : "dark";
+  const {selection} = useContext(ThemeContext);
+  const system = useColorScheme() === "light" ? "light" : "dark";
+  const mode = selection === "system" ? system : selection;
   return {theme: themes[mode], colors: palettes[mode], mode};
+}
+
+export function MobileThemePicker() {
+  const {selection, select} = useContext(ThemeContext);
+  const {theme, colors} = useMobileTheme();
+  return <View style={theme.panel}>
+    <Text style={theme.text}>Theme</Text>
+    <View accessibilityRole="radiogroup" style={{flexDirection: "row", flexWrap: "wrap", gap: 8}}>
+      {themeOptions.map(({value, label}) => {
+        const selected = value === selection;
+        return <Pressable key={value} accessibilityRole="radio" accessibilityState={{checked: selected}}
+          onPress={() => select(value)} style={[theme.action, !selected && {
+            backgroundColor: colors.background, borderColor: colors.line, borderWidth: 1,
+          }]}>
+          <Text style={selected ? theme.actionText : theme.text}>{label}</Text>
+        </Pressable>;
+      })}
+    </View>
+  </View>;
 }
 
 export function Screen({title, children, refresh}: {title: string; children: ReactNode; refresh?: () => void}) {
   const {theme, colors} = useMobileTheme();
   return <ScrollView style={theme.screen} contentContainerStyle={theme.section} keyboardShouldPersistTaps="handled"
-    refreshControl={refresh ? <RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.action} /> : undefined}>
+    refreshControl={refresh ? <RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.action} colors={[colors.action]} progressBackgroundColor={colors.panel} /> : undefined}>
     <Text style={theme.title} accessibilityRole="header">{title}</Text>{children}
   </ScrollView>;
 }
@@ -216,7 +268,9 @@ export function MobileSession({children}: {children: ReactNode}) {
     if (result.success) await SecureStore.setItemAsync(biometricKey, "1");
   }
 
-  if (restoring) return <Screen title="TradeVelocity"><Text style={theme.subtle}>Checking your session…</Text></Screen>;
+  if (restoring) return <SafeAreaView style={theme.screen}>
+    <Screen title="TradeVelocity"><Text style={theme.subtle}>Checking your session…</Text></Screen>
+  </SafeAreaView>;
   if (session) {
     const request: Request = async (path, init) => {
       try {
@@ -231,7 +285,7 @@ export function MobileSession({children}: {children: ReactNode}) {
     };
     return <SessionContext.Provider value={{request, trader: session.trader, signOut, enableLock, revision}}>{children}</SessionContext.Provider>;
   }
-  return <Screen title="TradeVelocity">
+  return <SafeAreaView style={theme.screen}><Screen title="TradeVelocity">
     {error && <Text accessibilityRole="alert" style={theme.error}>{error}</Text>}
     {locked ? <Action title="Unlock your session" onPress={() => void unlock()} /> : <View style={theme.panel}>
       <Text style={theme.text}>{register ? "Create your account" : "Sign in to your paper trading account"}</Text>
@@ -263,5 +317,6 @@ export function MobileSession({children}: {children: ReactNode}) {
         <Text style={theme.link}>{register ? "Use existing account" : "Create an account"}</Text>
       </Pressable>
     </View>}
-  </Screen>;
+    <MobileThemePicker />
+  </Screen></SafeAreaView>;
 }

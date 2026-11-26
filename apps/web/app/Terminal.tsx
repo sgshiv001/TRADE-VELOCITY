@@ -5,9 +5,8 @@ import { useResource } from "../../../frontend/src/AdvancedPanels";
 import { api, inr, number, tradeTime } from "../../../frontend/src/api";
 import { MarketPrice, OrderTicket } from "../../../frontend/src/Trading";
 import type { Company, Depth, History, Lab, Quote } from "../../../frontend/src/types";
+import type { Theme } from "./Appearance";
 import { MarketChart } from "./MarketChart";
-
-export type Theme = "dark" | "light";
 
 export function DataState({error, retry, loading}: {error: string; retry: () => void; loading: string}) {
   return <div className="tv2-data-state" role={error ? "alert" : "status"}>

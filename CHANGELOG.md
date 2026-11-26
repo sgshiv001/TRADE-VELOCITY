@@ -1,10 +1,11 @@
 # Change log
 
-## 2026-11-26 — TradeVelocity 2.0.0 demo release
+## 2026-11-26 — TradeVelocity 2.0.1 demo release
 
-- Publish the shared paper-trading terminal, virtual portfolio, market research, and AI Analyst as version 2.0.0.
-- Rebuild the Windows x64 portable EXE, macOS ZIPs for Apple silicon and Intel, and the Android APK. The Android package uses build number 3.
-- Publish the latest demo and its checksums in [GitHub Releases](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.0). iPhone and iPad use the Safari web app.
+- Publish the shared paper-trading terminal, virtual portfolio, market research, and AI Analyst as version 2.0.1.
+- Rebuild the Windows x64 portable EXE, macOS ZIPs for Apple silicon and Intel, and the Android APK. The Android package uses build number 4.
+- Apply the selected Light, Dark, or System theme across sign-in, the trading workspace, and the admin dashboard. Android also saves its theme selection and applies it to the account screens, system bars, and navigation.
+- Publish the latest demo and its checksums in [GitHub Releases](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.1). iPhone and iPad use the Safari web app.
 - Email-code signup remains pending provider setup.
 
 ## Earlier development

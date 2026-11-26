@@ -6,12 +6,13 @@ import {
   createChart, type Time, type CandlestickData,
 } from "lightweight-charts";
 import { inr, number } from "../../../frontend/src/api";
+import type { Theme } from "./Appearance";
 
 export type ChartBar = {date: string; open: number; high: number; low: number; close: number; volume: number; ma20?: number | null};
 
 export function MarketChart({bars, symbol, mode = "candles", average = false, theme = "dark"}: {
   bars: ChartBar[]; symbol: string; mode?: "candles" | "line" | "area";
-  average?: boolean; theme?: "dark" | "light";
+  average?: boolean; theme?: Theme;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<ChartBar>();
@@ -19,6 +20,8 @@ export function MarketChart({bars, symbol, mode = "candles", average = false, th
     if (!root.current || !bars.length) return;
     const onLight = theme === "light";
     const grid = onLight ? "#e5ebec" : "#202b31";
+    const up = onLight ? "#087856" : "#10b981";
+    const down = onLight ? "#b63543" : "#f37179";
     const chart = createChart(root.current, {
       autoSize: true,
       layout: {
@@ -36,20 +39,19 @@ export function MarketChart({bars, symbol, mode = "candles", average = false, th
     const closes = data.map(({time, close}) => ({time, value: close}));
     if (mode === "candles") {
       chart.addSeries(CandlestickSeries, {
-        upColor: "#10b981", downColor: "#f37179", wickUpColor: "#10b981",
-        wickDownColor: "#f37179", borderVisible: false,
+        upColor: up, downColor: down, wickUpColor: up, wickDownColor: down, borderVisible: false,
       }).setData(data);
     } else if (mode === "line") {
-      chart.addSeries(LineSeries, {color: "#10b981", lineWidth: 2}).setData(closes);
+      chart.addSeries(LineSeries, {color: up, lineWidth: 2}).setData(closes);
     } else {
-      chart.addSeries(AreaSeries, {lineColor: "#10b981", topColor: "#10b98145", bottomColor: "#10b98104"}).setData(closes);
+      chart.addSeries(AreaSeries, {lineColor: up, topColor: up + "45", bottomColor: up + "04"}).setData(closes);
     }
     const volume = chart.addSeries(HistogramSeries, {priceScaleId: "", priceFormat: {type: "volume"}, priceLineVisible: false, lastValueVisible: false});
     volume.priceScale().applyOptions({scaleMargins: {top: .81, bottom: 0}});
     volume.setData(bars.map(row => ({
-      time: row.date, value: row.volume, color: row.close >= row.open ? "#10b98155" : "#f3717955",
+      time: row.date, value: row.volume, color: (row.close >= row.open ? up : down) + "55",
     })));
-    if (average) chart.addSeries(LineSeries, {color: "#65bfe6", lineWidth: 1, priceLineVisible: false})
+    if (average) chart.addSeries(LineSeries, {color: onLight ? "#175f84" : "#65bfe6", lineWidth: 1, priceLineVisible: false})
       .setData(bars.flatMap(row => row.ma20 == null ? [] : [{time: row.date, value: row.ma20}]));
     const byDate = new Map(bars.map(row => [row.date, row]));
     setCursor(undefined);

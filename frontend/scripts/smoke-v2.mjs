@@ -31,12 +31,17 @@ try {
   await expect(page.getByRole("link", { name: "Download Windows EXE" })).toHaveAttribute("href", /\/releases\/download\//);
 
   await page.goto(`${origin}/signup?view=trade&symbol=RELIANCE`);
+  await page.emulateMedia({colorScheme: "light"});
+  await expect(page.locator(".tv2-access")).toHaveCSS("color-scheme", "light");
+  await page.getByRole("combobox", {name: "Theme"}).selectOption("dark");
+  await expect(page.locator(".tv2-access")).toHaveCSS("color-scheme", "dark");
   const username = `qa_v2_${randomBytes(5).toString("hex")}`;
   const password = randomBytes(18).toString("hex");
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   await page.getByRole("button", { name: "Skip tutorial" }).click();
+  await expect(page.locator(".tv2-app")).toHaveCSS("color-scheme", "dark");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Reliance Industries/);
   await expect(page.getByText("₹10,00,000.00", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "1M", exact: true }).click();
@@ -94,6 +99,7 @@ try {
   const mobile = await context.newPage();
   await mobile.setViewportSize({ width: 390, height: 844 });
   await mobile.goto(`${origin}/app?view=markets`);
+  await expect(mobile.locator(".tv2-app")).toHaveCSS("color-scheme", "light");
   await expect(mobile.locator(".tv2-table tbody tr").first()).toBeVisible();
   await expect(mobile.getByRole("columnheader", { name: "Daily close" })).toBeInViewport();
   assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
@@ -102,6 +108,11 @@ try {
   await mobile.getByRole("button", { name: "Portfolio", exact: true }).click();
   await expect(mobile.getByRole("heading", { name: "Portfolio", exact: true })).toBeVisible();
   assert.equal((await page.request.get(`${origin}/api/admin/activity`, { headers })).status(), 403);
+  await page.getByRole("combobox", {name: "Theme"}).selectOption("system");
+  await page.emulateMedia({colorScheme: "dark"});
+  await expect(page.locator(".tv2-app")).toHaveCSS("color-scheme", "dark");
+  await page.emulateMedia({colorScheme: "light"});
+  await expect(page.locator(".tv2-app")).toHaveCSS("color-scheme", "light");
   assert.deepEqual(errors, []);
   console.log("V2 staging passed web signup, cross-client balances, trading, watchlists, Analyst, themes and mobile navigation.");
 } finally {

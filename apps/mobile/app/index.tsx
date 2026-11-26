@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { Action, Screen, useMobileTheme, useWorkspace } from "../src/workspace";
+import { Action, MobileThemePicker, Screen, useMobileTheme, useWorkspace } from "../src/workspace";
 import { formatINR, type ExecutionInbox, type Portfolio } from "@tradevelocity/client";
 import { useData } from "../src/data";
 
@@ -29,6 +29,7 @@ export default function Home() {
         inbox.refresh();
       }, "Inbox updated")} />}
     </View>
+    <MobileThemePicker />
     <Action title="Enable biometric unlock" onPress={() => action(enableLock, "Device lock preference saved")} />
     <Action title="Sign out" onPress={() => action(signOut, "")} />
     {notice && <Text accessibilityLiveRegion="polite" style={theme.subtle}>{notice}</Text>}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, number, tradeTime } from "./api";
 import { ThemeToggle } from "./Trading";
 
@@ -50,12 +50,12 @@ function ServiceHealth() {
   </section>;
 }
 
-export function AdminDesktop({allowed}: {allowed: boolean}) {
+export function AdminDesktop({allowed, themeControl}: {allowed: boolean; themeControl?: ReactNode}) {
   useTraderActivity(allowed);
   return <main className="admin-desktop">
     <div className="admin-desktop-header">
       <div className="admin-desktop-brand"><img src="/favicon.svg" width={36} height={36} alt="" /><strong>TradeVelocity Admin</strong></div>
-      <ThemeToggle />
+      {themeControl ?? <ThemeToggle />}
     </div>
     {allowed ? <AdminActivity /> : <section className="panel"><h1>Administrator access required</h1>
       <p>Your current login is a trader account. Use Sign out above, then sign in with the authorized administrator account.</p></section>}
