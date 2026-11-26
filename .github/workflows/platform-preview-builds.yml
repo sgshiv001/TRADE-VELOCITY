@@ -1,0 +1,85 @@
+name: Platform preview builds
+
+on:
+  push:
+    branches: ["codex/tradevelocity-platform-builds"]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm --filter @tradevelocity/desktop... install --frozen-lockfile
+      - run: pnpm --filter @tradevelocity/desktop build
+      - run: pnpm --filter @tradevelocity/desktop package:windows:trader
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tradevelocity-windows-x64
+          path: apps/desktop/build/trader/TradeVelocity-Trader.exe
+          if-no-files-found: error
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            binary: arm64
+          - runner: macos-15-intel
+            arch: x64
+            binary: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 18
+    env:
+      TARGET_ARCH: ${{ matrix.arch }}
+      EXPECTED_BINARY: ${{ matrix.binary }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm --filter @tradevelocity/desktop... install --frozen-lockfile
+      - run: pnpm --filter @tradevelocity/desktop build
+      - name: Package macOS preview
+        run: |
+          cat > "$RUNNER_TEMP/tradevelocity-preview.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+            </dict>
+          </plist>
+          PLIST
+          pnpm --filter @tradevelocity/desktop exec electron-builder --mac zip "--$TARGET_ARCH" \
+            -c.mac.identity=- -c.mac.notarize=false \
+            "-c.mac.entitlements=$RUNNER_TEMP/tradevelocity-preview.plist" \
+            "-c.mac.entitlementsInherit=$RUNNER_TEMP/tradevelocity-preview.plist" \
+            "-c.artifactName=TradeVelocity-macOS-$TARGET_ARCH.zip" --publish never
+      - name: Verify packaged archive
+        run: |
+          archive="apps/desktop/build/TradeVelocity-macOS-$TARGET_ARCH.zip"
+          unpack="$RUNNER_TEMP/tradevelocity-verify"
+          ditto -x -k "$archive" "$unpack"
+          application="$unpack/TradeVelocity.app"
+          test -f "$application/Contents/Resources/app.asar"
+          test "$(lipo -archs "$application/Contents/MacOS/TradeVelocity")" = "$EXPECTED_BINARY"
+          codesign --verify --deep --strict "$application"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tradevelocity-macos-${{ matrix.arch }}
+          path: apps/desktop/build/TradeVelocity-macOS-${{ matrix.arch }}.zip
+          if-no-files-found: error
