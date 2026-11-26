@@ -1,6 +1,6 @@
 # TradeVelocity ADSA demo
 
-## Live 2.0 beta
+## Live 2.0.0 demo
 
 Open the [hosted app](https://gettradevelocity.onrender.com) before presenting so the service has time to start. Sign in to two trader accounts in separate browser profiles with the same stock selected. Follow or skip the tutorial. Stock prices and depth may change between rehearsal and presentation.
 

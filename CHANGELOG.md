@@ -1,6 +1,15 @@
 # Change log
 
-This log records the project implemented through 2 October 2026. Original
+## 2026-11-26 — TradeVelocity 2.0.0 demo release
+
+- Publish the shared paper-trading terminal, virtual portfolio, market research, and AI Analyst as version 2.0.0.
+- Rebuild the Windows x64 portable EXE, macOS ZIPs for Apple silicon and Intel, and the Android APK. The Android package uses build number 3.
+- Publish the latest demo and its checksums in [GitHub Releases](https://github.com/sgshiv001/TRADE-VELOCITY/releases/tag/v2.0.0). iPhone and iPad use the Safari web app.
+- Email-code signup remains pending provider setup.
+
+## Earlier development
+
+The original log recorded the project implemented through 2 October 2026. Original
 commit dates are taken from Git. Later milestones summarize the development
 session and current files; they do not imply separate commits existed for every
 intermediate edit. See [the detailed development log](docs/development-log.md)

@@ -139,7 +139,6 @@
 .tv2-release-grid .tv2-button, .tv2-release-grid details { margin-top: 10px; }
 .tv2-release-grid code { overflow-wrap: anywhere; font-size: 12px; }
 .tv2-download-file + .tv2-download-file { border-top: 1px solid var(--tv-line); margin-top: 16px; padding-top: 6px; }
-.tv2-release-notes { display: inline-block; margin-top: 16px; }
 
 .tv2-access { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, .82fr); align-items: center; gap: clamp(20px, 5vw, 74px); padding: clamp(24px, 8vw, 125px); }
 .tv2-auth-intro { align-self: stretch; padding: clamp(24px, 4vw, 60px); background: linear-gradient(155deg, #142e27, #0e1519 75%); border: 1px solid var(--tv-line); border-radius: 14px; }

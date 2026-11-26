@@ -1,0 +1,95 @@
+name: Desktop release builds
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm --filter @tradevelocity/desktop... install --frozen-lockfile
+      - run: pnpm --filter @tradevelocity/desktop build
+      - run: pnpm --filter @tradevelocity/desktop package:windows:trader
+      - name: Verify and attach the Windows EXE
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw "The release tag must match the desktop app version" }
+          $installer = Get-Item apps/desktop/build/trader/TradeVelocity-Trader.exe
+          if ($installer.VersionInfo.ProductVersion -notin @($version, "$version.0")) {
+            throw "Unexpected Windows product version: $($installer.VersionInfo.ProductVersion)"
+          }
+          if ((gh release view $env:GITHUB_REF_NAME --json isDraft --jq '.isDraft') -ne 'true') { throw "Expected a draft release" }
+          gh release upload $env:GITHUB_REF_NAME $installer.FullName --clobber
+          exit $LASTEXITCODE
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            binary: arm64
+          - runner: macos-15-intel
+            arch: x64
+            binary: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 18
+    env:
+      TARGET_ARCH: ${{ matrix.arch }}
+      EXPECTED_BINARY: ${{ matrix.binary }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm --filter @tradevelocity/desktop... install --frozen-lockfile
+      - run: pnpm --filter @tradevelocity/desktop build
+      - name: Package the macOS preview
+        run: |
+          cat > "$RUNNER_TEMP/tradevelocity-preview.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+            </dict>
+          </plist>
+          PLIST
+          pnpm --filter @tradevelocity/desktop exec electron-builder --mac zip "--$TARGET_ARCH" \
+            -c.mac.identity=- -c.mac.notarize=false \
+            "-c.mac.entitlements=$RUNNER_TEMP/tradevelocity-preview.plist" \
+            "-c.mac.entitlementsInherit=$RUNNER_TEMP/tradevelocity-preview.plist" \
+            "-c.artifactName=TradeVelocity-macOS-$TARGET_ARCH.zip" --publish never
+      - name: Verify and attach the macOS ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="apps/desktop/build/TradeVelocity-macOS-$TARGET_ARCH.zip"
+          unpack="$RUNNER_TEMP/tradevelocity-verify"
+          ditto -x -k "$archive" "$unpack"
+          application="$unpack/TradeVelocity.app"
+          test -f "$application/Contents/Resources/app.asar"
+          test "$(lipo -archs "$application/Contents/MacOS/TradeVelocity")" = "$EXPECTED_BINARY"
+          version="$(plutil -extract CFBundleShortVersionString raw "$application/Contents/Info.plist")"
+          test "v$version" = "$GITHUB_REF_NAME"
+          codesign --verify --deep --strict "$application"
+          test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')" = true
+          gh release upload "$GITHUB_REF_NAME" "$archive" --clobber

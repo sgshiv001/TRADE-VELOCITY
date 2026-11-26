@@ -7,8 +7,8 @@
     "icon": "./assets/icon.png",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
-    "android": {"package": "com.tradevelocity.nativeapp", "versionCode": 2, "adaptiveIcon": {"foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#090c10"}},
-    "ios": {"bundleIdentifier": "com.tradevelocity.nativeapp", "buildNumber": "2", "supportsTablet": true},
+    "android": {"package": "com.tradevelocity.nativeapp", "versionCode": 3, "adaptiveIcon": {"foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#090c10"}},
+    "ios": {"bundleIdentifier": "com.tradevelocity.nativeapp", "buildNumber": "3", "supportsTablet": true},
     "plugins": [
       "expo-router",
       "expo-secure-store",
