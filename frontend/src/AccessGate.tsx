@@ -4,7 +4,8 @@ import ProductPage from "./ProductPage";
 import { desktopView, workspaceRoute } from "./desktopView";
 
 export type Trader = { username: string; workspace_id: string; tutorial_seen: boolean; admin?: boolean };
-type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null };
+type Access = { required: boolean; authenticated: boolean; mode?: "accounts"; trader?: Trader | null;
+  signup_verification_required?: boolean };
 
 export default function AccessGate({children, redesigned = false}: {
   children: (trader: Trader | null, signOut: () => Promise<void>) => ReactNode;
@@ -14,10 +15,15 @@ export default function AccessGate({children, redesigned = false}: {
   const [key, setKey] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [verificationToken, setVerificationToken] = useState("");
+  const [emailCode, setEmailCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const desktopAdmin = desktopView() === "admin";
   const signup = !desktopAdmin && access?.mode === "accounts" && window.location.pathname === "/signup";
+  const verifySignup = signup && access?.signup_verification_required;
+  const enteringCodes = verifySignup && Boolean(verificationToken);
 
   async function status() {
     try {
@@ -45,10 +51,27 @@ export default function AccessGate({children, redesigned = false}: {
     window.addEventListener("tradevelocity-access-expired",expired);
     return () => window.removeEventListener("tradevelocity-access-expired",expired);
   },[]);
-  async function signIn() {
+  async function requestEmailCode() {
     setBusy(true); setError("");
     try {
-      const body = access?.mode === "accounts" ? {username, password} : {access_key:key};
+      const response = await fetch("/api/auth/signup/start", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({username: username.trim(), email: email.trim()}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail ?? "Could not send the email code.");
+      setVerificationToken(result.verification_token);
+      setEmailCode("");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not send the email code."); }
+    finally { setBusy(false); }
+  }
+  async function signIn() {
+    if (verifySignup && !verificationToken) return requestEmailCode();
+    setBusy(true); setError("");
+    try {
+      const body = access?.mode === "accounts" ? {username, password, ...(verifySignup ? {
+        verification_token: verificationToken, email_code: emailCode,
+      } : {})} : {access_key:key};
       const response = await fetch(signup ? "/api/auth/register" : "/api/auth/login", {
         method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body),
       });
@@ -56,6 +79,9 @@ export default function AccessGate({children, redesigned = false}: {
       if (!response.ok) throw new Error(result.detail ?? "Sign-in failed.");
       setKey("");
       setPassword("");
+      setEmail("");
+      setVerificationToken("");
+      setEmailCode("");
       await status();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Sign-in failed."); }
     finally { setBusy(false); }
@@ -88,15 +114,31 @@ export default function AccessGate({children, redesigned = false}: {
       <p>{desktopAdmin ? "Sign in with the authorized TradeVelocity administrator account." : "Use your demo demat account to trade with virtual cash and shares."}</p>
       {error && <p className="notice error" role="alert">{error}</p>}
       <form onSubmit={event => { event.preventDefault(); void signIn(); }}>
-        <label>Username<input autoComplete="username" autoCapitalize="none" spellCheck={false} required
-          minLength={3} maxLength={32} pattern="[A-Za-z0-9_]+" value={username}
-          onChange={event => setUsername(event.target.value)} /></label>
-        {signup && <p className="fine-print">Use 3–32 letters, numbers, or underscores.</p>}
-        <label>Password<input type="password" autoComplete={signup ? "new-password" : "current-password"}
-          required minLength={signup ? 12 : 1} maxLength={128} value={password}
-          onChange={event => setPassword(event.target.value)} /></label>
-        {signup && <p className="fine-print">Use at least 12 characters.</p>}
-        <button className="primary-button" disabled={busy}>{busy ? "Please wait…" : signup ? "Create account" : "Sign in"}</button>
+        {enteringCodes ? <>
+          <p role="status">Enter the code sent to your email. It expires after 10 minutes.</p>
+          <label>Email code<input inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{6}" maxLength={6}
+            value={emailCode} onChange={event => setEmailCode(event.target.value)} /></label>
+        </> : <>
+          <label>Username<input autoComplete="username" autoCapitalize="none" spellCheck={false} required disabled={busy}
+            minLength={3} maxLength={32} pattern="[A-Za-z0-9_]+" value={username}
+            onChange={event => setUsername(event.target.value)} /></label>
+          {signup && <p className="fine-print">Use 3–32 letters, numbers, or underscores.</p>}
+          <label>Password<input type="password" autoComplete={signup ? "new-password" : "current-password"} disabled={busy}
+            required minLength={signup ? 12 : 1} maxLength={128} value={password}
+            onChange={event => setPassword(event.target.value)} /></label>
+          {signup && <p className="fine-print">Use at least 12 characters.</p>}
+          {verifySignup &&
+            <label>Email<input type="email" autoComplete="email" required maxLength={254} disabled={busy}
+              value={email} onChange={event => setEmail(event.target.value)} /></label>}
+        </>}
+        <button className="primary-button" disabled={busy}>{busy ? "Please wait…" : verifySignup && !enteringCodes
+          ? "Send email code" : signup ? "Create account" : "Sign in"}</button>
+        {enteringCodes && <>
+          <button className="secondary-button" type="button" disabled={busy} onClick={() => void requestEmailCode()}>Send a new code</button>
+          <button className="secondary-button" type="button" disabled={busy} onClick={() => {
+            setVerificationToken(""); setEmailCode(""); setError("");
+          }}>Edit email</button>
+        </>}
       </form>
       {!desktopAdmin && <p>{signup ? "Already have an account? " : "New to TradeVelocity? "}
         <a href={workspaceRoute(signup ? "/login" : "/signup")}>{signup ? "Sign in" : "Create an account"}</a>

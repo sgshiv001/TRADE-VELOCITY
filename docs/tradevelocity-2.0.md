@@ -61,3 +61,14 @@ Run `node frontend/scripts/smoke-v2.mjs` while the local staging service is up. 
 ## Release work remaining
 
 Connected trading supports confirmed limit orders. Live stock references may be delayed, daily bars are timestamped, and the Analyst shows a historical forecast range only when the market data and model support it. Real news and sentiment, push delivery, a configured language-model provider, funded market-order types, and production credential recovery remain separate integrations. Signed distribution, physical-device and platform upgrades, and production deployment require a release review.
+
+## Email signup verification
+
+When enabled, new traders verify their email with a six-digit code before the workspace is created. Brevo delivers the email through its transactional API. Its free plan includes up to 300 sends per day across the account. [Brevo free plan](https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan)
+
+1. Verify a Brevo sender address and enable transactional sending. Check delivery with a controlled test recipient. [Brevo transactional email setup](https://developers.brevo.com/docs/send-a-transactional-email)
+2. Follow the database recovery procedure above and apply `python -m alembic upgrade head` with the migration dependencies installed. Revision `0004_email_only_signup` allows email-only registration and preserves existing verified contacts.
+3. Set `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and a random `TRADEVELOCITY_SIGNUP_OTP_SECRET` of at least 32 bytes in the server environment. Set `TRADEVELOCITY_SIGNUP_OTP=1` after the migration and provider setup succeed. Existing traders can sign in with their username and password.
+4. Verify new-account creation through the hosted website and the current native client. Publish a native client that supports the verification screens before enabling the requirement for public signup.
+
+PostgreSQL stores verified addresses and keyed digests of pending codes. A challenge expires after ten minutes, allows five submissions, and is consumed when the account is created. Keep delivery credentials and the signing secret in the hosting secret store.

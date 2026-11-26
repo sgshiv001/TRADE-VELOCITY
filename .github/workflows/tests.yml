@@ -90,7 +90,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: python -m pip install -e ".[app,test,postgres,accounts]"
+      - run: python -m pip install -e ".[app,test,postgres,accounts,migrations]"
       - run: python -m pytest -q tests/test_database.py tests/test_trader_accounts.py
 
   browser:

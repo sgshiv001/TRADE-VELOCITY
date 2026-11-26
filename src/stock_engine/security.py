@@ -151,7 +151,7 @@ class SecurityGuard:
         else:
             response = None
             public = path in ("/api/health", "/api/ready", "/api/auth/status", "/api/auth/login", "/api/auth/register",
-                              "/api/auth/device/login", "/api/auth/device/register")
+                              "/api/auth/device/login", "/api/auth/device/register", "/api/auth/signup/start")
             is_api = path.startswith("/api/")
             client = request.client.host if request.client else "unknown"
             if is_api and self.limited(client, "requests", 3000 if self.accounts else

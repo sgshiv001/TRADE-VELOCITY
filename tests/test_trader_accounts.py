@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from stock_engine.api import create_app
 from stock_engine.security import COOKIE, SecuritySettings
+from stock_engine.signup_verification import BrevoEmail, digest
 
 
 ORIGIN = "https://tradevelocity.test"
@@ -92,6 +94,99 @@ def test_bad_sign_in_and_duplicate_registration(backend):
     assert invalid_password not in invalid_request.text
     assert client.post("/api/auth/login", json={"username": username, "password": "wrong"}).status_code == 401
     assert client.get("/api/auth/status").json()["authenticated"] is False
+
+
+@pytest.fixture
+def verified_backend(backend, monkeypatch):
+    pytest.importorskip("alembic")
+    from alembic import command
+    from alembic.config import Config
+
+    class TestDelivery:
+        def __init__(self):
+            self.sent = {}
+
+        def send_code(self, email, code):
+            self.sent[email.lower()] = code
+
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "db_migrations"))
+    with monkeypatch.context() as migration_environment:
+        migration_environment.setenv("DATABASE_URL", os.environ["TRADEVELOCITY_TEST_DATABASE_URL"])
+        command.upgrade(config, "head")
+
+    legacy_app = backend()
+    legacy_app.state.accounts.check()
+    delivery = TestDelivery()
+    monkeypatch.setenv("TRADEVELOCITY_SIGNUP_OTP", "1")
+    monkeypatch.setenv("TRADEVELOCITY_SIGNUP_OTP_SECRET", "test-only signup verification secret key")
+    monkeypatch.setattr(BrevoEmail, "from_environment", lambda: delivery)
+    return backend(), legacy_app, delivery
+
+
+def signup_contacts():
+    uid = uuid4()
+    return {"username": "otp_" + uid.hex[:18], "email": f"OTP-{uid.hex}@example.com"}
+
+
+def test_email_code_is_required_and_consumed_at_registration(verified_backend):
+    app, legacy_app, delivery = verified_backend
+    previous = register(TestClient(legacy_app, base_url=ORIGIN))
+    client = TestClient(app, base_url=ORIGIN)
+    assert client.get("/api/auth/status").json()["signup_verification_required"] is True
+    assert client.post("/api/auth/login", json={"username": previous["username"], "password": PASSWORD}).is_success
+    assert client.post("/api/auth/logout").is_success
+    contact = signup_contacts()
+    credentials = {"username": contact["username"], "password": PASSWORD}
+    for path in ("/api/auth/register", "/api/auth/device/register"):
+        assert client.post(path, json=credentials).status_code == 400
+    response = client.post("/api/auth/signup/start", json=contact)
+    assert response.status_code == 201
+    token = response.json()["verification_token"]
+    assert client.post("/api/auth/signup/start", json=contact).status_code == 429
+    code = delivery.sent[contact["email"].lower()]
+    wrong_code = "000000" if code != "000000" else "111111"
+    details = {**credentials, "verification_token": token, "email_code": wrong_code}
+    assert client.post("/api/auth/register", json={**details, "username": "other_trader"}).status_code == 400
+    assert client.post("/api/auth/register", json=details).status_code == 400
+    assert client.get("/api/auth/status").json()["authenticated"] is False
+    details["email_code"] = code
+    registered = client.post("/api/auth/register", json=details)
+    assert registered.status_code == 201
+    assert "httponly" in registered.headers["set-cookie"].lower()
+    identity = client.get("/api/auth/status").json()["trader"]
+    assert identity["username"] == contact["username"]
+    assert "email" not in identity and "phone" not in identity
+    assert client.post("/api/auth/register", json=details).status_code == 400
+    with app.state.store.connect() as connection:
+        record = connection.execute("SELECT email, phone FROM trader_verified_contacts WHERE username=%s",
+                                    (identity["username"],)).fetchone()
+    assert record == (contact["email"].lower(), None)
+
+
+def test_device_registration_requires_a_fresh_challenge(verified_backend):
+    app, _, delivery = verified_backend
+    client = TestClient(app, base_url=ORIGIN)
+    contact = signup_contacts()
+    challenge = client.post("/api/auth/signup/start", json=contact)
+    assert challenge.status_code == 201
+    payload = {"username": contact["username"], "password": PASSWORD, "email_code": delivery.sent[contact["email"].lower()],
+               "verification_token": challenge.json()["verification_token"]}
+    with app.state.store.connect() as connection:
+        connection.execute("UPDATE signup_verifications SET expires_at = now() WHERE token_digest = %s",
+                           (digest(payload["verification_token"]),))
+    assert client.post("/api/auth/device/register", json=payload).status_code == 400
+    contact = signup_contacts()
+    challenge = client.post("/api/auth/signup/start", json=contact)
+    assert challenge.status_code == 201
+    payload.update(username=contact["username"], verification_token=challenge.json()["verification_token"],
+                   email_code=delivery.sent[contact["email"].lower()])
+    result = client.post("/api/auth/device/register", json=payload)
+    assert result.status_code == 201
+    assert "set-cookie" not in result.headers
+    token = result.json()["token"]
+    assert client.get("/api/auth/status", headers={"Authorization": f"Bearer {token}"}).json()["authenticated"] is True
 
 
 def test_shared_depth_updates_both_traders_and_survives_restart(backend, monkeypatch):

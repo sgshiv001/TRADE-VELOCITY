@@ -68,10 +68,20 @@ export function MobileSession({children}: {children: ReactNode}) {
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [verifySignup, setVerifySignup] = useState(false);
+  const [verificationToken, setVerificationToken] = useState("");
+  const [emailCode, setEmailCode] = useState("");
   const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const generation = useRef(0);
+  const enteringCodes = register && verifySignup && Boolean(verificationToken);
+
+  function clearVerification() {
+    setVerificationToken("");
+    setEmailCode("");
+  }
 
   async function resume(token: string) {
     const current = ++generation.current;
@@ -127,13 +137,51 @@ export function MobileSession({children}: {children: ReactNode}) {
     return () => { stopped = true; clearTimeout(waiting); connection?.close(); onResume.remove(); };
   }, [session]);
 
+  async function toggleRegistration() {
+    setError("");
+    clearVerification();
+    if (register) {
+      setRegister(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      const status = await createClient(origin)<{signup_verification_required?: boolean}>("/auth/status");
+      setVerifySignup(Boolean(status.signup_verification_required));
+      setRegister(true);
+    } catch (cause) { setError(reason(cause)); }
+    finally { setBusy(false); }
+  }
+
+  async function requestEmailCode() {
+    setBusy(true); setError("");
+    try {
+      const result = await createClient(origin)<{verification_token: string}>("/auth/signup/start", {
+        method: "POST", body: JSON.stringify({username: username.trim(), email: email.trim()}),
+      });
+      setEmailCode("");
+      setVerificationToken(result.verification_token);
+    } catch (cause) { setError(reason(cause)); }
+    finally { setBusy(false); }
+  }
+
   async function submit() {
+    if (register && password.length < 12) {
+      setError("Use a password with at least 12 characters");
+      return;
+    }
+    if (register && verifySignup && !verificationToken) return requestEmailCode();
     setBusy(true); setError("");
     try {
       const next = await createClient(origin)<{token: string}>(`/auth/device/${register ? "register" : "login"}`,
-        {method: "POST", body: JSON.stringify({username: username.trim(), password})});
+        {method: "POST", body: JSON.stringify({username: username.trim(), password, ...(enteringCodes ? {
+          verification_token: verificationToken, email_code: emailCode,
+        } : {})})});
       await SecureStore.setItemAsync(sessionKey, next.token);
       setPassword("");
+      setEmail("");
+      setRegister(false);
+      clearVerification();
       await resume(next.token);
     } catch (cause) { setError(reason(cause)); }
     finally { setBusy(false); }
@@ -187,12 +235,31 @@ export function MobileSession({children}: {children: ReactNode}) {
     {error && <Text accessibilityRole="alert" style={theme.error}>{error}</Text>}
     {locked ? <Action title="Unlock your session" onPress={() => void unlock()} /> : <View style={theme.panel}>
       <Text style={theme.text}>{register ? "Create your account" : "Sign in to your paper trading account"}</Text>
+      {enteringCodes ? <>
+        <Text style={theme.subtle}>Enter the code sent to your email within 10 minutes.</Text>
+        <TextInput accessibilityLabel="Email code" style={theme.field} keyboardType="number-pad" maxLength={6} autoComplete="one-time-code"
+          placeholder="Email code" placeholderTextColor={colors.muted} value={emailCode} onChangeText={setEmailCode} />
+      </> : <>
       <TextInput accessibilityLabel="Username" style={theme.field} autoCapitalize="none" autoCorrect={false} autoComplete="username"
-        placeholder="Username" placeholderTextColor={colors.muted} value={username} onChangeText={setUsername} />
+        placeholder="Username" placeholderTextColor={colors.muted} value={username} onChangeText={setUsername} editable={!busy} />
       <TextInput accessibilityLabel="Password" style={theme.field} secureTextEntry autoComplete={register ? "new-password" : "current-password"}
-        placeholder="Password" placeholderTextColor={colors.muted} value={password} onChangeText={setPassword} />
-      <Action title={register ? "Create account" : "Sign in"} disabled={busy || !username || !password} onPress={() => void submit()} />
-      <Pressable accessibilityRole="button" onPress={() => setRegister(!register)}>
+        placeholder="Password" placeholderTextColor={colors.muted} value={password} onChangeText={setPassword} editable={!busy} />
+      {register && verifySignup &&
+        <TextInput accessibilityLabel="Email" style={theme.field} keyboardType="email-address" autoCapitalize="none" autoComplete="email"
+          placeholder="Email" placeholderTextColor={colors.muted} value={email} onChangeText={setEmail} editable={!busy} />}
+      </>}
+      <Action title={register ? verifySignup && !enteringCodes ? "Send email code" : "Create account" : "Sign in"}
+        disabled={busy || !username || !password || Boolean(register && verifySignup &&
+          (enteringCodes ? emailCode.length !== 6 : !email))} onPress={() => void submit()} />
+      {enteringCodes && <>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => void requestEmailCode()}>
+          <Text style={theme.link}>Send a new code</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => { clearVerification(); setError(""); }}>
+          <Text style={theme.link}>Edit email</Text>
+        </Pressable>
+      </>}
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => void toggleRegistration()}>
         <Text style={theme.link}>{register ? "Use existing account" : "Create an account"}</Text>
       </Pressable>
     </View>}

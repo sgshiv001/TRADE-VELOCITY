@@ -11,6 +11,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
 from .storage import PostgresSessionStore
+from .signup_verification import SignupVerification, VerificationRequired
 
 SESSION_LIFETIME = 7 * 24 * 60 * 60
 SHARED_BOOK = "00000000-0000-0000-0000-000000000001"
@@ -30,8 +31,9 @@ def token_digest(token: str) -> str:
 
 
 class Accounts:
-    def __init__(self, store: PostgresSessionStore):
+    def __init__(self, store: PostgresSessionStore, signup_verification: SignupVerification | None = None):
         self.store = store
+        self.signup_verification = signup_verification
         self.hasher = PasswordHasher()
         self.schema_lock = Lock()
         self.initialized = False
@@ -41,6 +43,9 @@ class Accounts:
     def check(self):
         with self.schema_lock:
             with self.store.connect() as connection:
+                if self.signup_verification:
+                    connection.execute("SELECT email_code_digest FROM signup_verifications LIMIT 0")
+                    connection.execute("SELECT 1 FROM trader_verified_contacts LIMIT 0")
                 if self.initialized:
                     connection.execute("SELECT 1 FROM trader_accounts LIMIT 0")
                     connection.execute("SELECT 1 FROM trader_logins LIMIT 0")
@@ -66,7 +71,8 @@ class Accounts:
                         (book_id, '{"reviews":{}}', datetime.now(timezone.utc).isoformat()))
             self.initialized = True
 
-    def register(self, username: str, password: str, previous_token: str = "") -> str | None:
+    def register(self, username: str, password: str, previous_token: str = "", *,
+                 verification_token: str = "") -> str | None:
         if not self.initialized:
             self.check()
         with self.password_workers:
@@ -74,6 +80,11 @@ class Accounts:
         workspace_id = str(uuid4())
         token = secrets.token_urlsafe(32)
         with self.store.connect() as connection:
+            verified_email = None
+            if self.signup_verification:
+                if not verification_token:
+                    raise VerificationRequired("Verify your email to create an account")
+                verified_email = self.signup_verification.consume(connection, username, verification_token)
             connection.execute(
                 "INSERT INTO sessions (session_id, metadata, revision, updated_at) VALUES (%s, %s, 0, %s)",
                 (workspace_id, '{"reviews":{}}', datetime.now(timezone.utc).isoformat()))
@@ -82,6 +93,12 @@ class Accounts:
                 VALUES (%s, %s, %s) ON CONFLICT (username) DO NOTHING RETURNING username
             """, (username, password_hash, workspace_id)).fetchone()
             if not created:
+                connection.rollback()
+                return None
+            if verified_email and not connection.execute("""
+                INSERT INTO trader_verified_contacts (username, email)
+                VALUES (%s, %s) ON CONFLICT DO NOTHING RETURNING username
+            """, (username, verified_email)).fetchone():
                 connection.rollback()
                 return None
             self._issue(connection, username, token, previous_token)

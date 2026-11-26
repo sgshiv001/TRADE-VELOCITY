@@ -40,6 +40,8 @@ from .session import ExchangeSession
 from .storage import PostgresSessionStore, StorageError, create_store
 from .watchdog import ExecutionMonitor
 from .security import COOKIE, SecurityGuard, SecuritySettings, account_token
+from .signup_verification import (BrevoEmail, DeliveryUnavailable, SignupVerification, VerificationRequired,
+                                  VERIFICATION_SECONDS, normalize_email)
 
 PROJECT_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
 
@@ -81,6 +83,16 @@ class Credentials(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class SignupContacts(BaseModel):
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_]+$")
+    email: str = Field(min_length=3, max_length=254)
+
+
+class Registration(Credentials):
+    verification_token: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{43}$")
+    email_code: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
+
+
 class Watchlist(BaseModel):
     name: str = Field(min_length=1, max_length=50)
     symbols: list[Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9.&-]{0,15}$")]] = Field(max_length=50)
@@ -120,11 +132,15 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
     accounts = None
+    signup_verification = None
     if settings.mode == "accounts":
         if not isinstance(store, PostgresSessionStore):
             raise ValueError("Hosted trader accounts require a PostgreSQL database")
         from .accounts import ACTIVE_SECONDS, FUNDED_BOOK, SHARED_BOOK, Accounts
-        accounts = Accounts(store)
+        if os.getenv("TRADEVELOCITY_SIGNUP_OTP") == "1":
+            signup_verification = SignupVerification(store, BrevoEmail.from_environment(),
+                                                     os.getenv("TRADEVELOCITY_SIGNUP_OTP_SECRET", "").encode())
+        accounts = Accounts(store, signup_verification)
     app.state.accounts = accounts
     app.state.security = guard = SecurityGuard(settings, accounts=accounts)
     app.middleware("http")(guard.protect)
@@ -162,7 +178,8 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request: Request, exc: RequestValidationError):
-        if request.url.path in ("/api/auth/login", "/api/auth/register", "/api/auth/device/login", "/api/auth/device/register"):
+        if request.url.path in ("/api/auth/login", "/api/auth/register", "/api/auth/device/login",
+                                "/api/auth/device/register", "/api/auth/signup/start"):
             return JSONResponse(status_code=422, content={"detail": "Check your sign-in details and try again"})
         return await request_validation_exception_handler(request, exc)
 
@@ -401,8 +418,28 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         if accounts:
             trader = accounts.identity(account_token(request.headers, request.cookies))
             return {"required": True, "mode": "accounts", "authenticated": trader is not None,
+                    "signup_verification_required": signup_verification is not None,
                     "trader": {**asdict(trader), "admin": is_admin(trader)} if trader else None}
         return {"required":guard.settings.mode == "private", "authenticated":guard.authorized(request.headers,request.cookies)}
+
+    @app.post("/api/auth/signup/start", status_code=201)
+    def start_signup_verification(payload: SignupContacts, request: Request):
+        if not signup_verification:
+            raise HTTPException(404, "Signup verification is unavailable")
+        email = normalize_email(payload.email)
+        username = payload.username.lower()
+        client = request.client.host if request.client else "unknown"
+        if (guard.limited(client, "signup-codes", 12)
+                or guard.limited(username, "signup-code-username", 1)
+                or guard.limited(email, "signup-code-email", 1)):
+            raise HTTPException(429, "Wait one minute before requesting a new code", headers={"Retry-After": "60"})
+        if not accounts.initialized:
+            accounts.check()
+        try:
+            token = signup_verification.start(username, email)
+        except DeliveryUnavailable:
+            raise HTTPException(503, "The verification email could not be sent. Try again shortly") from None
+        return {"verification_token": token, "expires_in": VERIFICATION_SECONDS}
 
     def sign_in_account(payload: Credentials, request: Request, *, register: bool, device: bool = False):
         from .accounts import SESSION_LIFETIME
@@ -414,10 +451,25 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         action = "register" if register else "sign-in"
         if guard.limited(client, action, 30) or guard.limited(username, "account-" + action, 8):
             raise HTTPException(429, "Too many attempts. Try again in one minute.", headers={"Retry-After": "60"})
-        authenticate = accounts.register if register else accounts.login
-        token = authenticate(username, payload.password, account_token(request.headers, request.cookies))
+        previous_token = account_token(request.headers, request.cookies)
+        if register:
+            verification_token = ""
+            try:
+                if signup_verification:
+                    if not (isinstance(payload, Registration) and payload.verification_token and payload.email_code):
+                        raise VerificationRequired("Verify your email to create an account")
+                    verification_token = payload.verification_token
+                    signup_verification.verify(username, verification_token, payload.email_code)
+                token = accounts.register(username, payload.password, previous_token,
+                                          verification_token=verification_token)
+            except VerificationRequired as exc:
+                raise HTTPException(400, str(exc)) from None
+        else:
+            token = accounts.login(username, payload.password, previous_token)
         if token is None:
             if register:
+                if signup_verification:
+                    raise HTTPException(409, "Could not create an account with those details")
                 raise HTTPException(409, "Choose a different username")
             raise HTTPException(401, "Incorrect username or password")
         if device:
@@ -427,13 +479,13 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         return response
 
     @app.post("/api/auth/register")
-    def register(payload: Credentials, request: Request):
+    def register(payload: Registration, request: Request):
         if not accounts:
             raise HTTPException(404, "Account creation is available in the hosted app")
         return sign_in_account(payload, request, register=True)
 
     @app.post("/api/auth/device/{action}")
-    def device_sign_in(action: Literal["login", "register"], payload: Credentials, request: Request):
+    def device_sign_in(action: Literal["login", "register"], payload: Registration, request: Request):
         if not accounts:
             raise HTTPException(404, "Device sign-in requires a hosted workspace")
         if "origin" in request.headers or any(key.startswith("sec-fetch-") for key in request.headers):
