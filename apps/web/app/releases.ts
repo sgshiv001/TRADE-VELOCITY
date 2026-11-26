@@ -6,6 +6,9 @@ export const releaseChecksums = `${downloads}/SHA256SUMS.txt`;
 export const windowsVersion = "2.0.3";
 const windowsDownloads = `${release}/download/windows-v${windowsVersion}`;
 export const windowsChecksums = `${windowsDownloads}/SHA256SUMS.txt`;
+export const androidVersion = "2.0.3";
+const androidDownloads = `${release}/download/android-v${androidVersion}`;
+export const androidChecksums = `${androidDownloads}/SHA256SUMS.txt`;
 
 export const releases = [
   {
@@ -36,11 +39,11 @@ export const releases = [
   },
   {
     platform: "Android",
-    description: "Install the debug-signed Android demo build.",
+    description: `Version ${androidVersion} includes native stock charts, a redesigned trade ticket, and the updated portfolio.`,
     files: [{
       label: "Download Android APK",
       requirements: "Android 7 or later · ARM64 and x86-64",
-      href: `${downloads}/TradeVelocity-Android.apk`,
+      href: `${androidDownloads}/TradeVelocity-Android.apk`,
     }],
   },
 ] as const;

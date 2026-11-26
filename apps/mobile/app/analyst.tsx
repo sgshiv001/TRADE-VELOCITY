@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
+import { Sparkles } from "lucide-react-native";
 import { formatINR, symbolSchema } from "@tradevelocity/client";
-import { Action, Screen, useMobileTheme } from "../src/workspace";
+import { Action, DataState, Screen, useMobileTheme } from "../src/workspace";
 import { useData } from "../src/data";
 
 type Report = {
@@ -18,34 +19,37 @@ export default function Analyst() {
   const [inputError, setInputError] = useState("");
   const report = useData<Report>(`/analyst/${encodeURIComponent(symbol)}`);
   const data = report.data;
-  return <Screen title="AI Analyst" refresh={report.refresh}>
-    <Text style={theme.subtle}>Historical evidence and supported forecasts for paper trading.</Text>
-    <TextInput style={theme.field} accessibilityLabel="Stock symbol" placeholder="NSE symbol"
-      placeholderTextColor={colors.muted} value={input} onChangeText={setInput} autoCapitalize="characters" />
-    <Action title="Analyse stock" onPress={() => {
-      const result = symbolSchema.safeParse(input);
-      if (result.success) { setSymbol(result.data); setInputError(""); }
-      else setInputError("Enter a supported NSE symbol.");
-    }} />
-    {(inputError || report.error) && <Text accessibilityRole="alert" style={theme.error}>{inputError || report.error}</Text>}
-    {!data && !report.error && <Text style={theme.subtle}>Loading the available analysis…</Text>}
+  function analyse() {
+    const result = symbolSchema.safeParse(input);
+    if (result.success) { setSymbol(result.data); setInputError(""); }
+    else setInputError("Enter a supported NSE symbol.");
+  }
+  return <Screen title="AI Analyst" subtitle="Historical evidence and forecasts" refresh={report.refresh} refreshing={report.loading}>
+    <View style={theme.row}>
+      <TextInput style={[theme.field, {flex: 1}]} accessibilityLabel="Stock symbol" placeholder="NSE symbol" onSubmitEditing={analyse}
+        placeholderTextColor={colors.muted} value={input} onChangeText={setInput} autoCapitalize="characters" autoCorrect={false} />
+      <Action title="Analyse stock" kind="secondary" onPress={analyse} />
+    </View>
+    {Boolean(inputError) && <Text accessibilityRole="alert" style={theme.error}>{inputError}</Text>}
+    {(!data || report.error) && <DataState message="Loading analysis…" error={report.error} retry={report.refresh} />}
     {data && <>
-      <View style={theme.panel}>
-        <Text style={theme.title}>{data.company}</Text>
-        <Text style={theme.link}>{data.recommendation} · Paper signal</Text>
+      <View style={theme.hero}>
+        <View style={theme.row}><Sparkles size={17} color={colors.action} /><Text style={theme.eyebrow}>PAPER SIGNAL</Text></View>
+        <Text style={theme.sectionTitle}>{data.company}</Text>
+        <Text style={theme.number}>{data.recommendation}</Text>
         <Text style={theme.text}>{data.recommendation_reason}</Text>
         <Text style={theme.subtle}>{data.stale ? "Historical analysis" : data.source} · {data.as_of}</Text>
       </View>
       <View style={theme.panel}>
-        <Text style={theme.text}>{data.forecast?.horizon ?? "Forecast unavailable"}</Text>
+        <Text style={theme.sectionTitle}>{data.forecast?.horizon ?? "Forecast unavailable"}</Text>
         {data.forecast && <>
-          <Text style={theme.title}>{formatINR(data.forecast.point)}</Text>
+          <Text style={theme.value}>{formatINR(data.forecast.point)}</Text>
           <Text style={theme.subtle}>Range {formatINR(data.forecast.lower)} to {formatINR(data.forecast.upper)}</Text>
           <Text style={theme.subtle}>The range targets {data.forecast.interval_target}% historical coverage.</Text>
         </>}
       </View>
       <View style={theme.panel}>
-        <Text style={theme.text}>Evidence and risks</Text>
+        <Text style={theme.sectionTitle}>Evidence and risks</Text>
         {[...data.evidence, ...data.risk_flags].map(reason => <Text key={reason} style={theme.subtle}>{reason}</Text>)}
       </View>
       <Action title="Open trading ticket" onPress={() => router.navigate({pathname: "/trade", params: {symbol}})} />

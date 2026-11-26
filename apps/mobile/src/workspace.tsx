@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Appearance, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { ActivityIndicator, Appearance, AppState, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,22 +19,30 @@ export function useWorkspace() {
 }
 
 const palettes = {
-  dark: {background: "#090c10", panel: "#11171d", line: "#26303a", text: "#eff5f4", muted: "#a2b0bc", action: "#35d69e", onAction: "#09271e", error: "#f99099"},
-  light: {background: "#f3f6f5", panel: "#ffffff", line: "#d9e3e0", text: "#15211f", muted: "#4e605b", action: "#056349", onAction: "#ffffff", error: "#ad2b3b"},
+  dark: {background: "#0c1218", panel: "#141e27", raised: "#1b2833", line: "#2a3a47", text: "#f2f7f8", muted: "#a2b4c0", action: "#62e6bb", onAction: "#08271e", error: "#ff9ba5", hero: "#10362e", heroLine: "#24564a"},
+  light: {background: "#f1f5f6", panel: "#ffffff", raised: "#eaf1f3", line: "#d5e0e4", text: "#13242c", muted: "#4c626d", action: "#09644d", onAction: "#ffffff", error: "#a2233b", hero: "#e1f3ee", heroLine: "#b4d9ce"},
 };
 function createTheme(colors: typeof palettes.dark) {
+  const fontFamily = Platform.select({android: "sans-serif"});
   return StyleSheet.create({
     screen: {flex: 1, backgroundColor: colors.background},
-    section: {padding: 18, gap: 13},
-    panel: {backgroundColor: colors.panel, borderRadius: 10, padding: 15, gap: 8, borderWidth: 1, borderColor: colors.line},
-    title: {color: colors.text, fontSize: 31, fontWeight: "700", letterSpacing: -1.1},
-    text: {color: colors.text, fontSize: 16},
-    subtle: {color: colors.muted, fontSize: 14},
-    error: {color: colors.error, fontSize: 14},
-    field: {backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line, borderRadius: 8, color: colors.text, minHeight: 48, paddingHorizontal: 12},
-    action: {backgroundColor: colors.action, borderRadius: 8, padding: 13, alignItems: "center"},
-    actionText: {color: colors.onAction, fontSize: 16, fontWeight: "700"},
-    link: {color: colors.action, fontSize: 15, paddingVertical: 8, fontWeight: "600"},
+    section: {width: "100%", maxWidth: 660, alignSelf: "center", padding: 16, paddingBottom: 28, gap: 16},
+    panel: {backgroundColor: colors.panel, borderRadius: 16, padding: 14, gap: 10, borderWidth: 1, borderColor: colors.line},
+    hero: {backgroundColor: colors.hero, borderColor: colors.heroLine, borderRadius: 20, padding: 17, gap: 10, borderWidth: 1},
+    row: {flexDirection: "row", alignItems: "center", gap: 10},
+    between: {flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10},
+    title: {fontFamily, color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.65},
+    sectionTitle: {fontFamily, color: colors.text, fontSize: 17, fontWeight: "700"},
+    value: {fontFamily, color: colors.text, fontSize: 31, fontWeight: "700", fontVariant: ["tabular-nums"]},
+    number: {fontFamily, color: colors.text, fontSize: 16, fontWeight: "700", fontVariant: ["tabular-nums"]},
+    text: {fontFamily, color: colors.text, fontSize: 15},
+    subtle: {fontFamily, color: colors.muted, fontSize: 13, lineHeight: 18},
+    eyebrow: {fontFamily, color: colors.action, fontSize: 11, letterSpacing: 1.3, fontWeight: "700"},
+    error: {fontFamily, color: colors.error, fontSize: 14, lineHeight: 19},
+    field: {fontFamily, fontSize: 15, backgroundColor: colors.raised, borderWidth: 1, borderColor: colors.line, borderRadius: 12, color: colors.text, minHeight: 48, paddingHorizontal: 12},
+    action: {backgroundColor: colors.action, borderRadius: 12, minHeight: 46, paddingHorizontal: 13, paddingVertical: 9, alignItems: "center", justifyContent: "center"},
+    actionText: {fontFamily, color: colors.onAction, fontSize: 14, fontWeight: "700", textAlign: "center"},
+    link: {fontFamily, color: colors.action, fontSize: 14, fontWeight: "700"},
   });
 }
 const themes = {light: createTheme(palettes.light), dark: createTheme(palettes.dark)};
@@ -94,18 +102,43 @@ export function MobileThemePicker() {
   </View>;
 }
 
-export function Screen({title, children, refresh}: {title: string; children: ReactNode; refresh?: () => void}) {
+export function Screen({title, children, subtitle, accessory, refresh, refreshing = false}: {
+  title: string; children: ReactNode; subtitle?: string; accessory?: ReactNode; refresh?: () => void; refreshing?: boolean;
+}) {
   const {theme, colors} = useMobileTheme();
-  return <ScrollView style={theme.screen} contentContainerStyle={theme.section} keyboardShouldPersistTaps="handled"
-    refreshControl={refresh ? <RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.action} colors={[colors.action]} progressBackgroundColor={colors.panel} /> : undefined}>
-    <Text style={theme.title} accessibilityRole="header">{title}</Text>{children}
-  </ScrollView>;
+  return <SafeAreaView style={theme.screen} edges={["top", "right", "left"]}>
+    <ScrollView style={theme.screen} contentContainerStyle={theme.section} keyboardShouldPersistTaps="handled"
+      refreshControl={refresh ? <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.action} colors={[colors.action]} progressBackgroundColor={colors.panel} /> : undefined}>
+      <View style={theme.between}>
+        <View style={{flex: 1, gap: 3}}><Text style={theme.title} accessibilityRole="header">{title}</Text>
+          {subtitle && <Text style={theme.subtle}>{subtitle}</Text>}</View>
+        {accessory}
+      </View>
+      {children}
+    </ScrollView>
+  </SafeAreaView>;
 }
 
-export function Action({title, onPress, disabled = false}: {title: string; onPress(): void; disabled?: boolean}) {
-  const {theme} = useMobileTheme();
+export function Action({title, onPress, disabled = false, kind = "primary"}: {
+  title: string; onPress(): void; disabled?: boolean; kind?: "primary" | "secondary" | "danger";
+}) {
+  const {theme, colors} = useMobileTheme();
   return <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled}
-    style={[theme.action, disabled && {opacity: 0.6}]} onPress={onPress}><Text style={theme.actionText}>{title}</Text></Pressable>;
+    style={({pressed}) => [theme.action, kind !== "primary" && {backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1},
+      (disabled || pressed) && {opacity: disabled ? .48 : .78}]} onPress={onPress}>
+    <Text style={[theme.actionText, kind !== "primary" && {color: kind === "danger" ? colors.error : colors.text}]}>{title}</Text>
+  </Pressable>;
+}
+
+export function DataState({message, error, retry}: {message: string; error?: string; retry?: () => void}) {
+  const {theme, colors} = useMobileTheme();
+  return <View style={theme.panel} accessibilityLiveRegion="polite">
+    <View style={theme.row}>
+      {!error && <ActivityIndicator color={colors.action} />}
+      <Text style={[error ? theme.error : theme.subtle, {flex: 1}]}>{error || message}</Text>
+    </View>
+    {error && retry && <Action title="Try again" kind="secondary" onPress={retry} />}
+  </View>;
 }
 
 function reason(error: unknown) {
@@ -268,24 +301,24 @@ export function MobileSession({children}: {children: ReactNode}) {
     if (result.success) await SecureStore.setItemAsync(biometricKey, "1");
   }
 
-  if (restoring) return <SafeAreaView style={theme.screen}>
-    <Screen title="TradeVelocity"><Text style={theme.subtle}>Checking your session…</Text></Screen>
-  </SafeAreaView>;
-  if (session) {
-    const request: Request = async (path, init) => {
-      try {
-        return await createClient(origin, {token: session.token, workspace: session.trader.workspace_id})(path, init);
-      } catch (cause) {
-        if (cause instanceof TradeVelocityApiError && cause.status === 401) {
-          await SecureStore.deleteItemAsync(sessionKey);
-          setSession(null);
-        }
-        throw cause;
+  const request: Request = useCallback(async (path, init) => {
+    if (!session) throw new Error("Sign in to TradeVelocity");
+    try {
+      return await createClient(origin, {token: session.token, workspace: session.trader.workspace_id})(path, init);
+    } catch (cause) {
+      if (cause instanceof TradeVelocityApiError && cause.status === 401) {
+        await SecureStore.deleteItemAsync(sessionKey);
+        setSession(current => current === session ? null : current);
       }
-    };
+      throw cause;
+    }
+  }, [session]);
+
+  if (restoring) return <Screen title="TradeVelocity"><DataState message="Checking your session…" /></Screen>;
+  if (session) {
     return <SessionContext.Provider value={{request, trader: session.trader, signOut, enableLock, revision}}>{children}</SessionContext.Provider>;
   }
-  return <SafeAreaView style={theme.screen}><Screen title="TradeVelocity">
+  return <Screen title="TradeVelocity" subtitle="Your paper trading workspace">
     {error && <Text accessibilityRole="alert" style={theme.error}>{error}</Text>}
     {locked ? <Action title="Unlock your session" onPress={() => void unlock()} /> : <View style={theme.panel}>
       <Text style={theme.text}>{register ? "Create your account" : "Sign in to your paper trading account"}</Text>
@@ -318,5 +351,5 @@ export function MobileSession({children}: {children: ReactNode}) {
       </Pressable>
     </View>}
     <MobileThemePicker />
-  </Screen></SafeAreaView>;
+  </Screen>;
 }

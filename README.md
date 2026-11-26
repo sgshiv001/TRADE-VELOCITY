@@ -33,7 +33,7 @@ The [matching engine](src/stock_engine/) uses heaps for best-price lookup, AVL t
 | Web | [Open TradeVelocity](https://gettradevelocity.onrender.com) | The free host may take a moment to wake up. |
 | Windows x64 | [Download setup](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/windows-v2.0.3/TradeVelocity-Setup-2.0.3.exe) · [Portable EXE](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/windows-v2.0.3/TradeVelocity-Trader.exe) | Desktop version 2.0.3. Both builds are unsigned. |
 | macOS | [Apple silicon](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-macOS-arm64.zip) · [Intel](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-macOS-x64.zip) | Desktop ZIP previews with Apple notarization pending. |
-| Android | [Download the APK](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-Android.apk) | Debug-signed test build for Android 7 and later. |
+| Android | [Download version 2.0.3](https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/android-v2.0.3/TradeVelocity-Android.apk) | Native price charts, redesigned order ticket, and portfolio. Debug-signed preview for Android 7 and later. |
 | iPhone and iPad | [Safari installation guide](https://gettradevelocity.onrender.com/download) | Install the web app through Safari. |
 
 See the [downloads page](https://gettradevelocity.onrender.com/download) for installation details and checksums. Android launch was checked on an emulator, and both Mac packages were validated on build runners. Live email-code signup is pending email delivery setup.

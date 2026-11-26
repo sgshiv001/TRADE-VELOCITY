@@ -2,13 +2,14 @@ name: App release builds
 
 on:
   push:
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "android-v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
   contents: write
 
 jobs:
   windows:
+    if: ${{ !startsWith(github.ref_name, 'android-v') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -41,6 +42,7 @@ jobs:
           exit $LASTEXITCODE
 
   macos:
+    if: ${{ !startsWith(github.ref_name, 'android-v') }}
     strategy:
       fail-fast: false
       matrix:
@@ -138,9 +140,13 @@ jobs:
           manifest="$("$tools/aapt" dump badging "$apk")"
           version="$(node -p 'require("./apps/mobile/app.json").expo.version')"
           build="$(node -p 'require("./apps/mobile/app.json").expo.android.versionCode')"
-          test "v$version" = "$GITHUB_REF_NAME"
+          test "v$version" = "${GITHUB_REF_NAME#android-}"
           grep -F "name='com.tradevelocity.nativeapp' versionCode='$build' versionName='$version'" <<< "$manifest"
           grep -F "sdkVersion:'24'" <<< "$manifest"
           grep '^native-code:' <<< "$manifest" | grep -F "'arm64-v8a'" | grep -F "'x86_64'"
           test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')" = true
           gh release upload "$GITHUB_REF_NAME" "$apk" --clobber
+          if [[ "$GITHUB_REF_NAME" == android-v* ]]; then
+            (cd "$RUNNER_TEMP" && sha256sum TradeVelocity-Android.apk > SHA256SUMS.txt)
+            gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/SHA256SUMS.txt" --clobber
+          fi
