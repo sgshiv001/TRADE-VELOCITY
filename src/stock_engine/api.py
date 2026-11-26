@@ -137,6 +137,8 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     admin_username = os.environ.get("TRADEVELOCITY_ADMIN_USERNAME", "").strip().lower()
     frontend = Path(os.environ.get("TRADEVELOCITY_WEB_DIR") or PROJECT_ROOT / "frontend" / "dist")
     pages = app_pages(frontend) if serve_frontend else {}
+    if pages and settings.mode != "accounts":
+        pages["/"] = pages["/app"]
     script_hashes = inline_script_hashes(frontend, pages) if serve_frontend else {}
 
     def is_admin(trader):
@@ -902,6 +904,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         return compare_workload(request.workload, request.count)
 
     if serve_frontend and frontend.exists():
+        @app.get("/")
         @app.get("/app")
         @app.get("/login")
         @app.get("/signup")

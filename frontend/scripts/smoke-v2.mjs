@@ -28,7 +28,7 @@ try {
   await expect(page.getByRole("img", { name: /TCS historical price/ })).toBeVisible();
   await page.goto(`${origin}/download`);
   await expect(page.getByRole("heading", { name: "Download TradeVelocity" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Download EXE" })).toHaveAttribute("href", /\/releases\/download\//);
+  await expect(page.getByRole("link", { name: "Download ZIP" })).toHaveAttribute("href", /\/releases\/download\//);
 
   await page.goto(`${origin}/signup?view=trade&symbol=RELIANCE`);
   const username = `qa_v2_${randomBytes(5).toString("hex")}`;
