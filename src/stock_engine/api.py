@@ -1010,13 +1010,11 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         return compare_workload(request.workload, request.count)
 
     if serve_frontend and frontend.exists():
-        @app.get("/")
-        @app.get("/app")
-        @app.get("/login")
-        @app.get("/signup")
-        @app.get("/download")
         def account_page(request: Request):
             return FileResponse(pages[request.url.path])
+
+        for path in pages:
+            app.add_api_route(path, account_page, methods=["GET"], include_in_schema=False)
         app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
     return app
 

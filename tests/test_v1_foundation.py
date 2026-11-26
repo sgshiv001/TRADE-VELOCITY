@@ -29,3 +29,16 @@ def test_exported_pages_receive_only_their_own_inline_script_hashes(tmp_path, mo
     assert expected["/"] not in policy
     assert "script-src 'unsafe-inline'" not in policy
     assert app.headers["Cache-Control"] == "no-store"
+
+
+def test_desktop_signin_export_is_routed_with_its_content_security_policy(tmp_path, monkeypatch):
+    (tmp_path / "index.html").write_text("<title>Home</title>", encoding="utf-8")
+    (tmp_path / "desktop-sign-in.html").write_text("<script>self.desktopSignIn = true;</script>", encoding="utf-8")
+    monkeypatch.setenv("TRADEVELOCITY_WEB_DIR", str(tmp_path))
+    client = TestClient(create_app(data_dir=tmp_path / "sessions"))
+    response = client.get("/desktop-sign-in?request=example")
+    assert response.status_code == 200
+    assert "desktopSignIn = true" in response.text
+    assert response.headers["Cache-Control"] == "no-store"
+    expected = inline_script_hashes(tmp_path, app_pages(tmp_path))
+    assert expected["/desktop-sign-in"] in response.headers["Content-Security-Policy"]
