@@ -56,7 +56,7 @@ try {
     const { book } = await page.request.get(`${origin}/api/paper?symbol=RELIANCE`, { headers }).then(response => response.json());
     const level = (side === "buy" ? book.asks : book.bids)[0];
     assert.ok(level, "Staging needs a recent provider quote or a previously seeded order book");
-    await page.getByLabel("Order side", { exact: true }).selectOption(side.toUpperCase());
+    await page.getByRole("combobox", { name: "Side", exact: true }).selectOption(side.toUpperCase());
     await page.getByLabel("Shares", { exact: true }).fill("1");
     await page.getByLabel("Limit price", { exact: true }).fill(String(level.price));
     await page.getByRole("button", { name: `Review ${side}` }).click();

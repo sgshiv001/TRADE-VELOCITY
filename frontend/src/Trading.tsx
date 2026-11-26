@@ -67,7 +67,7 @@ export function OrderTicket({ symbol, lab, changed, quote, shared, funded = fals
   const orders = lab.orders.filter(order => order.symbol === symbol);
   return <section className="panel"><div className="panel-heading"><h2>Place an order · {symbol}</h2><MarketPrice quote={quote} compact /></div>
     <form onSubmit={event => { event.preventDefault(); if (funded) setReviewing(true); else void submit(); }}><fieldset className="ticket-grid" disabled={busy || reviewing}>
-      <label>Side<select aria-label="Order side" value={side} onChange={event => setSide(event.target.value)}><option>BUY</option><option>SELL</option></select></label>
+      <label>Side<select value={side} onChange={event => setSide(event.target.value)}><option>BUY</option><option>SELL</option></select></label>
       <label>Type<select value={kind} onChange={event => setKind(event.target.value)}><option value="limit">Limit</option>{!funded && <option value="market">Market</option>}</select></label>
       <label>Shares<input type="number" inputMode="numeric" required min="1" max="1000000" step="1" placeholder="Enter quantity" value={quantity} onChange={event => setQuantity(event.target.value)} /></label>
       <label>Limit price<input aria-label="Limit price" type="number" required={kind === "limit"} disabled={kind === "market"} min="0.01" step="0.01" placeholder="Enter a price" value={price} onChange={event => setPrice(event.target.value)} /></label>
