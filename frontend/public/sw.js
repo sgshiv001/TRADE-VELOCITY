@@ -1,5 +1,5 @@
 /* Cache public offline assets only. Account and order calls go directly to the server. */
-const SHELL = "tradevelocity-offline-v1";
+const SHELL = "tradevelocity-offline-v2";
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(["/offline.html", "/icon-192.png"])));
 });

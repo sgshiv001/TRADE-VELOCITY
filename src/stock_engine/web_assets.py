@@ -10,7 +10,7 @@ INLINE_SCRIPT = re.compile(rb"<script\b[^>]*>(.*?)</script\s*>", flags=re.IGNORE
 
 def app_pages(frontend: Path) -> dict[str, Path]:
     pages = {"/": frontend / "index.html"}
-    for name in ("app", "login", "signup"):
+    for name in ("app", "login", "signup", "download"):
         page = frontend / f"{name}.html"
         pages[f"/{name}"] = page if page.is_file() else pages["/"]
     return pages

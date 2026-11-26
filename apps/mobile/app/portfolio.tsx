@@ -1,11 +1,12 @@
 import { Text, View } from "react-native";
 import { formatINR, type Portfolio as Values } from "@tradevelocity/client";
-import { Action, Screen, theme } from "../src/workspace";
+import { Action, Screen, useMobileTheme } from "../src/workspace";
 import { useData } from "../src/data";
 
 export default function Portfolio() {
+  const {theme} = useMobileTheme();
   const {data, error, refresh} = useData<Values>("/account/portfolio");
-  return <Screen title="Portfolio">
+  return <Screen title="Portfolio" refresh={refresh}>
     {error && <Text style={theme.error}>{error}</Text>}
     <Action title="Refresh portfolio" onPress={refresh} />
     {data && <>

@@ -6,6 +6,7 @@ files:
   - dist/**
   - package.json
 win:
+  icon: assets/tradevelocity.ico
   target:
     - nsis
     - msi

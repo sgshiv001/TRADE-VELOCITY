@@ -115,7 +115,7 @@ class Session:
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
                security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="0.5.1", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="TradeVelocity", version="2.0.0-beta.1", docs_url=None, redoc_url=None, openapi_url=None)
     settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
@@ -137,6 +137,8 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     admin_username = os.environ.get("TRADEVELOCITY_ADMIN_USERNAME", "").strip().lower()
     frontend = Path(os.environ.get("TRADEVELOCITY_WEB_DIR") or PROJECT_ROOT / "frontend" / "dist")
     pages = app_pages(frontend) if serve_frontend else {}
+    if pages and settings.mode != "accounts":
+        pages["/"] = pages["/app"]
     script_hashes = inline_script_hashes(frontend, pages) if serve_frontend else {}
 
     def is_admin(trader):
@@ -902,9 +904,11 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         return compare_workload(request.workload, request.count)
 
     if serve_frontend and frontend.exists():
+        @app.get("/")
         @app.get("/app")
         @app.get("/login")
         @app.get("/signup")
+        @app.get("/download")
         def account_page(request: Request):
             return FileResponse(pages[request.url.path])
         app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
