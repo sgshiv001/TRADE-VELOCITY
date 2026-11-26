@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1020">
-  <meta name="description" content="TradeVelocity 2.0 is a paper trading simulator with a shared order book, virtual portfolios, and market research. Built by Hash Syndicate at Bennett University.">
+  <meta name="description" content="TradeVelocity 2.0 is a paper trading simulator with a shared order book, virtual portfolios, and NSE market charts. Built by Hash Syndicate at Bennett University.">
   <title>TradeVelocity 2.0 — Paper Trading Simulator</title>
   <link rel="stylesheet" href="site.css">
 </head>
@@ -29,7 +29,7 @@
   <main id="main">
     <section class="hero shell" id="top" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow"><span class="eyebrow-line"></span> TradeVelocity 2.0.2 demo release</p>
+        <p class="eyebrow"><span class="eyebrow-line"></span> TradeVelocity 2.0</p>
         <h1 id="hero-title">Practise stock trading.<br><em>See how orders match.</em></h1>
         <p class="hero-intro">Start with ₹10 lakh in virtual funds. Research a stock, place an order in the shared simulator, and follow the fill through to your portfolio.</p>
         <div class="hero-actions">
@@ -76,7 +76,12 @@
         <div class="section-heading"><h2 id="features-title">Inside the app</h2></div>
         <div class="feature-grid">
           <article class="feature"><h3>Trading terminal</h3><p>Check the simulated order book and reference prices, review a limit order, and track partial fills.</p></article>
-          <article class="feature"><h3>Market research</h3><p>Browse supported NSE stocks, inspect historical charts, and save watchlists. Quotes include their source and observation time and may be delayed.</p></article>
+          <article class="feature">
+            <h3>Market charts</h3>
+            <p>Follow NSE price moves in the web and Windows terminal. The intraday view checks for new quotes every minute while the terminal is visible. Quotes show their observation time and may be delayed.</p>
+            <p>Switch between candlesticks, OHLC bars, line, area, and baseline charts for daily history, with volume and a 20-day moving average.</p>
+            <a href="https://gettradevelocity.onrender.com/app?view=trade">Open the chart terminal <span aria-hidden="true">↗</span></a>
+          </article>
           <article class="feature"><h3>Portfolio and funds</h3><p>Review your virtual cash, holdings, and executions. PostgreSQL backs the workspace across supported devices.</p></article>
           <article class="feature"><h3>AI Analyst and Assistant</h3><p>Review technical signals, see a forecast range when data supports it, and ask for an explanation.</p></article>
           <article class="feature"><h3>Admin dashboard</h3><p>Authorized admins can check service status and see how many traders have been active.</p></article>
@@ -114,8 +119,11 @@
           </article>
           <article class="download-card">
             <h3>Android</h3>
-            <p>Debug-signed preview for Android 7 and later. Verified on an emulator.</p>
-            <div class="download-links"><a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-Android.apk">Download Android APK</a></div>
+            <p>Android 2.0.2 is a debug-signed preview for Android 7 and later, tested on an emulator. Open the web terminal in your phone’s browser to use the latest market charts.</p>
+            <div class="download-links">
+              <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-Android.apk">Download Android APK</a>
+              <a href="https://gettradevelocity.onrender.com/app?view=trade">Open charts in browser</a>
+            </div>
           </article>
           <article class="download-card">
             <h3>iPhone and iPad</h3>
