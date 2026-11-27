@@ -272,6 +272,10 @@
 .tv2-ohlc strong { color: var(--tv-text); }
 .tv2-terminal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(285px, 335px); gap: 14px; align-items: start; }
 .tv2-terminal-ticket { min-width: 0; }
+.tv2-terminal-timeline, .tv2-terminal-ticket { display: grid; gap: 12px; min-width: 0; }
+.tv2-demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 14px; align-items: start; }
+.tv2-demo-steps { color: var(--tv-muted); line-height: 1.7; padding-inline-start: 22px; }
+.tv2-demo-steps li[data-completed="true"] { color: var(--tv-green); }
 .tv2-terminal-ticket .panel { padding: 13px; }
 .tv2-terminal-ticket .panel-heading { display: grid; justify-content: stretch; align-items: start; gap: 8px; }
 .tv2-terminal-ticket .ticket-grid { display: grid; grid-template-columns: 1fr 1fr; min-width: 0; gap: 9px; }

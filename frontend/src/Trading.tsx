@@ -25,8 +25,8 @@ export function MarketPrice({ quote, compact = false }: { quote: Quote | null; c
   </div>;
 }
 
-export function OrderTicket({ symbol, lab, changed, quote, shared, funded = false }: {
-  symbol: string; lab: Lab; changed: () => Promise<void>; quote: Quote | null; shared: boolean; funded?: boolean;
+export function OrderTicket({ symbol, lab, changed, quote, shared, funded = false, local = false }: {
+  symbol: string; lab: Lab; changed: () => Promise<void>; quote: Quote | null; shared: boolean; funded?: boolean; local?: boolean;
 }) {
   const [side, setSide] = useState("BUY"), [quantity, setQuantity] = useState(""), [price, setPrice] = useState("");
   const [kind, setKind] = useState("limit"), [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
@@ -38,7 +38,7 @@ export function OrderTicket({ symbol, lab, changed, quote, shared, funded = fals
   const orderPath = funded ? "/paper/orders" : shared ? "/exchange/orders" : "/lab/orders";
   const describe = (result: OrderResult) => `${result.order_id}: ${result.filled} shares filled · ${result.remaining} unfilled · ${result.resting ? "resting on book" : "not resting"}`;
   async function submit() {
-    if (!navigator.onLine) { setError("Reconnect before submitting a paper order."); return; }
+    if (!local && !navigator.onLine) { setError("Reconnect before submitting a paper order."); return; }
     setBusy(true); setError(""); setNotice("");
     try {
       const intent = JSON.stringify({symbol, side, quantity: Number(quantity), price: kind === "market" ? null : price, ...(funded ? {confirmed: true} : {})});

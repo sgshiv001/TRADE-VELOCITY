@@ -29,7 +29,7 @@
   <main id="main">
     <section class="hero shell" id="top" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow"><span class="eyebrow-line"></span> TradeVelocity 2.0</p>
+        <p class="eyebrow"><span class="eyebrow-line"></span> TradeVelocity 2.1.0</p>
         <h1 id="hero-title">Practise stock trading.<br><em>See how orders match.</em></h1>
         <p class="hero-intro">Start with ₹10 lakh in virtual funds. Research a stock, place an order in the shared simulator, and follow the fill through to your portfolio.</p>
         <div class="hero-actions">
@@ -48,26 +48,26 @@
       <div class="shell">
         <div class="section-heading">
           <h2 id="how-title">Try a partial fill</h2>
-          <p>Sign in to two practice accounts in separate browsers and pick the same stock in both. The selling account needs at least five shares. You can follow or skip the tutorial on first sign-in.</p>
+          <p>Open Presentation demo and follow three orders on a fresh synthetic symbol. Each order uses the same matching engine as the trading workspace.</p>
         </div>
         <div class="steps">
           <article class="step">
             <span class="order-tag buy">BUY</span>
-            <h3>Bid for 10 shares</h3>
-            <p>Set a limit below the lowest ask so the order rests. For the demo, check that it has first priority among the bids.</p>
+            <h3>Place two buys</h3>
+            <p>Buy 1 and Buy 2 each bid for 10 shares at ₹100. Watch the bid total reach 20 shares.</p>
           </article>
           <article class="step">
             <span class="order-tag sell">SELL</span>
-            <h3>Sell five at the bid</h3>
-            <p>In the second account, open Market depth, find the bid, and confirm a sell for five shares at that price.</p>
+            <h3>Sell 15 at the bid</h3>
+            <p>Send one sell order for 15 shares at ₹100. The two buys fill in the order they arrived.</p>
           </article>
           <article class="step">
             <span class="order-tag trade">FILL</span>
             <h3>See what stays open</h3>
-            <p>Both traders can see the fill in Trade history. The other five shares remain on the book at the original price.</p>
+            <p>Buy 1 fills 10 shares and Buy 2 fills 5. The remaining 5 shares stay on the book at ₹100.</p>
           </article>
         </div>
-        <p class="section-footnote"><a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/docs/adsa-demo.md">Read the three-minute presentation guide</a>.</p>
+        <p class="section-footnote"><a href="https://gettradevelocity.onrender.com/app?view=demo">Open the demo</a> · <a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/docs/presentation-2.1.0.md">Read the presentation script</a></p>
       </div>
     </section>
 
@@ -102,33 +102,16 @@
         </div>
         <div class="download-grid">
           <article class="download-card">
-            <h3>Windows</h3>
-            <p>Install version 2.0.3 and open TradeVelocity from Start. After you approve sign-in in your browser, the workspace opens in the desktop window. Both x64 builds are unsigned.</p>
+            <h3>Windows x64</h3>
+            <p>Double-click the standalone EXE. Use your live account, or choose View → Offline demo to present using the bundled engine. This build is unsigned.</p>
             <div class="download-links">
-              <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/windows-v2.0.3/TradeVelocity-Setup-2.0.3.exe">Download Windows setup</a>
-              <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/windows-v2.0.3/TradeVelocity-Trader.exe">Download portable EXE</a>
+              <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.1.0/TradeVelocity-2.1.0-Windows-x64.exe">Download Windows EXE</a>
             </div>
           </article>
           <article class="download-card">
-            <h3>macOS</h3>
-            <p>ZIP previews for both Mac processors. Apple notarization is pending.</p>
-            <div class="download-links">
-              <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-macOS-arm64.zip">Download for Apple silicon</a>
-              <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-macOS-x64.zip">Download for Intel Mac</a>
-            </div>
-          </article>
-          <article class="download-card">
-            <h3>Android</h3>
-            <p>Android 2.0.2 is a debug-signed preview for Android 7 and later, tested on an emulator. Open the web terminal in your phone’s browser to use the latest market charts.</p>
-            <div class="download-links">
-              <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v2.0.2/TradeVelocity-Android.apk">Download Android APK</a>
-              <a href="https://gettradevelocity.onrender.com/app?view=trade">Open charts in browser</a>
-            </div>
-          </article>
-          <article class="download-card">
-            <h3>iPhone and iPad</h3>
-            <p>Open TradeVelocity in Safari, then tap Share, Add to Home Screen, and Open as Web App.</p>
-            <div class="download-links"><a href="https://gettradevelocity.onrender.com">Open in Safari</a></div>
+            <h3>Web app</h3>
+            <p>Access the same trading terminal, portfolio, watchlists, charts, and presentation demo from your browser.</p>
+            <div class="download-links"><a href="https://gettradevelocity.onrender.com/app">Open the web workspace</a></div>
           </article>
         </div>
         <p class="section-footnote">See the <a href="https://gettradevelocity.onrender.com/download">installation guide and checksums</a> or read the <a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases">release notes</a>.</p>
@@ -157,7 +140,7 @@
       <span>TradeVelocity · Hash Syndicate · Bennett University</span>
       <div>
         <a href="https://github.com/sgshiv001/TRADE-VELOCITY">Source code</a>
-        <a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/docs/adsa-demo.md">Demo guide</a>
+        <a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/docs/presentation-2.1.0.md">Demo guide</a>
         <a href="https://github.com/sgshiv001/TRADE-VELOCITY/blob/main/LICENSE">MIT license</a>
       </div>
     </div>

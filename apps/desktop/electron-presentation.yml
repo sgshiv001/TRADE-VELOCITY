@@ -1,0 +1,16 @@
+extends: ./electron-builder.yml
+appId: com.tradevelocity.presentation
+productName: TradeVelocity
+artifactName: TradeVelocity-${version}-Windows-x64.exe
+directories:
+  output: build/presentation
+extraMetadata:
+  tradevelocityPresentation: true
+extraResources:
+  - from: ../../build/presentation-engine/TradeVelocityEngine
+    to: engine
+  - from: ../web/out
+    to: web
+win:
+  signExecutable: false
+  target: portable

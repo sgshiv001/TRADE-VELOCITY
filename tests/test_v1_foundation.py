@@ -42,3 +42,22 @@ def test_desktop_signin_export_is_routed_with_its_content_security_policy(tmp_pa
     assert response.headers["Cache-Control"] == "no-store"
     expected = inline_script_hashes(tmp_path, app_pages(tmp_path))
     assert expected["/desktop-sign-in"] in response.headers["Content-Security-Policy"]
+
+
+def test_offline_workspace_survives_restart_and_demo_uses_an_isolated_book(tmp_path):
+    def boot():
+        return TestClient(create_app(data_dir=tmp_path, database_url="", offline=True, serve_frontend=False))
+
+    first = boot()
+    session = first.post("/api/session").json()["session_id"]
+    headers = {"X-Session-ID": session}
+    assert first.post("/api/lab/orders", headers=headers, json={"order_id": "private-practice", "symbol": "ACME",
+                       "side": "BUY", "quantity": 2, "price": "100"}).is_success
+    result = first.get("/api/demo/fifo/DEMOA1234567?step=3").json()
+    assert [(order["filled"], order["remaining"]) for order in result["orders"]] == [(10, 0), (5, 5), (15, 0)]
+    assert [(fill["buyer"], fill["quantity"]) for fill in result["executions"]] == [("Buy 1", 10), ("Buy 2", 5)]
+    assert first.get("/api/demo/fifo/DEMO98765432?step=0").json()["book"]["bids"] == []
+    restarted = boot()
+    assert restarted.post("/api/session").json()["session_id"] == session
+    orders = restarted.get("/api/lab?symbol=ACME", headers=headers).json()["orders"]
+    assert len(orders) == 1 and orders[0]["order_id"] == "private-practice"

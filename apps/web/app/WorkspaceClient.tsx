@@ -16,6 +16,9 @@ export default function WorkspaceClient() {
   const themeControl = <ThemeSelect {...appearance} />;
   const inDesktop = desktopView() !== null && navigator.userAgent.includes("Electron/")
     && new URLSearchParams(location.search).get("desktopBrowser") === "1";
+  if (location.hostname === "127.0.0.1" && new URLSearchParams(location.search).get("offlineDemo") === "1") {
+    return <TradingWorkspace trader={null} signOut={async () => {}} offline {...appearance} />;
+  }
   return <AccessGate redesigned theme={appearance.theme} themeControl={themeControl} inDesktop={inDesktop}>{(trader, signOut) => {
     if (trader && location.pathname === "/desktop-sign-in") {
       return <DesktopApproval trader={trader} signOut={signOut} theme={appearance.theme} themeControl={themeControl} />;

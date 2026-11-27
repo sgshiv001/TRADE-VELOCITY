@@ -52,7 +52,7 @@ export default async function Page() {
           <p>Explore real market history, understand price movements, and practise your next trade with a virtual portfolio.</p>
           <div className="tv2-hero-actions">
             <a className="tv2-button" href="/signup">Start paper trading <ArrowRight size={17} /></a>
-            <a className="tv2-button tv2-outline" href="#trading">Explore TradeVelocity</a>
+            <a className="tv2-button tv2-outline" href="/app?view=demo">Try the presentation demo</a>
           </div>
           <p className="tv2-hero-note">₹10 lakh in virtual funds to start · One account across supported devices</p>
         </div>

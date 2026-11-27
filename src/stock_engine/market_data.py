@@ -38,7 +38,7 @@ class MarketQuotes:
             while self.requests and now - self.requests[0] >= 60:
                 self.requests.popleft()
             if not fetch_allowed or len(self.requests) >= 30 or len(self.in_flight) >= 3 or symbol in self.in_flight:
-                return fallback
+                return (cached[1] if cached else None) or fallback
             self.in_flight.add(symbol)
             self.requests.append(now)
         quote = None

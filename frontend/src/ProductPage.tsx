@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   ArrowRight, ArrowUpRight, BarChart3, BookOpen, Check, ChevronRight,
-  Download, Github, Layers3, Menu, Monitor, ShieldCheck, Smartphone,
+  Download, Github, Layers3, Menu, Monitor, ShieldCheck,
   Sparkles, X,
 } from "lucide-react";
 import "./product-page.css";
@@ -91,10 +91,9 @@ export default function ProductPage({signedIn}: {signedIn: boolean}) {
 
       <section className="product-section product-showcase" aria-labelledby="showcase-heading"><div className="product-showcase-copy"><p className="product-kicker">DESIGNED FOR CLARITY</p><h2 id="showcase-heading">A workspace that shows its work.</h2><p>View market history beside your own simulated activity. Each screen makes its data source and role clear, so historical prices are never confused with live orders.</p><a href={workspaceHref} className="product-inline-link">Explore the app <ArrowRight size={18} /></a></div><div className="product-showcase-image"><img src="/product/market-light.png" alt="TradeVelocity market history screen with dated chart and recent daily bars" loading="lazy" /></div></section>
 
-      <section id="platforms" className="product-section product-platforms" aria-labelledby="platforms-heading"><div className="product-section-head"><div><p className="product-kicker">YOUR WAY IN</p><h2 id="platforms-heading">Learn from the browser.<br />Keep going on desktop.</h2></div><p>The hosted web app uses a saved trader workspace. The Windows build runs its own local matching session.</p></div><div className="product-platform-grid">
+      <section id="platforms" className="product-section product-platforms" aria-labelledby="platforms-heading"><div className="product-section-head"><div><p className="product-kicker">YOUR WAY IN</p><h2 id="platforms-heading">Learn from the browser.<br />Keep going on desktop.</h2></div><p>Use the same saved workspace in the browser and the Windows app. The Windows executable also includes an offline demo.</p></div><div className="product-platform-grid">
         <article className="product-platform-card featured"><span className="product-platform-icon"><Monitor size={25} /></span><div><h3>Web workspace</h3><p>Open the live app, create an account, and follow the skippable guided tour.</p></div><a href={workspaceHref}>Open web app <ArrowUpRight size={17} /></a></article>
-        <article className="product-platform-card"><span className="product-platform-icon"><Download size={25} /></span><div><h3>Windows desktop</h3><p>Run the portable local app from the complete Windows ZIP package. The build is unsigned.</p></div><a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v0.3.4/TradeVelocity-Windows-x64.zip" rel="noopener noreferrer">Download Windows ZIP <ArrowUpRight size={17} /></a></article>
-        <article className="product-platform-card"><span className="product-platform-icon"><Smartphone size={25} /></span><div><h3>Android test build</h3><p>Install the emulator-verified test APK to open the hosted workspace on Android. This debug build needs an internet connection.</p></div><a href="https://github.com/sgshiv001/TRADE-VELOCITY/releases/download/v1.1.0-android-test/TradeVelocity-Android-test.apk" rel="noopener noreferrer">Download test APK <ArrowUpRight size={17} /></a></article>
+        <article className="product-platform-card"><span className="product-platform-icon"><Download size={25} /></span><div><h3>Windows desktop</h3><p>Double-click the standalone Windows x64 executable.</p></div><a href="/download">Windows download <ArrowUpRight size={17} /></a></article>
       </div></section>
 
       <section id="questions" className="product-section product-faq" aria-labelledby="faq-heading"><div><p className="product-kicker">GOOD TO KNOW</p><h2 id="faq-heading">A few clear answers.</h2><p>TradeVelocity is a matching-engine learning tool with carefully separated simulated orders and historical data.</p></div><div className="product-faq-list">{faq.map(item => <details key={item.question}><summary>{item.question}<span>+</span></summary><p>{item.answer}</p></details>)}</div></section>

@@ -4,7 +4,6 @@ import { setTimeout as pause } from "node:timers/promises";
 
 const cookieName = "__Host-tradevelocity-access";
 const startCommand = "tradevelocity-local:signin";
-const reopenCommand = "tradevelocity-local:reopen";
 
 export function browserSignIn(window: BrowserWindow, origin: string, workspace: string, view: "trader" | "admin") {
   let active: AbortController | undefined;
@@ -39,7 +38,7 @@ export function browserSignIn(window: BrowserWindow, origin: string, workspace: 
         @media(prefers-reduced-motion:reduce){main{animation:none}}
       </style></head><body><main>
       <h1>${code ? "Continue in your browser" : "Browser sign-in ended"}</h1>
-      <p>${instructions}</p>${code ? `<code aria-label="Desktop code">${formattedCode}</code><a href="${reopenCommand}">Open browser again</a>` : ""}
+      <p>${instructions}</p>${code ? `<code aria-label="Desktop code">${formattedCode}</code><a href="${verificationUrl}">Open browser again</a>` : ""}
       <a href="${startCommand}">Start a new sign-in</a>
       </main></body></html>`;
     localPage = "data:text/html;charset=utf-8," + encodeURIComponent(markup);
@@ -122,8 +121,8 @@ export function browserSignIn(window: BrowserWindow, origin: string, workspace: 
         if (!active || fromLocal) void start();
         return true;
       }
-      if (address === reopenCommand && fromLocal) {
-        if (verificationUrl) void shell.openExternal(verificationUrl).catch(() => {});
+      if (verificationUrl && address === verificationUrl && fromLocal) {
+        void shell.openExternal(verificationUrl).catch(() => {});
         return true;
       }
       return false;

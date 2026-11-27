@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell, BookOpen, BrainCircuit, ChartCandlestick, CircleHelp, Compass, History,
-  LayoutDashboard, LogOut, Menu, MessageCircle, PanelLeftClose, Search, Settings,
+  FlaskConical, LayoutDashboard, LogOut, Menu, MessageCircle, PanelLeftClose, Search, Settings,
   Sparkles, Star, TrendingUp, Wallet, X,
 } from "lucide-react";
 import type { Trader } from "../../../frontend/src/AccessGate";
@@ -19,10 +19,12 @@ import { Brand } from "./Brand";
 import Intelligence from "./Intelligence";
 import { ExecutedTrades, Explore, Overview } from "./MarketViews";
 import Terminal, { DataState } from "./Terminal";
+import PresentationDemo from "./PresentationDemo";
 
 const groups = [
   {title: "Trading", pages: [
     {id: "overview", label: "Overview", icon: LayoutDashboard}, {id: "trade", label: "Trading terminal", icon: ChartCandlestick},
+    {id: "demo", label: "Presentation demo", icon: FlaskConical},
     {id: "markets", label: "Explore markets", icon: Compass}, {id: "watchlist", label: "Watchlists", icon: Star, account: true},
     {id: "portfolio", label: "Portfolio", icon: Wallet, account: true}, {id: "orders", label: "Orders", icon: BookOpen},
     {id: "trades", label: "Trade history", icon: History}, {id: "funds", label: "Funds", icon: Wallet, account: true},
@@ -50,12 +52,13 @@ function route(account: boolean) {
   return {page: page ?? (desktopView() === "trader" ? "trade" : "overview"), symbol: symbol && symbolPattern.test(symbol) ? symbol : "RELIANCE"} as const;
 }
 
-export default function TradingWorkspace({trader, signOut, appearance, setAppearance, theme}: {
+export default function TradingWorkspace({trader, signOut, appearance, setAppearance, theme, offline = false}: {
   trader: Trader | null;
   signOut(): Promise<void>;
   appearance: Appearance;
   setAppearance(value: Appearance): void;
   theme: Theme;
+  offline?: boolean;
 }) {
   const account = Boolean(trader);
   const [selection, setSelection] = useState(() => route(account));
@@ -150,7 +153,7 @@ export default function TradingWorkspace({trader, signOut, appearance, setAppear
           <Search size={18} /><span>Search stocks and pages</span><kbd>Ctrl K</kbd>
         </button>
         <div className="tv2-top-right">
-          <span className="tv2-connection" role="status"><i data-online={live.online} />{!live.online ? "Offline" : live.connected ? "Connected" : "Syncing"}</span>
+          <span className="tv2-connection" role="status"><i data-online={offline || live.online} />{offline ? "Offline demo" : !live.online ? "Offline" : live.connected ? "Connected" : "Syncing"}</span>
           <label className="tv2-symbol-select"><span className="tv2-visually-hidden">Select symbol</span>
             <select value={symbol} onChange={event => navigate(page, event.target.value)}>
               {[symbol, ...options.map(company => company.symbol).filter(value => value !== symbol)].map(value => <option key={value}>{value}</option>)}
@@ -164,7 +167,8 @@ export default function TradingWorkspace({trader, signOut, appearance, setAppear
       </header>
 
       <main className="tv2-work" id="workspace-main" tabIndex={-1}>
-        {!live.online && page !== "trade" && <p className="tv2-info" role="status">Offline. Displayed data may be out of date.</p>}
+        {offline ? <p className="tv2-info" role="status">Offline demo · Orders and data stay on this computer. <a href="tradevelocity-local:live">Open live workspace</a></p>
+          : !live.online && page !== "trade" && <p className="tv2-info" role="status">Offline. Displayed data may be out of date.</p>}
         {error && <p className="tv2-info" role="alert">{error}</p>}
         <div className="tv2-page" key={page}>
           {page === "overview" && <>
@@ -172,8 +176,9 @@ export default function TradingWorkspace({trader, signOut, appearance, setAppear
             <Overview wallet={wallet.data} market={market.data} watched={watched} trade={value => navigate("trade", value)} onMarkets={() => navigate("markets")} />
           </>}
           {page === "trade" && <Terminal key={symbol} symbol={symbol} company={selected} funded={account} revision={revision} theme={theme}
-            online={live.online} refresh={refresh} cash={wallet.data?.available_cash}
+            local={offline} online={offline || live.online} refresh={refresh} cash={wallet.data?.available_cash}
             holdings={wallet.data ? wallet.data.holdings.find(row => row.symbol === symbol)?.quantity ?? 0 : undefined} />}
+          {page === "demo" && <PresentationDemo />}
           {page === "markets" && <Explore market={market.data} error={market.error} retry={market.reload} trade={value => navigate("trade", value)}
             watched={watched} toggle={profile.data ? value => void toggle(value) : undefined} />}
           {page === "watchlist" && (profile.data ? <EditLists profile={profile.data} save={saveProfile} select={value => navigate("trade", value)} />
@@ -191,7 +196,7 @@ export default function TradingWorkspace({trader, signOut, appearance, setAppear
               <label><input type="checkbox" checked={compact} onChange={event => setCompact(event.target.checked)} /> Compact sidebar</label>
             </section>
             <section className="tv2-surface tv2-settings"><h2>Account</h2>
-              <button className="tv2-button tv2-outline" onClick={() => void signOut()}><LogOut size={16} /> Sign out</button>
+              {account && <button className="tv2-button tv2-outline" onClick={() => void signOut()}><LogOut size={16} /> Sign out</button>}
               <a href="/download">Downloads and release notes</a>
             </section>
           </>}

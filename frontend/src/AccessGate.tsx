@@ -119,7 +119,9 @@ export default function AccessGate({children, redesigned = false, theme, themeCo
         : desktopAdmin ? "Sign in with the authorized TradeVelocity administrator account." : "Use your demo demat account to trade with virtual cash and shares."}</p>
       {themeControl}
       {error && <p className="notice error" role="alert">{error}</p>}
-      {inDesktop ? <p><a className="tv2-button" href="tradevelocity-local:signin">Continue in browser</a></p>
+      {inDesktop ? <div><p><a className="tv2-button" href="tradevelocity-local:signin">Continue in browser</a></p>
+        {new URLSearchParams(location.search).get("presentation") === "1" &&
+          <p><a href="tradevelocity-local:offline">Open Offline demo</a></p>}</div>
         : <form onSubmit={event => { event.preventDefault(); void signIn(); }}>
         {enteringCodes ? <>
           <p role="status">Enter the code sent to your email. It expires after 10 minutes.</p>

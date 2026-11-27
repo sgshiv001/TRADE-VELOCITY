@@ -13,7 +13,6 @@ jobs:
     timeout-minutes: 20
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      EXPO_NO_TELEMETRY: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,8 +23,6 @@ jobs:
       - run: pnpm test:shared
       - run: pnpm build:web
       - run: pnpm build:desktop
-      - run: pnpm check:mobile
-      - run: pnpm --filter @tradevelocity/mobile export:android
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -34,4 +31,4 @@ jobs:
       - name: Exercise the Next.js export served by FastAPI
         env:
           TRADEVELOCITY_WEB_DIR: ${{ github.workspace }}/apps/web/out
-        run: pnpm --filter tradevelocity-app exec playwright test --grep "order lifecycle|themes, dark dropdowns|intraday quote chart"
+        run: pnpm --filter tradevelocity-app exec playwright test --grep "order lifecycle|themes, dark dropdowns|intraday quote chart|presentation demo"

@@ -4,7 +4,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/desktop/package.json apps/desktop/package.json
-COPY apps/mobile/package.json apps/mobile/package.json
 COPY frontend/package.json frontend/package.json
 COPY packages/client/package.json packages/client/package.json
 RUN npm install -g pnpm@11.25.0 && pnpm --filter @tradevelocity/web... install --frozen-lockfile

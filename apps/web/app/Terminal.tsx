@@ -28,9 +28,9 @@ function Levels({side, levels}: {side: "Bid" | "Ask"; levels: Depth[]}) {
   </div>;
 }
 
-export default function Terminal({symbol, company, funded, theme, revision, online, refresh, holdings, cash}: {
+export default function Terminal({symbol, company, funded, theme, revision, online, refresh, holdings, cash, local = false}: {
   symbol: string; company?: Company; funded: boolean; theme: Theme; revision: number; online: boolean;
-  refresh(): Promise<void>; holdings?: number; cash?: string;
+  refresh(): Promise<void>; holdings?: number; cash?: string; local?: boolean;
 }) {
   const [period, setPeriod] = useState("3M");
   const [view, setView] = useState<"history" | "intraday">("history");
@@ -41,7 +41,6 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
   const [follow, setFollow] = useState(funded);
   const [refreshingDepth, setRefreshingDepth] = useState(false);
   const [quoteCycle, setQuoteCycle] = useState(0);
-  const [sidePanel, setSidePanel] = useState<"order" | "depth">("order");
   const [depthError, setDepthError] = useState("");
   const current = encodeURIComponent(symbol);
   const book = useResource<Lab>(`/${funded ? "paper" : "lab"}?symbol=${current}`, revision);
@@ -51,6 +50,7 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
   const quoteSession = useQuoteSession(symbol, receivedQuote);
   const quote = receivedQuote?.kind === "intraday" && quoteSession &&
     Date.parse(receivedQuote.as_of ?? "") < quoteSession.points.at(-1)!.time * 1000 ? quoteSession.latest : receivedQuote;
+  const executions = book.data?.trades.filter(trade => trade.symbol === symbol).slice(-8).reverse() ?? [];
 
   useEffect(() => {
     if (!online) return;
@@ -91,7 +91,7 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
     </div>
     {!online && <p className="tv2-info" role="status">You’re offline. Reconnect to submit an order.</p>}
     <div className="tv2-terminal">
-      <section className="tv2-surface tv2-terminal-chart">
+      <div className="tv2-terminal-timeline"><section className="tv2-surface tv2-terminal-chart">
         <div className="tv2-panel-head"><h2>Price chart</h2><span className="tv2-badge">NSE · {symbol}</span></div>
         <div className="tv2-tabs" role="group" aria-label="Market chart view">
           <button aria-pressed={view === "history"} onClick={() => setView("history")}>Daily history</button>
@@ -118,19 +118,23 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
             : <DataState error={reference.error} retry={reference.reload} loading={quote ? "No intraday quote is available. View daily history or open the exchange chart below." : "Checking for an intraday quote…"} />}
           <p className="tv2-source">{!online ? "Quote checks paused while offline." : reference.error && quoteSession ? "Latest quote check failed. Showing the last observations." : "Checks every minute while this tab is visible. New timestamps appear as the provider updates."}</p>
         </>}
-        {(company || quote?.simulation_supported) && <ExchangeChartLink symbol={symbol} copyOnly={navigator.userAgent.includes("Electron/")} />}
+        {!local && (company || quote?.simulation_supported) && <ExchangeChartLink symbol={symbol} copyOnly={navigator.userAgent.includes("Electron/")} />}
       </section>
+      <section className="tv2-surface">
+        <div className="tv2-panel-head"><h2>Recent executions</h2><span className="tv2-badge">Simulated fills</span></div>
+        {executions.length ? <div className="tv2-table-scroll"><table className="tv2-table">
+          <thead><tr><th>Time</th><th>Price</th><th>Shares</th></tr></thead>
+          <tbody>{executions.map(trade => <tr key={trade.trade_id}>
+            <td>{tradeTime(trade.timestamp)}</td><td>{inr(trade.price)}</td><td>{number(trade.quantity)}</td>
+          </tr>)}</tbody></table></div> : <p>{book.data ? `No executions for ${symbol} yet.` : "Waiting for order book data."}</p>}
+      </section></div>
       <div className="tv2-terminal-ticket">
-        <div className="tv2-tabs" aria-label="Terminal side panel">
-          <button aria-pressed={sidePanel === "order"} onClick={() => setSidePanel("order")}>Place order</button>
-          <button aria-pressed={sidePanel === "depth"} onClick={() => setSidePanel("depth")}>Market depth</button>
-        </div>
         {funded && <div className="tv2-ticket-balance"><span>Available <strong>{cash == null ? "—" : inr(cash)}</strong></span><span>Shares held <strong>{holdings == null ? "—" : number(holdings)}</strong></span></div>}
         {!book.data ? <DataState error={book.error} retry={book.reload} loading="Loading simulated order book…" />
-          : sidePanel === "order" ? <OrderTicket key={symbol} symbol={symbol} lab={book.data} changed={refresh} quote={quote} shared={funded} funded={funded} />
-          : <section className="tv2-surface tv2-depth"><div className="tv2-panel-head"><h2>Order book</h2><span className="tv2-badge">Simulated</span></div>
+          : <><OrderTicket key={symbol} symbol={symbol} lab={book.data} changed={refresh} quote={quote} shared={funded} funded={funded} local={local} />
+          <section className="tv2-surface tv2-depth"><div className="tv2-panel-head"><h2>Order book</h2><span className="tv2-badge">Simulated</span></div>
             <Levels side="Ask" levels={book.data.book.asks} /><Levels side="Bid" levels={book.data.book.bids} />
-          </section>}
+          </section></>}
       </div>
     </div>
     {funded && <div className="tv2-liquidity">
@@ -140,13 +144,5 @@ export default function Terminal({symbol, company, funded, theme, revision, onli
       <span>Virtual bids and offers follow supported quotes. Your confirmed limits keep their prices.</span>
       {depthError && <span role="alert">{depthError}</span>}
     </div>}
-    {book.data && <section className="tv2-surface">
-      <div className="tv2-panel-head"><h2>Recent executions</h2><span className="tv2-badge">Simulated fills</span></div>
-      {book.data.trades.length ? <div className="tv2-table-scroll"><table className="tv2-table">
-        <thead><tr><th>Time</th><th>Price</th><th>Shares</th></tr></thead>
-        <tbody>{book.data.trades.slice(0, 8).map(trade => <tr key={trade.trade_id}>
-          <td>{tradeTime(trade.timestamp)}</td><td>{inr(trade.price)}</td><td>{number(trade.quantity)}</td>
-        </tr>)}</tbody></table></div> : <p>No executions for {symbol} yet.</p>}
-    </section>}
   </>;
 }

@@ -141,8 +141,8 @@ class Session:
 
 
 def create_app(market: MarketData | None = None, data_dir: Path | None = None, serve_frontend: bool = True,
-               security: SecuritySettings | None = None, database_url: str | None = None) -> FastAPI:
-    app = FastAPI(title="TradeVelocity", version="2.0.2", docs_url=None, redoc_url=None, openapi_url=None)
+               security: SecuritySettings | None = None, database_url: str | None = None, offline: bool = False) -> FastAPI:
+    app = FastAPI(title="TradeVelocity", version="2.1.0", docs_url=None, redoc_url=None, openapi_url=None)
     settings = security or SecuritySettings.from_environment()
     app.state.data_dir = Path(data_dir) if data_dir is not None else Path(os.environ.get("TRADEVELOCITY_DATA_DIR",str(PROJECT_ROOT / ".marketlab" / "sessions")))
     app.state.store = store = create_store(app.state.data_dir, database_url)
@@ -612,11 +612,12 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
     def new_session(request: Request):
         if accounts:
             return {"session_id": request.state.trader.workspace_id}
-        session_id = str(uuid4())
-        session = Session()
+        session_id = "e0c8d833-1222-4942-88ad-956874cbf0ad" if offline else str(uuid4())
         with app.state.registry_lock:
-            app.state.store.save(session_id, [], metadata(session), 0)
-            app.state.sessions[session_id] = session
+            if not offline or app.state.store.load(session_id) is None:
+                session = Session()
+                app.state.store.save(session_id, [], metadata(session), 0)
+                app.state.sessions[session_id] = session
         return {"session_id": session_id}
 
     @app.websocket("/api/live")
@@ -717,7 +718,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             raise HTTPException(400, "Enter a valid NSE symbol")
         symbol = symbol.upper()
         client = request.state.trader.username if accounts else "local"
-        fetch_allowed = not guard.limited(client, "quotes", 30)
+        fetch_allowed = not offline and not guard.limited(client, "quotes", 30)
         quote = quotes.lookup(symbol, app.state.market, fetch_allowed=fetch_allowed)
         return {**quote, "simulation_supported": symbol in COMPANIES}
 
@@ -730,7 +731,7 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
         owner = order_owner(request, context)
         if guard.limited(owner, "paper-liquidity", 8):
             raise HTTPException(429, "Wait one minute before refreshing simulated liquidity")
-        quote = quotes.lookup(symbol, app.state.market, fetch_allowed=True)
+        quote = quotes.lookup(symbol, app.state.market, fetch_allowed=not offline)
         if not quote["price"] or not quote["as_of"]:
             raise HTTPException(503, "A market reference price is unavailable")
         stamp = datetime.fromisoformat(quote["as_of"])
@@ -769,6 +770,8 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
 
     @app.post("/api/market/refresh")
     def refresh_market():
+        if offline:
+            raise HTTPException(503, "The offline demo uses the bundled historical snapshot.")
         with app.state.market_lock:
             try:
                 data = download_market_data()
@@ -817,6 +820,23 @@ def create_app(market: MarketData | None = None, data_dir: Path | None = None, s
             return stock_analysis(app.state.market, symbol)
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
+
+    @app.get("/api/demo/fifo/{symbol}")
+    def presentation_fifo(symbol: str, step: Annotated[int, Query(ge=0, le=3)] = 0):
+        if not re.fullmatch(r"DEMO[A-F0-9]{8}", symbol):
+            raise HTTPException(400, "Choose a synthetic demo symbol.")
+        demo = ExchangeSession()
+        instructions = (("Buy 1", "BUY", 10), ("Buy 2", "BUY", 10), ("Sell", "SELL", 15))
+        for order_id, side, shares in instructions[:step]:
+            demo.place_order(order_id, symbol, side, shares, "100", timestamp=None)
+        trades = demo.engine.trades()
+        orders = []
+        for order_id, side, shares in instructions[:step]:
+            filled = sum(trade.quantity for trade in trades if order_id in (trade.buy_order_id, trade.sell_order_id))
+            orders.append({"id": order_id, "side": side, "quantity": shares, "filled": filled, "remaining": shares - filled})
+        return {"symbol": symbol, "step": step, "orders": orders, "book": demo.engine.order_book(symbol),
+                "executions": [{"buyer": trade.buy_order_id, "seller": trade.sell_order_id,
+                                "quantity": trade.quantity, "price": str(trade.price)} for trade in trades]}
 
     @app.get("/api/ai/anomalies/{symbol}")
     def anomaly_report(symbol: str, period: Literal["1M", "3M", "6M", "1Y", "5Y"] = "1Y"):
