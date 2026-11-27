@@ -69,6 +69,7 @@ export default function TradingWorkspace({trader, signOut, appearance, setAppear
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [tutorialStep, setTutorialStep] = useState<number | null>(trader && !trader.tutorial_seen ? 0 : null);
+  const [savingTutorial, setSavingTutorial] = useState(false);
   const searchDialog = useRef<HTMLDialogElement>(null);
   const market = useResource<Market>("/market");
   const wallet = useResource<WalletData>(account ? "/account/portfolio" : null, revision);
@@ -124,6 +125,19 @@ export default function TradingWorkspace({trader, signOut, appearance, setAppear
     if (symbols.length > 50) { setError("This watchlist already contains 50 instruments."); return; }
     try { await saveProfile({...profile.data, watchlists: [{...first, symbols}, ...rest]}); setError(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to update your watchlist."); await refresh(); }
+  }
+
+  async function dismissTutorial() {
+    if (savingTutorial) return;
+    setSavingTutorial(true);
+    try {
+      await api("/auth/tutorial", {method: "POST", keepalive: true, timeoutMs: 5000});
+    } catch {
+      setError("Your tutorial preference could not be saved. You can reopen the guide from Help.");
+    } finally {
+      setTutorialStep(null);
+      setSavingTutorial(false);
+    }
   }
 
   const filtered = options.filter(company =>
@@ -222,8 +236,8 @@ export default function TradingWorkspace({trader, signOut, appearance, setAppear
           .map(item => <button key={item.id} onClick={() => navigate(item.id)}><item.icon size={14} /><span>{item.label}</span></button>)}
       </div>
     </dialog>
-    {tutorialStep != null && <Tutorial step={tutorialStep} steps={fundedTutorialSteps}
+    {tutorialStep != null && <Tutorial step={tutorialStep} steps={fundedTutorialSteps} saving={savingTutorial}
       onStep={step => { setTutorialStep(step); navigate(step === 2 ? "portfolio" : "trade"); }}
-      onDismiss={() => { setTutorialStep(null); void api("/auth/tutorial", {method: "POST"}).catch(() => setError("Tutorial preference could not be saved.")); }} />}
+      onDismiss={() => void dismissTutorial()} />}
   </div>;
 }

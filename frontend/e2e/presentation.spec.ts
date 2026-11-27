@@ -28,3 +28,25 @@ test("presentation demo shows FIFO fills and resets its synthetic book", async (
   await expect(page.getByText(/DEMO[A-F0-9]{8} · Synthetic instrument/)).not.toHaveText(symbol!);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("presentation demo onboarding waits for the tutorial preference to save", async ({page}) => {
+  test.skip(!process.env.TRADEVELOCITY_WEB_DIR, "Requires the Next.js presentation workspace");
+  await page.route("**/api/auth/status", route => route.fulfill({json: {
+    required: true, mode: "accounts", authenticated: true,
+    trader: {username: "chart-test", workspace_id: "tutorial-test", tutorial_seen: false},
+  }}));
+  let complete!: () => void;
+  const saved = new Promise<void>(resolve => { complete = resolve; });
+  await page.route("**/api/auth/tutorial", async route => {
+    await saved;
+    await route.fulfill({json: {tutorial_seen: true}});
+  });
+  await page.goto("/app?view=demo");
+  const dialog = page.getByRole("dialog", {name: "Start with your demo demat account"});
+  await dialog.getByRole("button", {name: "Skip tutorial"}).click();
+  await expect(dialog.getByRole("status")).toContainText("Saving your tutorial preference");
+  await expect(dialog.getByRole("button", {name: "Skip tutorial"})).toBeDisabled();
+  complete();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("heading", {name: "Price–time priority"})).toBeVisible();
+});

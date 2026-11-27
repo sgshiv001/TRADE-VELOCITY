@@ -24,9 +24,10 @@ export const fundedTutorialSteps = [
     text: "Portfolio shows your positions, virtual cash, and profit or loss. The order journal records fills and any quantity still open."},
 ] as const;
 
-export default function Tutorial({step, steps, onStep, onDismiss}: {
+export default function Tutorial({step, steps, onStep, onDismiss, saving = false}: {
   step: number; steps: readonly {title: string; text: string}[];
   onStep: (step: number) => void; onDismiss: () => void;
+  saving?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const current = steps[step];
@@ -37,22 +38,23 @@ export default function Tutorial({step, steps, onStep, onDismiss}: {
   }, []);
 
   return <dialog className="panel tutorial-dialog" ref={dialog} aria-labelledby="tutorial-title"
-    onCancel={event => { event.preventDefault(); onDismiss(); }}>
+    onCancel={event => { event.preventDefault(); if (!saving) onDismiss(); }}>
     <div className="tutorial-top">
       <span className="eyebrow">Workspace tutorial</span>
-      <button className="text-button" onClick={onDismiss}>Skip tutorial</button>
+      <button className="text-button" onClick={onDismiss} disabled={saving}>Skip tutorial</button>
     </div>
     <div aria-live="polite">
       <p className="fine-print">Step {step + 1} of {steps.length}</p>
       <h2 id="tutorial-title">{current.title}</h2>
       <p>{current.text}</p>
     </div>
+    {saving && <p className="fine-print" role="status">Saving your tutorial preference…</p>}
     <div className="tutorial-actions">
-      {step > 0 && <button className="secondary-button" onClick={() => onStep(step - 1)}>Back</button>}
-      {step === 1 && <button className="secondary-button" onClick={onDismiss}>Try placing an order</button>}
+      {step > 0 && <button className="secondary-button" onClick={() => onStep(step - 1)} disabled={saving}>Back</button>}
+      {step === 1 && <button className="secondary-button" onClick={onDismiss} disabled={saving}>Try placing an order</button>}
       {step < steps.length - 1
-        ? <button className="primary-button" onClick={() => onStep(step + 1)}>Next</button>
-        : <button className="primary-button" onClick={onDismiss}>Finish tutorial</button>}
+        ? <button className="primary-button" onClick={() => onStep(step + 1)} disabled={saving}>Next</button>
+        : <button className="primary-button" onClick={onDismiss} disabled={saving}>Finish tutorial</button>}
     </div>
   </dialog>;
 }
