@@ -1,5 +1,13 @@
 # Change log
 
+## 2026-11-27 — TradeVelocity 2.1.0 presentation release
+
+- Add the **Presentation demo** workspace to demonstrate price–time priority on a synthetic `DEMO` book and reset it without touching saved trader accounts.
+- Package the standalone Windows x64 portable presentation EXE (`TradeVelocity-2.1.0-Windows-x64.exe`) supporting live hosted accounts as well as **View → Offline demo** via an authenticated loopback FastAPI engine (`TradeVelocityEngine.exe`) and bundled Next.js export.
+- Add updating intraday quote charts and daily candlestick, OHLC bar, line, area, and baseline chart styles.
+- Persist first-run tutorial dismissal before closing onboarding.
+- Archive superseded mobile/desktop configs under `archive/superseded/` and align the README, project site, and [presentation script](docs/presentation-2.1.0.md) on `2.1.0`.
+
 ## 2026-11-26 — Windows desktop 2.0.3
 
 - Add a Windows setup EXE with Start menu and desktop shortcuts alongside the portable build.
